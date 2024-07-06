@@ -28,17 +28,25 @@ app.ws("/api/chat", async (ws, req) => {
         content: userMessage,
       });
 
+      var chatMsg = {
+        end: false,
+        messages: userMessage
+      }
+
+      console.log('chatMsg', JSON.stringify(chatMsg));
+
       const run = oai.beta.threads.runs
         .stream(thread.id, {
           assistant_id: config.assistentid,
         })
-        .on("textDelta", (textDelta, snapshot) => ws.send(textDelta.value))
-        .on("textCompleted", () => {
-          console.log("Thread run completed");
+        .on("textDelta", (textDelta, snapshot) => {
+          console.log('textDelta', textDelta.value);
+          chatMsg.messages=textDelta.value
+          ws.send(JSON.stringify(chatMsg));
         })
         .on("end", async () => {
-          ws.send("\r\n---- \r\n");
-          
+          chatMsg.end = true;
+          ws.send(JSON.stringify(chatMsg));
         });
     } catch (error) {
       ws.send("Error: " + error.message);
