@@ -8,17 +8,11 @@
 </head>
 <body>
     <div id="chat-icon" onclick="toggleChat()">💬</div>
-    <div id="chat-window" class="hidden">
-        <div id="chat-header">
-            <span>Chat-GPT</span>
-            <button onclick="toggleChat()">X</button>
-        </div>
-        <div id="chat-body">
-            <div id="chat-content"></div>
-            <input type="text" id="chat-input" placeholder="Type a message...">
-            <button onclick="sendMessage()">Send</button>
-        </div>
-    </div>
+        <h1>Chat with GPT-4</h1>
+        <textarea id="chat-log" rows="20" cols="50"></textarea><br>
+        <input type="text" id="message" placeholder="Type your message here"><br>
+        <button onclick="sendMessage()">Send</button>
+
     <script src="script.js"></script>
 </body>
 </html>

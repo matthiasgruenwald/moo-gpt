@@ -1,33 +1,11 @@
-function toggleChat() {
-    const chatWindow = document.getElementById('chat-window');
-    chatWindow.classList.toggle('hidden');
-}
+const ws = new WebSocket("ws://localhost:3000/api/chat");
 
-async function sendMessage() {
-    const input = document.getElementById('chat-input');
-    const message = input.value;
-    if (message.trim() === '') return;
+ws.onmessage = function (event) {
+  document.getElementById("chat-log").value += event.data;
+};
 
-    const chatContent = document.getElementById('chat-content');
-    const userMessage = document.createElement('div');
-    userMessage.textContent = 'You: ' + message;
-    chatContent.appendChild(userMessage);
-
-    input.value = '';
-
-    try {
-        const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ message })
-        });
-        const data = await response.json();
-        const assistantMessage = document.createElement('div');
-        assistantMessage.textContent = 'GPT-4: ' + data.message;
-        chatContent.appendChild(assistantMessage);
-    } catch (error) {
-        console.error('Error:', error);
-    }
+function sendMessage() {
+  const message = document.getElementById("message").value;
+  ws.send(JSON.stringify({ message: message }));
+  document.getElementById("message").value = "";
 }
