@@ -67,7 +67,7 @@ function sendMessage() {
     ws.send(JSON.stringify({ message: messageText }));
     // Füge ein loading.gif hinzu
     const loading = document.createElement("div");
-    loading.className = "message loading";
+    loading.className = "message_loading";
     loading.id = "loading";
     loading.innerHTML = `<img src="loading.gif" alt="Loading...">`;
     chatWindow.appendChild(loading);
