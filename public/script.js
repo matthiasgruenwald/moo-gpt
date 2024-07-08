@@ -39,7 +39,7 @@ ws.onmessage = function (event) {
     const lastReceivedMessage = chatWindow.querySelector(
       ".message.received:last-child"
     );
-    lastReceivedMessage.innerHTML += `${messageText}`;
+    lastReceivedMessage.innerHTML = `${messageText}`;
   }
   msgCount += 1;
 
@@ -49,6 +49,8 @@ ws.onmessage = function (event) {
     document.getElementById("send-button").disabled = false;
   
   }
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+
 };
 
 

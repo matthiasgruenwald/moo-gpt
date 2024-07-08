@@ -2,11 +2,27 @@
 
 ## Installation
 
-Im Wurzelverzeichnis muss sich die Datei **config.json** befinden, mit folgenden Einträgen
+Nach dem Klonen des Repositories ist über
 
-```json
-{
-    "apikey": "sk-geheim",
-    "assistentid": "asst_geheim"
-}
 ```
+npm install
+```
+
+die notwendigen Pakete zu installieren.
+
+## Starten des Servers
+
+Zunächst muss der OpenAI API Key als Umgebungsvariable gesetzt werden:
+
+```
+set APIKEY=sk-proj-geheim
+```
+
+Anschließend kann der Server via...
+
+```
+npm start
+```
+
+gestartet werden.
+
