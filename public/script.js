@@ -14,13 +14,14 @@ function toggleChat() {
   }
 }
 
-const ws = new WebSocket("ws://localhost:3000/api/chat");
+const ws = new WebSocket("ws://:3000/api/chat");
 var msgCount = 0;
 
 ws.onmessage = function (event) {
   //document.getElementById("chat-log").value += event.data;
   const chatWindow = document.getElementById("chat-window");
   const chatInput = document.getElementById("chat-input");
+  console.log('onmessage function called'+event.data);
   const messageObj = JSON.parse(event.data);
   const messageText = messageObj.messages;
 
