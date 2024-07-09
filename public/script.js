@@ -14,7 +14,12 @@ function toggleChat() {
   }
 }
 
-const ws = new WebSocket("ws://localhost:3000/api/chat");
+const host = window.location.hostname;
+const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+const wsUrl = `${protocol}://${host}:3000/api/chat`;
+
+const ws = new WebSocket(wsUrl);
+//const ws = new WebSocket("ws://localhost:3000/api/chat");
 var msgCount = 0;
 
 ws.onmessage = function (event) {

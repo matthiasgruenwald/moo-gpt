@@ -159,7 +159,7 @@ app.ws("/api/chat", async (ws, req) => {
         .stream(
           thread.id,
           {
-            assistant_id: config.assistentid,
+            assistant_id: process.env.AID,
           },
           eventHandler
         )
