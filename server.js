@@ -1,6 +1,5 @@
 import express from "express";
 import OpenAI from "openai";
-import config from "./config.json" assert { type: "json" };
 import expressWs from "express-ws";
 import EventEmitter from "events";
 import Showdown from "showdown";
