@@ -14,7 +14,7 @@ function toggleChat() {
   }
 }
 
-const ws = new WebSocket("ws:3000/api/chat");
+const ws = new WebSocket("ws://localhost:3000/api/chat");
 var msgCount = 0;
 
 ws.onmessage = function (event) {
