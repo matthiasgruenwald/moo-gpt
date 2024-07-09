@@ -18,6 +18,10 @@ if (process.env.APIKEY === undefined) {
   console.error("API key is not set");
   process.exit(1);
 }
+if (process.env.AID === undefined) {
+  console.error("Assistenten AID key is not set");
+  process.exit(1);
+}
 
 const oai = new OpenAI({
   apiKey: process.env.APIKEY,
@@ -34,16 +38,17 @@ async function getSearchResult(query) {
 }
 
 class EventHandler extends EventEmitter {
-  constructor(client,ws) {
+  constructor(client, ws, citations) {
     super();
     this.client = client;
     this.ws = ws;
+    this.citations = citations;
     console.log("EventHandler constructor called");
   }
 
   async onEvent(event) {
     try {
-      console.log(event.event);
+      //console.log(event.event);
       // Retrieve events that are denoted with 'requires_action'
       // since these will have our tool_calls
       if (event.event === "thread.run.requires_action") {
@@ -54,13 +59,24 @@ class EventHandler extends EventEmitter {
           event.data.thread_id
         );
       } else if (event.event === "thread.message.completed") {
-        console.log("Thread Message completed!! add citization to the message");
-        chatMsg.messages = converter.makeHtml(
-          resContent + citations
-        );
-        this.ws.send(JSON.stringify(chatMsg));
+        console.log("Thread Message completed!! Add citization to the message");
 
-        console.log('event.data', JSON.stringify(event));
+        var citation = "<br><br><b>Quelle(n):</b>&nbsp;";
+        var num = 1;
+        this.citations.forEach(async (file_id) => {
+          const citedFile = await oai.files.retrieve(file_id);
+          console.log("** Cited File **", JSON.stringify(citedFile));
+          citation +=
+            "[<a href='storage/" +
+            citedFile.filename +
+            "' target='_blank'>" +
+            num +
+            "</a>]";
+          num++;
+          chatMsg.messages = converter.makeHtml(resContent + citation);
+          this.ws.send(JSON.stringify(chatMsg));
+        });
+
       } else if (event === "thread.run.textDelta") {
         console.log("text Delta event");
       }
@@ -106,9 +122,8 @@ class EventHandler extends EventEmitter {
   }
 }
 
-const assistant = await oai.beta.assistants.retrieve(config.assistentid);
+const assistant = await oai.beta.assistants.retrieve(process.env.AID);
 
-var citations = "";
 var chatMsg = {
   end: false,
   messages: "",
@@ -118,10 +133,11 @@ app.ws("/api/chat", async (ws, req) => {
   console.log("ws connection established");
   const thread = await oai.beta.threads.create();
   console.log("thread created");
-  const eventHandler = new EventHandler(oai,ws);
-  eventHandler.on("event", eventHandler.onEvent.bind(eventHandler));
   ws.on("message", async (message) => {
-    citations = "";
+    var citations = [];
+    const eventHandler = new EventHandler(oai, ws, citations);
+    eventHandler.on("event", eventHandler.onEvent.bind(eventHandler));
+
     var citationindex = 1;
     resContent = "";
     try {
@@ -154,31 +170,30 @@ app.ws("/api/chat", async (ws, req) => {
         })
         .on("textDelta", async (textDelta, snapshot) => {
           if (textDelta.hasOwnProperty("annotations")) {
-            console.log("textDelta", JSON.stringify(textDelta));            
+            //console.log("textDelta", JSON.stringify(textDelta));
             for (let annotation of textDelta.annotations) {
               const { file_citation } = annotation;
               if (file_citation) {
                 console.log("File Citation", file_citation.file_id);
-                const citedFile = await oai.files.retrieve(
-                  file_citation.file_id
-                );
-                log("Cited File", JSON.stringify(citedFile));
-                citations +=
-                  ' [<a target="_blank" href="' + "/storage/"+ citedFile.filename + '">' + citationindex + "</a>]";
+                citations.push(file_citation.file_id);
               }
+              textDelta.value = "&nbsp;&nbsp; [" + citationindex + "]";
               citationindex++;
             }
             resContent += textDelta.value;
           } else {
             resContent += textDelta.value;
           }
-          console.log('textDelta =>', textDelta.value);
+          //console.log("textDelta =>", textDelta.value);
           chatMsg.messages = converter.makeHtml(resContent);
           ws.send(JSON.stringify(chatMsg));
         })
         .on("end", async () => {
+          resContent = resContent.replace("sandbox:/mnt/data/", "storage/");
+          chatMsg.messages = converter.makeHtml(resContent);
           chatMsg.end = true;
           ws.send(JSON.stringify(chatMsg));
+          console.log("End event called:" + resContent);
         });
     } catch (error) {
       ws.send("Error: " + error.message);

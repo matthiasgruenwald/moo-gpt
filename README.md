@@ -2,7 +2,7 @@
 
 ## Installation
 
-Nach dem Klonen des Repositories ist über
+Nach dem Clonen des Repositories sind über
 
 ```
 npm install
@@ -12,10 +12,11 @@ die notwendigen Pakete zu installieren.
 
 ## Starten des Servers
 
-Zunächst muss der OpenAI API Key als Umgebungsvariable gesetzt werden:
+Zunächst muss der OpenAI API Key und die Assistenten ID als Umgebungsvariable gesetzt werden:
 
 ```
 set APIKEY=sk-proj-geheim
+set AID=asst_uen-geheim
 ```
 
 Anschließend kann der Server via...
@@ -26,3 +27,10 @@ npm start
 
 gestartet werden.
 
+## Docker Container
+
+Für die Anwendung existiert auch ein Dockercontainer
+
+```
+docker run -d -p 3000:3000 -e APIKEY=sk-proj-geheim -e AID=asst_uen-geheim service.joerg-tuttas.de:5555/root/mmbbs_gpt
+```
