@@ -15,8 +15,13 @@ function toggleChat() {
 }
 
 const host = window.location.hostname;
+const port = window.location.port
+  ? window.location.port
+  : window.location.protocol === "https:"
+  ? "443"
+  : "80";
 const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-const wsUrl = `${protocol}://${host}:3000/api/chat`;
+const wsUrl = `${protocol}://${host}:${port}/api/chat`;
 
 const ws = new WebSocket(wsUrl);
 //const ws = new WebSocket("ws://localhost:3000/api/chat");
@@ -26,7 +31,7 @@ ws.onmessage = function (event) {
   //document.getElementById("chat-log").value += event.data;
   const chatWindow = document.getElementById("chat-window");
   const chatInput = document.getElementById("chat-input");
-  console.log('onmessage function called'+event.data);
+  //console.log('onmessage function called'+event.data);
   const messageObj = JSON.parse(event.data);
   const messageText = messageObj.messages;
 

@@ -176,7 +176,7 @@ app.ws("/api/chat", async (ws, req) => {
                 console.log("File Citation", file_citation.file_id);
                 citations.push(file_citation.file_id);
               }
-              textDelta.value = "&nbsp;&nbsp; [" + citationindex + "]";
+              textDelta.value = " [" + citationindex + "] ";
               citationindex++;
             }
             resContent += textDelta.value;
