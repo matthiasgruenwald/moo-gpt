@@ -10,6 +10,10 @@ npm install
 
 die notwendigen Pakete zu installieren.
 
+## Konfiguration
+
+Dokumente die von der KI gelesen werden sollen, müssen im Vector Storage für den Assistenten in der openAI Oberfläche hochgeladen werden. Sollen diese Dokumente auch downloadbar sein, so müssen Sie unter gleichem Namen im Order **public/storage** abgelegt werden !
+
 ## Starten des Servers
 
 Zunächst muss der OpenAI API Key und die Assistenten ID als Umgebungsvariable gesetzt werden:

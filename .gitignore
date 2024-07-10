@@ -1,3 +1,5 @@
 config.json
 node_modules
 
+config/server.cert
+config/server.key

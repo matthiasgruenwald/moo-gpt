@@ -150,3 +150,13 @@ button {
 button:hover {
     background-color: #0a58ca;
 }
+
+/* Media Query für kleine Bildschirme */
+@media (max-width: 768px) {
+    .chat-container {
+        width: 90%;
+        margin-left: 5%;
+        }
+
+    
+}
