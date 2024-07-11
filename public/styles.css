@@ -25,7 +25,7 @@ body {
 
 .chat-container {
     background-color: #004085; /* Dunkleres Blau */
-    width: 30%;
+    width: 35%;
     height: 80%;
     border-radius: 10px;
     display: flex;
@@ -131,12 +131,19 @@ input[type="text"] {
     border-radius: 20px;
     margin-right: 10px;
     font-size: 16px;
+    box-sizing: border-box; /* Neu hinzugefügt */
 }
 
 a {
     color: #ccc;
 }
 
+.connection-lost {
+    color: red;
+    font-size: 16px;
+    text-align: center;
+    width: 100%;
+}
 button {
     background-color: #0d6efd;
     color: white;
@@ -145,6 +152,7 @@ button {
     border-radius: 20px;
     cursor: pointer;
     font-size: 16px;
+    box-sizing: border-box; /* Neu hinzugefügt */
 }
 
 button:hover {

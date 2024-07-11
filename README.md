@@ -38,3 +38,11 @@ Für die Anwendung existiert auch ein Dockercontainer
 ```
 docker run -d -p 3000:3000 -e APIKEY=sk-proj-geheim -e AID=asst_uen-geheim service.joerg-tuttas.de:5555/root/mmbbs_gpt
 ```
+
+## ToDo
+
+- https
+- Sicherheit (JSON prüfen) 
+- Zu viele Req. von einer IP
+- Include Script
+- Suchen auf der Webseite

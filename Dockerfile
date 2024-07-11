@@ -6,6 +6,7 @@ RUN npm install --production --silent && mv node_modules ../
 COPY . .
 EXPOSE 3000
 VOLUME [ "/usr/src/app/public" ]
+VOLUME [ "/usr/src/app/config" ]
 RUN chown -R node /usr/src/app
 USER node
 CMD ["npm", "start"]

@@ -1,5 +1,9 @@
+
+const VERSION="1.0.2"
+
 import express from "express";
 import OpenAI from "openai";
+import fs from "fs";
 import expressWs from "express-ws";
 import EventEmitter from "events";
 import Showdown from "showdown";
@@ -58,24 +62,30 @@ class EventHandler extends EventEmitter {
           event.data.thread_id
         );
       } else if (event.event === "thread.message.completed") {
-        console.log("Thread Message completed!! Add citization to the message");
+        //console.log("Thread Message completed!! Add citization to the message");
 
         var citation = "<br><br><b>Quelle(n):</b>&nbsp;";
         var num = 1;
         this.citations.forEach(async (file_id) => {
           const citedFile = await oai.files.retrieve(file_id);
           console.log("** Cited File **", JSON.stringify(citedFile));
-          citation +=
-            "[<a href='storage/" +
-            citedFile.filename +
-            "' target='_blank'>" +
-            num +
-            "</a>]";
+          //console.log(process.cwd());
+          if (fs.existsSync(process.cwd()+ "/public/storage/" + citedFile.filename)) {
+            //console.log("Die Datei existiert.");
+            citation +=
+              "[<a href='storage/" +
+              citedFile.filename +
+              "' target='_blank'>" +
+              num +
+              "</a>]";
+          } else {
+            //console.log("Die Datei existiert nicht.");
+            citation += "[" + num + "]:" + citedFile.filename;
+          }
           num++;
           chatMsg.messages = converter.makeHtml(resContent + citation);
           this.ws.send(JSON.stringify(chatMsg));
         });
-
       } else if (event === "thread.run.textDelta") {
         console.log("text Delta event");
       }
@@ -129,7 +139,11 @@ var chatMsg = {
 };
 
 app.ws("/api/chat", async (ws, req) => {
-  console.log("ws connection established");
+  // Extract IP address and get current time
+  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+  var currentTime = new Date().toLocaleString();
+  console.log(`New WS connection from IP: ${ip} at ${currentTime}`);
+
   const thread = await oai.beta.threads.create();
   console.log("thread created");
   ws.on("message", async (message) => {
@@ -140,8 +154,18 @@ app.ws("/api/chat", async (ws, req) => {
     var citationindex = 1;
     resContent = "";
     try {
+      currentTime = new Date().toLocaleString();
       const userMessage = JSON.parse(message).message;
-      console.log("userMessage", userMessage);
+      console.log(`\r\nuserMessage ${ip} at ${currentTime}:`, userMessage);
+
+      if (userMessage === "about") {
+        resContent =
+          "**Version " + VERSION + "**\r\n\r\n 2024 by Dr. Jörg Tuttas.";
+        chatMsg.messages = converter.makeHtml(resContent);
+        chatMsg.end = true;
+        ws.send(JSON.stringify(chatMsg));      
+        return;
+      }
 
       const msg = await oai.beta.threads.messages.create(thread.id, {
         role: "user",
@@ -153,7 +177,7 @@ app.ws("/api/chat", async (ws, req) => {
         messages: userMessage,
       };
 
-      console.log("chatMsg", JSON.stringify(chatMsg));
+      //console.log("chatMsg", JSON.stringify(chatMsg));
 
       const run = oai.beta.threads.runs
         .stream(
@@ -196,6 +220,7 @@ app.ws("/api/chat", async (ws, req) => {
         });
     } catch (error) {
       ws.send("Error: " + error.message);
+      console.log("Error: ", error);
     }
   });
 });

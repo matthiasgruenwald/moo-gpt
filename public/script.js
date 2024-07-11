@@ -27,6 +27,26 @@ const ws = new WebSocket(wsUrl);
 //const ws = new WebSocket("ws://localhost:3000/api/chat");
 var msgCount = 0;
 
+function showConnectionLostMessage() {
+  const inputContainer = document.querySelector(".input-container");
+  inputContainer.innerHTML =
+    '<div class="connection-lost">Connection lost</div>';
+}
+
+ ws.onopen = function () {
+   console.log("WebSocket connection established");
+ };
+
+ ws.onerror = function (error) {
+   console.error("WebSocket error:", error);
+   showConnectionLostMessage();
+ };
+
+ ws.onclose = function () {
+   console.warn("WebSocket connection closed");
+   showConnectionLostMessage();
+ };
+
 ws.onmessage = function (event) {
   //document.getElementById("chat-log").value += event.data;
   const chatWindow = document.getElementById("chat-window");
@@ -70,6 +90,7 @@ function sendMessage() {
   const chatWindow = document.getElementById("chat-window");
   const chatInput = document.getElementById("chat-input");
   const messageText = chatInput.value;
+  const sendButton = document.getElementById("send-button");
 
   if (messageText.trim() !== "") {
     const message = document.createElement("div");
@@ -86,8 +107,10 @@ function sendMessage() {
     chatWindow.appendChild(loading);
     chatWindow.scrollTop = chatWindow.scrollHeight;
     msgCount = 0;
+
+    // Deaktivieren Sie das Eingabefeld und den Sende-Button
     chatInput.disabled = true;
-    document.getElementById("send-button").disabled = true;
+    sendButton.disabled = true;
   }
 }
 
@@ -96,3 +119,8 @@ function handleKeyDown(event) {
     sendMessage();
   }
 }
+
+// Globale Funktionen verfügbar machen
+  window.toggleChat = toggleChat;
+  window.sendMessage = sendMessage;
+  window.handleKeyDown = handleKeyDown;
