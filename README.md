@@ -42,7 +42,6 @@ docker run -d -p 3000:3000 -e APIKEY=sk-proj-geheim -e AID=asst_uen-geheim servi
 ## ToDo
 
 - https
-- Sicherheit (JSON prüfen) 
 - Zu viele Req. von einer IP
 - Include Script
 - Suchen auf der Webseite

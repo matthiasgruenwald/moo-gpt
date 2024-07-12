@@ -154,6 +154,33 @@ app.ws("/api/chat", async (ws, req) => {
     var citationindex = 1;
     resContent = "";
     try {
+
+      const msgObj = JSON.parse(message);
+      if (!msgObj.hasOwnProperty("end")) {
+        ws.send("Error: Missing or wrong Parameter 'end' in JSON message");
+        console.log("Error: Missing or wrong Parameter 'end' in JSON message");
+        return;
+      } else if (typeof msgObj.end !== "boolean") {
+        ws.send("Error: Parameter 'end' is not a boolean in JSON message");
+        console.log("Error: Parameter 'end' is not a boolean in JSON message");
+        return;
+      }
+      if (!msgObj.hasOwnProperty("messages")) {
+        ws.send("Error: Missing or wrong Parameter 'messages' in JSON message");
+        console.log(
+          "Error: Missing or wrong Parameter 'messages' in JSON message"
+        );
+        return;
+      } else if (typeof msgObj.messages !== "string") {
+        ws.send("Error: Parameter 'messages' is not a string in JSON message");
+        console.log(
+          "Error: Parameter 'messages' is not a string in JSON message"
+        );
+        return;
+      }
+
+
+
       currentTime = new Date().toLocaleString();
       const userMessage = JSON.parse(message).message;
       console.log(`\r\nuserMessage ${ip} at ${currentTime}:`, userMessage);
