@@ -1,5 +1,4 @@
-
-const VERSION="1.0.2"
+const VERSION = "1.1.0";
 
 import express from "express";
 import OpenAI from "openai";
@@ -7,15 +6,34 @@ import fs from "fs";
 import expressWs from "express-ws";
 import EventEmitter from "events";
 import Showdown from "showdown";
-import { log } from "console";
+import http from "http";
+import https from "https";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-expressWs(app);
+const converter = new Showdown.Converter();
+
+const CONFIG_DIR = "./config";
+const CERT_FILE = `${CONFIG_DIR}/server.cert`;
+const KEY_FILE = `${CONFIG_DIR}/server.key`;
+let server;
+
+if (fs.existsSync(CERT_FILE) && fs.existsSync(KEY_FILE)) {
+  const privateKey = fs.readFileSync(KEY_FILE, "utf8");
+  const certificate = fs.readFileSync(CERT_FILE, "utf8");
+  const credentials = { key: privateKey, cert: certificate };
+  server = https.createServer(credentials, app);
+  expressWs(app, server); // Setup express-ws with the HTTPS server
+  console.log("Starting HTTPS/WSS server");
+} else {
+  server = http.createServer(app);
+  expressWs(app, server); // Setup express-ws with the HTTP server
+  console.log("Starting HTTP/WS server");
+}
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
-const converter = new Showdown.Converter();
 
 if (process.env.APIKEY === undefined) {
   console.error("API key is not set");
@@ -51,9 +69,6 @@ class EventHandler extends EventEmitter {
 
   async onEvent(event) {
     try {
-      //console.log(event.event);
-      // Retrieve events that are denoted with 'requires_action'
-      // since these will have our tool_calls
       if (event.event === "thread.run.requires_action") {
         console.log(event);
         await this.handleRequiresAction(
@@ -62,16 +77,16 @@ class EventHandler extends EventEmitter {
           event.data.thread_id
         );
       } else if (event.event === "thread.message.completed") {
-        //console.log("Thread Message completed!! Add citization to the message");
-
         var citation = "<br><br><b>Quelle(n):</b>&nbsp;";
         var num = 1;
         this.citations.forEach(async (file_id) => {
           const citedFile = await oai.files.retrieve(file_id);
           console.log("** Cited File **", JSON.stringify(citedFile));
-          //console.log(process.cwd());
-          if (fs.existsSync(process.cwd()+ "/public/storage/" + citedFile.filename)) {
-            //console.log("Die Datei existiert.");
+          if (
+            fs.existsSync(
+              process.cwd() + "/public/storage/" + citedFile.filename
+            )
+          ) {
             citation +=
               "[<a href='storage/" +
               citedFile.filename +
@@ -79,7 +94,6 @@ class EventHandler extends EventEmitter {
               num +
               "</a>]";
           } else {
-            //console.log("Die Datei existiert nicht.");
             citation += "[" + num + "]:" + citedFile.filename;
           }
           num++;
@@ -106,7 +120,6 @@ class EventHandler extends EventEmitter {
             };
           }
         });
-      // Submit all the tool outputs at the same time
       await this.submitToolOutputs(toolOutputs, runId, threadId);
     } catch (error) {
       console.error("Error processing required action:", error);
@@ -116,7 +129,6 @@ class EventHandler extends EventEmitter {
   async submitToolOutputs(toolOutputs, runId, threadId) {
     try {
       console.log("submitToolOutputs called");
-      // Use the submitToolOutputsStream helper
       const stream = this.client.beta.threads.runs.submitToolOutputsStream(
         threadId,
         runId,
@@ -139,7 +151,16 @@ var chatMsg = {
 };
 
 app.ws("/api/chat", async (ws, req) => {
-  // Extract IP address and get current time
+  const origin = req.headers.origin;
+  console.log("origin", origin);
+  if (process.env.ALLOWED_ORIGIN != undefined) {
+    if (process.env.ALLOWED_ORIGIN && origin !== process.env.ALLOWED_ORIGIN) {
+      console.log("Origin not allowed");
+      ws.close();
+      return;
+    }
+  }
+
   const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
   var currentTime = new Date().toLocaleString();
   console.log(`New WS connection from IP: ${ip} at ${currentTime}`);
@@ -154,32 +175,22 @@ app.ws("/api/chat", async (ws, req) => {
     var citationindex = 1;
     resContent = "";
     try {
-
+      console.log("Message received:", message);
       const msgObj = JSON.parse(message);
-      if (!msgObj.hasOwnProperty("end")) {
-        ws.send("Error: Missing or wrong Parameter 'end' in JSON message");
-        console.log("Error: Missing or wrong Parameter 'end' in JSON message");
-        return;
-      } else if (typeof msgObj.end !== "boolean") {
-        ws.send("Error: Parameter 'end' is not a boolean in JSON message");
-        console.log("Error: Parameter 'end' is not a boolean in JSON message");
-        return;
-      }
-      if (!msgObj.hasOwnProperty("messages")) {
+
+      if (!msgObj.hasOwnProperty("message")) {
         ws.send("Error: Missing or wrong Parameter 'messages' in JSON message");
         console.log(
-          "Error: Missing or wrong Parameter 'messages' in JSON message"
+          "Error: Missing or wrong Parameter 'message' in JSON message"
         );
         return;
-      } else if (typeof msgObj.messages !== "string") {
+      } else if (typeof msgObj.message !== "string") {
         ws.send("Error: Parameter 'messages' is not a string in JSON message");
         console.log(
-          "Error: Parameter 'messages' is not a string in JSON message"
+          "Error: Parameter 'message' is not a string in JSON message"
         );
         return;
       }
-
-
 
       currentTime = new Date().toLocaleString();
       const userMessage = JSON.parse(message).message;
@@ -190,7 +201,7 @@ app.ws("/api/chat", async (ws, req) => {
           "**Version " + VERSION + "**\r\n\r\n 2024 by Dr. Jörg Tuttas.";
         chatMsg.messages = converter.makeHtml(resContent);
         chatMsg.end = true;
-        ws.send(JSON.stringify(chatMsg));      
+        ws.send(JSON.stringify(chatMsg));
         return;
       }
 
@@ -204,8 +215,6 @@ app.ws("/api/chat", async (ws, req) => {
         messages: userMessage,
       };
 
-      //console.log("chatMsg", JSON.stringify(chatMsg));
-
       const run = oai.beta.threads.runs
         .stream(
           thread.id,
@@ -215,12 +224,10 @@ app.ws("/api/chat", async (ws, req) => {
           eventHandler
         )
         .on("event", (event) => {
-          // console.log("event", event.event);
           eventHandler.emit("event", event);
         })
         .on("textDelta", async (textDelta, snapshot) => {
           if (textDelta.hasOwnProperty("annotations")) {
-            //console.log("textDelta", JSON.stringify(textDelta));
             for (let annotation of textDelta.annotations) {
               const { file_citation } = annotation;
               if (file_citation) {
@@ -234,7 +241,6 @@ app.ws("/api/chat", async (ws, req) => {
           } else {
             resContent += textDelta.value;
           }
-          //console.log("textDelta =>", textDelta.value);
           chatMsg.messages = converter.makeHtml(resContent);
           ws.send(JSON.stringify(chatMsg));
         })
@@ -252,6 +258,6 @@ app.ws("/api/chat", async (ws, req) => {
   });
 });
 
-app.listen(3000, () => {
-  console.log("Server is running on port 3000");
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });

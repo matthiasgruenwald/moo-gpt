@@ -22,6 +22,9 @@ const port = window.location.port
   : "80";
 const protocol = window.location.protocol === "https:" ? "wss" : "ws";
 const wsUrl = `${protocol}://${host}:${port}/api/chat`;
+console.log(wsUrl);
+
+
 
 const ws = new WebSocket(wsUrl);
 //const ws = new WebSocket("ws://localhost:3000/api/chat");
@@ -48,10 +51,10 @@ function showConnectionLostMessage() {
  };
 
 ws.onmessage = function (event) {
+  //console.log('onmessage function called' + JSON.stringify(event));
   //document.getElementById("chat-log").value += event.data;
   const chatWindow = document.getElementById("chat-window");
   const chatInput = document.getElementById("chat-input");
-  //console.log('onmessage function called'+event.data);
   const messageObj = JSON.parse(event.data);
   const messageText = messageObj.messages;
 

@@ -31,6 +31,12 @@ npm start
 
 gestartet werden.
 
+Über die Umgebungsvariable **ALLOWED_ORIGIN** kann der Zugriff auf den Server eingeschränkt werden. Wenn die Umgebungsvariable gesetzt ist, kann der Zugriff auf den Server nur über die Domain erfolgen. Ansonsten ist der Zugriff beliebig.
+
+```
+set ALLOWED_ORIGIN=moodle.mm-bbs.de
+```
+
 ## Docker Container
 
 Für die Anwendung existiert auch ein Dockercontainer
@@ -41,7 +47,6 @@ docker run -d -p 3000:3000 -e APIKEY=sk-proj-geheim -e AID=asst_uen-geheim servi
 
 ## ToDo
 
-- https
 - Zu viele Req. von einer IP
 - Include Script
 - Suchen auf der Webseite
