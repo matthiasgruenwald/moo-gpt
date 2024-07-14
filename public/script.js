@@ -24,8 +24,6 @@ const protocol = window.location.protocol === "https:" ? "wss" : "ws";
 const wsUrl = `${protocol}://${host}:${port}/api/chat`;
 console.log(wsUrl);
 
-
-
 const ws = new WebSocket(wsUrl);
 //const ws = new WebSocket("ws://localhost:3000/api/chat");
 var msgCount = 0;
@@ -36,57 +34,60 @@ function showConnectionLostMessage() {
     '<div class="connection-lost">Connection lost</div>';
 }
 
- ws.onopen = function () {
-   console.log("WebSocket connection established");
- };
+ws.onopen = function () {
+  console.log("WebSocket connection established");
+};
 
- ws.onerror = function (error) {
-   console.error("WebSocket error:", error);
-   showConnectionLostMessage();
- };
+ws.onerror = function (error) {
+  console.error("WebSocket error:", error);
+  showConnectionLostMessage();
+};
 
- ws.onclose = function () {
-   console.warn("WebSocket connection closed");
-   showConnectionLostMessage();
- };
+ws.onclose = function () {
+  console.warn("WebSocket connection closed");
+  showConnectionLostMessage();
+};
 
 ws.onmessage = function (event) {
-  //console.log('onmessage function called' + JSON.stringify(event));
+  if (event.end == true) {  
+    console.log("onmessage function called" + JSON.stringify(event.data));
+  }
   //document.getElementById("chat-log").value += event.data;
   const chatWindow = document.getElementById("chat-window");
   const chatInput = document.getElementById("chat-input");
-  const messageObj = JSON.parse(event.data);
-  const messageText = messageObj.messages;
+  try {
+    const messageObj = JSON.parse(event.data);
+    const messageText = messageObj.messages;
 
-  if (msgCount == 0) {
-    const loading = document.getElementById("loading");
-    if (loading) {
-      chatWindow.removeChild(loading);
+    if (msgCount == 0) {
+      const loading = document.getElementById("loading");
+      if (loading) {
+        chatWindow.removeChild(loading);
+      }
+
+      const message = document.createElement("div");
+      message.className = "message received";
+
+      message.innerHTML = `${messageText}`;
+      chatWindow.appendChild(message);
+    } else {
+      const lastReceivedMessage = chatWindow.querySelector(
+        ".message.received:last-child"
+      );
+      lastReceivedMessage.innerHTML = `${messageText}`;
     }
+    msgCount += 1;
 
-    const message = document.createElement("div");
-    message.className = "message received";
-
-    message.innerHTML = `${messageText}`;
-    chatWindow.appendChild(message);
-  } else {
-    const lastReceivedMessage = chatWindow.querySelector(
-      ".message.received:last-child"
-    );
-    lastReceivedMessage.innerHTML = `${messageText}`;
+    if (messageObj.end == true) {
+      chatInput.disabled = false;
+      chatInput.focus();
+      document.getElementById("send-button").disabled = false;
+    }
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  } catch (error) {
+    console.log("Error parsing JSON message:", error);
   }
-  msgCount += 1;
-
-  if (messageObj.end==true) {
-    chatInput.disabled = false;
-    chatInput.focus();
-    document.getElementById("send-button").disabled = false;
-  
-  }
-  chatWindow.scrollTop = chatWindow.scrollHeight;
-
 };
-
 
 function sendMessage() {
   //console.log('sendMessage function called');
@@ -124,6 +125,6 @@ function handleKeyDown(event) {
 }
 
 // Globale Funktionen verfügbar machen
-  window.toggleChat = toggleChat;
-  window.sendMessage = sendMessage;
-  window.handleKeyDown = handleKeyDown;
+window.toggleChat = toggleChat;
+window.sendMessage = sendMessage;
+window.handleKeyDown = handleKeyDown;

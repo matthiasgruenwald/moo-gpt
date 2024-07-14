@@ -31,11 +31,22 @@ npm start
 
 gestartet werden.
 
+## Umgebungsvariablen
+
 Über die Umgebungsvariable **ALLOWED_ORIGIN** kann der Zugriff auf den Server eingeschränkt werden. Wenn die Umgebungsvariable gesetzt ist, kann der Zugriff auf den Server nur über die Domain erfolgen. Ansonsten ist der Zugriff beliebig.
 
 ```
 set ALLOWED_ORIGIN=moodle.mm-bbs.de
 ```
+
+Über die Umgebungsvariable **MAX_REQUESTS** kann die Anzahl von Requests pro Tag eingeschränkt werden. Ist die variable gesetzt,
+
+```
+set MAX_REQUESTS=4
+```
+
+So sind pro IP nur 4 Anfragen möglich.
+
 
 ## Docker Container
 
@@ -47,6 +58,5 @@ docker run -d -p 3000:3000 -e APIKEY=sk-proj-geheim -e AID=asst_uen-geheim servi
 
 ## ToDo
 
-- Zu viele Req. von einer IP
 - Include Script
 - Suchen auf der Webseite

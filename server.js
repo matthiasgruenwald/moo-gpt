@@ -144,6 +144,7 @@ class EventHandler extends EventEmitter {
 }
 
 const assistant = await oai.beta.assistants.retrieve(process.env.AID);
+var requests={};
 
 var chatMsg = {
   end: false,
@@ -154,7 +155,8 @@ app.ws("/api/chat", async (ws, req) => {
   const origin = req.headers.origin;
   console.log("origin", origin);
   if (process.env.ALLOWED_ORIGIN != undefined) {
-    if (process.env.ALLOWED_ORIGIN && origin !== process.env.ALLOWED_ORIGIN) {
+    console.log("ALLOWED_ORIGIN", process.env.ALLOWED_ORIGIN);
+    if (!origin.startsWith(process.env.ALLOWED_ORIGIN)) {
       console.log("Origin not allowed");
       ws.close();
       return;
@@ -167,6 +169,17 @@ app.ws("/api/chat", async (ws, req) => {
 
   const thread = await oai.beta.threads.create();
   console.log("thread created");
+
+  // Initialize request count for this IP if it doesn't exist
+  var today = new Date().toISOString().slice(0, 10);
+  if (!requests[ip]) {
+    requests[ip] = { count: 0, date: today };
+  } else if (requests[ip].date !== today) {
+    // Reset the count if the date has changed
+    requests[ip].count = 0;
+    requests[ip].date = today;
+  }
+
   ws.on("message", async (message) => {
     var citations = [];
     const eventHandler = new EventHandler(oai, ws, citations);
@@ -179,13 +192,17 @@ app.ws("/api/chat", async (ws, req) => {
       const msgObj = JSON.parse(message);
 
       if (!msgObj.hasOwnProperty("message")) {
-        ws.send("Error: Missing or wrong Parameter 'messages' in JSON message");
+        chatMsg.end = true;
+        chatMsg.messages = "Error: Missing or wrong Parameter 'message' in JSON message";
+        ws.send(JSON.stringify(chatMsg));
         console.log(
           "Error: Missing or wrong Parameter 'message' in JSON message"
         );
         return;
       } else if (typeof msgObj.message !== "string") {
-        ws.send("Error: Parameter 'messages' is not a string in JSON message");
+        chatMsg.end = true;
+        chatMsg.messages = "Error: Parameter 'message' is not a string in JSON message";
+        ws.send(JSON.stringify(chatMsg));
         console.log(
           "Error: Parameter 'message' is not a string in JSON message"
         );
@@ -195,6 +212,25 @@ app.ws("/api/chat", async (ws, req) => {
       currentTime = new Date().toLocaleString();
       const userMessage = JSON.parse(message).message;
       console.log(`\r\nuserMessage ${ip} at ${currentTime}:`, userMessage);
+
+      today = new Date().toISOString().slice(0, 10);
+      // Increment request count for this IP
+      if (requests[ip].date !== today) {
+        requests[ip].count = 0;
+        requests[ip].date = today;
+      }
+      requests[ip].count++;
+      
+      console.log("requests", JSON.stringify(requests[ip]));
+      if (process.env.MAX_REQUESTS != undefined) {
+        if (requests[ip].count > process.env.MAX_REQUESTS) {
+          chatMsg.end = true;
+          chatMsg.messages = "Error: Too many requests from this IP";
+          ws.send(JSON.stringify(chatMsg));
+          ws.close();
+          return;
+        }
+      }
 
       if (userMessage === "about") {
         resContent =
@@ -252,7 +288,10 @@ app.ws("/api/chat", async (ws, req) => {
           console.log("End event called:" + resContent);
         });
     } catch (error) {
-      ws.send("Error: " + error.message);
+      chatMsg.end = true;
+      chatMsg.messages = "Error: " + error.message; 
+
+      ws.send(JSON.stringify(chatMsg));
       console.log("Error: ", error);
     }
   });
