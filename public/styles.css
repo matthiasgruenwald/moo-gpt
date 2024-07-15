@@ -1,7 +1,4 @@
 body {
-    background-color: #007bff; /* Blau */
-    color: #fff; /* Weiß */
-    font-family: Arial, sans-serif;
     height: 100vh;
     margin: 0;
     position: relative;
@@ -24,7 +21,9 @@ body {
 }
 
 .chat-container {
+    font-family: Arial, sans-serif;
     background-color: #004085; /* Dunkleres Blau */
+    color: white;
     width: 35%;
     height: 80%;
     border-radius: 10px;

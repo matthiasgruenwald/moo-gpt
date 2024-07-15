@@ -86,8 +86,9 @@ export class MMBBSBOT {
     const port =
       this.settings.port ||
       (window.location.protocol === "https:" ? "443" : "80");
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const protocol = this.settings.protocol === "https" ? "wss" : "ws";
     const wsUrl = `${protocol}://${host}:${port}/api/chat`;
+    console.log('wsUrl: ', wsUrl);
     this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
