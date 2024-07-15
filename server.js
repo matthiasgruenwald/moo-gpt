@@ -90,7 +90,7 @@ class EventHandler extends EventEmitter {
             )
           ) {
             citation +=
-              "[<a href='storage/" +
+              "[<a class=\"reference\" href='storage/" +
               citedFile.filename +
               "' target='_blank'>" +
               num +
