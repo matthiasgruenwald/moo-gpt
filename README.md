@@ -36,16 +36,16 @@ gestartet werden.
 Über die Umgebungsvariable **ALLOWED_ORIGIN** kann der Zugriff auf den Server eingeschränkt werden. Wenn die Umgebungsvariable gesetzt ist, kann der Zugriff auf den Server nur über die Domain erfolgen. Ansonsten ist der Zugriff beliebig.
 
 ```
-set ALLOWED_ORIGIN=moodle.mm-bbs.de
+set ALLOWED_ORIGIN=https://moodle.mm-bbs.de
 ```
 
-Über die Umgebungsvariable **MAX_REQUESTS** kann die Anzahl von Requests pro Tag eingeschränkt werden. Ist die variable gesetzt,
+Über die Umgebungsvariable **MAX_REQUESTS** kann die Anzahl von Requests pro IP und Tag eingeschränkt werden. Ist die variable gesetzt,
 
 ```
 set MAX_REQUESTS=4
 ```
 
-So sind pro IP nur 4 Anfragen möglich.
+So sind pro IP nur 4 Anfragen von einer IP pro Tag möglich.
 
 
 ## Docker Container
@@ -55,6 +55,14 @@ Für die Anwendung existiert auch ein Dockercontainer
 ```
 docker run -d -p 3000:3000 -e APIKEY=sk-proj-geheim -e AID=asst_uen-geheim service.joerg-tuttas.de:5555/root/mmbbs_gpt
 ```
+
+### Volumes
+
+Es existieren die folgenden Volumes:
+
+- **/usr/src/app/public/storage**: Für die Dokumente, die auch zum herunterladen sind.
+
+- **/usr/src/app/config**: Für Dateien server.cert und server.key zum Aufbau der https/wss Verbindung.
 
 ## ToDo
 
