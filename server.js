@@ -1,4 +1,4 @@
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 
 import express from "express";
 import OpenAI from "openai";
@@ -8,6 +8,7 @@ import EventEmitter from "events";
 import Showdown from "showdown";
 import http from "http";
 import https from "https";
+import cors from "cors";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -31,6 +32,7 @@ if (fs.existsSync(CERT_FILE) && fs.existsSync(KEY_FILE)) {
   console.log("Starting HTTP/WS server");
 }
 
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));

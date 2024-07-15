@@ -64,6 +64,27 @@ Es existieren die folgenden Volumes:
 
 - **/usr/src/app/config**: Für Dateien server.cert und server.key zum Aufbau der https/wss Verbindung.
 
+## Einbinden auf andere Webseiten
+
+Der Chatbot kann über folgende Anweisung in eine andere Webseite eingebaut werden.
+
+```html
+<script type="module" async="" id="mmbbs-bot">
+    const settings = {
+        "host": "service.joerg-tuttas.de",
+        "protocol":"https",
+        "port": 3000
+    };
+
+    import {
+        MMBBSBOT
+    } from 'https://service.joerg-tuttas.de:3000/mmbbs-bot.js';
+    const bot = new MMBBSBOT(settings);
+</script>
+```
+
+ggf. muss natürlich die URL der Importanweisung angepasst werden.
+
 ## ToDo
 
 - Include Script

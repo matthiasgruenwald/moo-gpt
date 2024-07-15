@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Testseite</title>
+</head>
+<body>
+
+    <h1>Dieses ist die Testseite mit dem Bot für localhost</h1>
+    <script type="module" async="" id="mmbbs-bot">
+        const settings = {
+                "host": "localhost",
+                "protocol": "https",
+                "port": 3000
+            };
+
+        import {
+            MMBBSBOT
+        } from 'https://localhost:3000/mmbbs-bot.js';
+        const bot = new MMBBSBOT(settings);
+    </script>
+    
+</body>
+</html>
