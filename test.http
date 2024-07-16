@@ -1,10 +1,7 @@
-POST http://localhost:3000/api/chat HTTP/1.1
-Content-Type: application/json
 
-{
-    "message" : "Wie lautet die Adresse?"
-}
-^
-### File Herunter laden
-GET https://api.openai.com/v1/files/file-A74uJ3TEzEriVSrC8Mx6485y/content HTTP/1.1
-Authorization: bearer sk-proj-Gp2WXLBOjiHH7M6MZWofT3BlbkFJMzWp82zUwN88JxTd7nC7
+### Query Homepage
+
+POST https://www.mmbbs.de/?s=%C3%96ffnungszeiten%20Ferien HTTP/1.1
+
+### als Get Request
+GET https://www.mmbbs.de/?s=%C3%96ffnungszeiten%20Ferien HTTP/1.1

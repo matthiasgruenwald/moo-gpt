@@ -133,8 +133,8 @@ input[type="text"] {
     box-sizing: border-box; /* Neu hinzugefügt */
 }
 
-.reference {
-    color: #ccc;
+.chat-window a {
+    color: #aab1e2;
 }
 
 .connection-lost {

@@ -1,5 +1,7 @@
-const VERSION = "1.2.0";
+const VERSION = "1.3.0";
 
+import axios from "axios";
+import cheerio from "cheerio";
 import express from "express";
 import OpenAI from "openai";
 import fs from "fs";
@@ -9,6 +11,7 @@ import Showdown from "showdown";
 import http from "http";
 import https from "https";
 import cors from "cors";
+import { encode } from "querystring";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -52,12 +55,98 @@ const oai = new OpenAI({
 
 var resContent = "";
 
-async function getSearchResult(query) {
+async function fetchPage(url) {
+  console.log('fetchPage:', url);
+  try {
+    const { data } = await axios.get(url);
+    return data;
+  } catch (error) {
+    console.error(`Error fetching ${url}:`, error);
+    return null;
+  }
+}
+
+function extractText(html) {
+  const $ = cheerio.load(html);
+  // Entferne alle Skripte und Stile im .page-content Container
+  $(".page-content script, .page-content style").remove();
+  // Extrahiere den reinen Text aus dem .page-content Container
+  return $(".page-content").text();
+}
+
+function extractLinks(html) {
+  console.log('extractLinks');
+  const $ = cheerio.load(html);
+  const links = [];
+  $(".page-content a").each((index, element) => {
+    const href = $(element).attr("href");
+    if (href) {
+      links.push(href);
+    }
+  });
+  return links;
+}
+
+async function fetchAndExtract(url) {
+  console.log('fetchAndExtract:', url);
+  let result = "";
+
+  const html = await fetchPage(url);
+  //console.log('--html-->'+html+"<---");
+  if (!html) return result;
+
+  const links = extractLinks(html);
+  console.log('Anzahl links:', links.length);
+  var max=links.length;
+  if (max>2) max=2;
+  for (var i = 0; i < max; i++) {
+    const absoluteLink = new URL(links[i], url).href;
+    console.log('Get Link Nr. '+i+': Destination '+absoluteLink);
+    const linkHtml = await fetchPage(absoluteLink);
+    if (linkHtml) {
+      const linkText = extractText(linkHtml);
+      //console.log('linkText:', linkText);
+      result += linkText;
+      //result.push({ url: absoluteLink, text: linkText });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * OpenAI function that query a webpage
+ * 
+ * {
+  "name": "query_homepage",
+  "description": "query the homepage to get actual informations",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "The query for the homepage"
+      }
+    },
+    "required": [
+      "the query result"
+    ]
+  }
+}
+ * 
+ */
+
+async function query_homepage(toolId, query) {
   console.log("------- CALLING AN EXTERNAL API ----------");
   console.log("query", JSON.stringify(query));
-  return JSON.stringify({
-    data: "Mein Leiblingslehrer",
-  });
+  var encoded = encodeURIComponent(query);
+  const url = "https://www.mmbbs.de/?s=" + encoded;
+  const result = await fetchAndExtract(url); // Awaiting the result
+  //console.log("\r\n\r\n-------------->" + result + "<---------------");
+  return {
+    tool_call_id: toolId,
+    output: result,
+  };
 }
 
 class EventHandler extends EventEmitter {
@@ -71,13 +160,18 @@ class EventHandler extends EventEmitter {
 
   async onEvent(event) {
     try {
+      console.log("**"+event.event+"**");
       if (event.event === "thread.run.requires_action") {
-        console.log(event);
-        await this.handleRequiresAction(
+        //console.log(event);
+        const r = await this.handleRequiresAction(
           event.data,
-          event.data.id,
           event.data.thread_id
         );
+        //console.log("\r\nRun completed" + JSON.stringify(r, null, 2));
+        if (r != undefined) {
+          chatMsg.messages = converter.makeHtml(r[0].content[0].text.value);
+          this.ws.send(JSON.stringify(chatMsg));
+        }
       } else if (event.event === "thread.message.completed") {
         var citation = "<br><br><b>Quelle(n):</b>&nbsp;";
         var num = 1;
@@ -90,7 +184,7 @@ class EventHandler extends EventEmitter {
             )
           ) {
             citation +=
-              "[<a class=\"reference\" href='storage/" +
+              '[<a class="reference" href=\'storage/' +
               citedFile.filename +
               "' target='_blank'>" +
               num +
@@ -110,28 +204,69 @@ class EventHandler extends EventEmitter {
     }
   }
 
-  async handleRequiresAction(data, runId, threadId) {
+  async handleRequiresAction(run, threadId) {
+    //console.log("Run object:", JSON.stringify(run));
+    //console.log("Required action:", JSON.stringify(run.required_action));
     try {
-      console.log("handleRequiresAction called");
-      const toolOutputs =
-        data.required_action.submit_tool_outputs.tool_calls.map((toolCall) => {
-          if (toolCall.function.name === "getSearchResult") {
+      //console.log("handleRequiresAction called:", JSON.stringify(run));
+      if (!run.required_action || !run.required_action.submit_tool_outputs) {
+        throw new Error("submit_tool_outputs not found in required_action");
+      }
+
+      const toolCalls =
+        run.required_action.submit_tool_outputs.tool_calls || [];
+      const toolOutputs = await Promise.all(
+        toolCalls.map(async (toolCall) => {
+          console.log("toolCall:", JSON.stringify(toolCall));
+          if (toolCall.function.name === "query_homepage") {
+            const args = JSON.parse(toolCall.function.arguments);
+            const keyword = args.query;
+            var results = await query_homepage(toolCall.id, keyword);
+            //console.log('results:', JSON.stringify(results));
             return {
               tool_call_id: toolCall.id,
-              output: "57",
+              output: results.output,
             };
           }
-        });
-      await this.submitToolOutputs(toolOutputs, runId, threadId);
+        })
+      );
+
+      //console.log("toolOutputs:", JSON.stringify(toolOutputs));
+      if (toolOutputs.length > 0) {
+        const result = await oai.beta.threads.runs.submitToolOutputsAndPoll(
+          threadId,
+          run.id,
+          { tool_outputs: toolOutputs }
+        );
+        console.log("Tool outputs submitted successfully.");
+        return this.handleRunStatus(result, threadId);
+      } else {
+        console.log("No tool outputs to submit.");
+      }
     } catch (error) {
       console.error("Error processing required action:", error);
+    }
+  }
+
+  async handleRunStatus(run, threadId) {
+    console.log("handleRunStatus called:");
+
+    // Check if the run is completed
+    if (run.status === "completed") {
+      let messages = await oai.beta.threads.messages.list(threadId);
+      //console.log("messages:", JSON.stringify(messages));
+      return messages.data;
+    } else if (run.status === "requires_action") {
+      return await this.handleRequiresAction(run, threadId);
+    } else {
+      console.error("Run did not complete:", run);
     }
   }
 
   async submitToolOutputs(toolOutputs, runId, threadId) {
     try {
       console.log("submitToolOutputs called");
-      const stream = this.client.beta.threads.runs.submitToolOutputsStream(
+      const stream = oai.beta.threads.runs.submitToolOutputsStream(
         threadId,
         runId,
         { tool_outputs: toolOutputs }
@@ -146,7 +281,7 @@ class EventHandler extends EventEmitter {
 }
 
 const assistant = await oai.beta.assistants.retrieve(process.env.AID);
-var requests={};
+var requests = {};
 
 var chatMsg = {
   end: false,
@@ -195,7 +330,8 @@ app.ws("/api/chat", async (ws, req) => {
 
       if (!msgObj.hasOwnProperty("message")) {
         chatMsg.end = true;
-        chatMsg.messages = "Error: Missing or wrong Parameter 'message' in JSON message";
+        chatMsg.messages =
+          "Error: Missing or wrong Parameter 'message' in JSON message";
         ws.send(JSON.stringify(chatMsg));
         console.log(
           "Error: Missing or wrong Parameter 'message' in JSON message"
@@ -203,7 +339,8 @@ app.ws("/api/chat", async (ws, req) => {
         return;
       } else if (typeof msgObj.message !== "string") {
         chatMsg.end = true;
-        chatMsg.messages = "Error: Parameter 'message' is not a string in JSON message";
+        chatMsg.messages =
+          "Error: Parameter 'message' is not a string in JSON message";
         ws.send(JSON.stringify(chatMsg));
         console.log(
           "Error: Parameter 'message' is not a string in JSON message"
@@ -222,7 +359,7 @@ app.ws("/api/chat", async (ws, req) => {
         requests[ip].date = today;
       }
       requests[ip].count++;
-      
+
       console.log("requests", JSON.stringify(requests[ip]));
       if (process.env.MAX_REQUESTS != undefined) {
         if (requests[ip].count > process.env.MAX_REQUESTS) {
@@ -291,7 +428,7 @@ app.ws("/api/chat", async (ws, req) => {
         });
     } catch (error) {
       chatMsg.end = true;
-      chatMsg.messages = "Error: " + error.message; 
+      chatMsg.messages = "Error: " + error.message;
 
       ws.send(JSON.stringify(chatMsg));
       console.log("Error: ", error);

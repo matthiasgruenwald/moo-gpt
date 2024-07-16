@@ -87,5 +87,4 @@ ggf. muss natürlich die URL der Importanweisung angepasst werden.
 
 ## ToDo
 
-- Include Script
 - Suchen auf der Webseite
