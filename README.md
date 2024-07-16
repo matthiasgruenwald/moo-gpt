@@ -86,5 +86,3 @@ Der Chatbot kann über folgende Anweisung in eine andere Webseite eingebaut werd
 ggf. muss natürlich die URL der Importanweisung angepasst werden.
 
 ## ToDo
-
-- Suchen auf der Webseite

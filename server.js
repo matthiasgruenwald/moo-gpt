@@ -1,4 +1,4 @@
-const VERSION = "1.3.1";
+const VERSION = "1.3.2";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -22,6 +22,7 @@ const CONFIG_DIR = "./config";
 const CERT_FILE = `${CONFIG_DIR}/server.cert`;
 const KEY_FILE = `${CONFIG_DIR}/server.key`;
 let server;
+var pendingFunctions = false;
 
 if (fs.existsSync(CERT_FILE) && fs.existsSync(KEY_FILE)) {
   const privateKey = fs.readFileSync(KEY_FILE, "utf8");
@@ -57,7 +58,7 @@ const oai = new OpenAI({
 var resContent = "";
 
 async function fetchPage(url) {
-  console.log('fetchPage:', url);
+  console.log("fetchPage:", url);
   try {
     const { data } = await axios.get(url);
     return data;
@@ -76,7 +77,7 @@ function extractText(html) {
 }
 
 function extractLinks(html) {
-  console.log('extractLinks');
+  console.log("extractLinks");
   const $ = cheerio.load(html);
   const links = [];
   $(".page-content a").each((index, element) => {
@@ -89,7 +90,7 @@ function extractLinks(html) {
 }
 
 async function fetchAndExtract(url) {
-  console.log('fetchAndExtract:', url);
+  console.log("fetchAndExtract:", url);
   let result = "";
 
   const html = await fetchPage(url);
@@ -97,12 +98,12 @@ async function fetchAndExtract(url) {
   if (!html) return result;
 
   const links = extractLinks(html);
-  console.log('Anzahl links:', links.length);
-  var max=links.length;
-  if (max>2) max=2;
+  console.log("Anzahl links:", links.length);
+  var max = links.length;
+  if (max > 2) max = 2;
   for (var i = 0; i < max; i++) {
     const absoluteLink = new URL(links[i], url).href;
-    console.log('Get Link Nr. '+i+': Destination '+absoluteLink);
+    console.log("Get Link Nr. " + i + ": Destination " + absoluteLink);
     const linkHtml = await fetchPage(absoluteLink);
     if (linkHtml) {
       const linkText = extractText(linkHtml);
@@ -138,6 +139,7 @@ async function fetchAndExtract(url) {
  */
 
 async function query_homepage(toolId, query) {
+  pendingFunctions = true;
   console.log("------- CALLING AN EXTERNAL API ----------");
   console.log("query", JSON.stringify(query));
   var encoded = encodeURIComponent(query);
@@ -161,7 +163,7 @@ class EventHandler extends EventEmitter {
 
   async onEvent(event) {
     try {
-      console.log("**"+event.event+"**");
+      console.log("**" + event.event + "**");
       if (event.event === "thread.run.requires_action") {
         //console.log(event);
         const r = await this.handleRequiresAction(
@@ -171,7 +173,10 @@ class EventHandler extends EventEmitter {
         //console.log("\r\nRun completed" + JSON.stringify(r, null, 2));
         if (r != undefined) {
           chatMsg.messages = converter.makeHtml(r[0].content[0].text.value);
+          chatMsg.end = true;
+          pendingFunctions = false;
           this.ws.send(JSON.stringify(chatMsg));
+
         }
       } else if (event.event === "thread.message.completed") {
         var citation = "<br><br><b>Quelle(n):</b>&nbsp;";
@@ -251,6 +256,7 @@ class EventHandler extends EventEmitter {
 
   async handleRunStatus(run, threadId) {
     console.log("handleRunStatus called:");
+    
 
     // Check if the run is completed
     if (run.status === "completed") {
@@ -304,7 +310,6 @@ app.ws("/api/chat", async (ws, req) => {
   const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
   var currentTime = new Date().toLocaleString();
   console.log(`New WS connection from IP: ${ip} at ${currentTime}`);
-
 
   const thread = await oai.beta.threads.create();
   console.log("thread created");
@@ -406,7 +411,9 @@ app.ws("/api/chat", async (ws, req) => {
           thread.id,
           {
             assistant_id: process.env.AID,
-            instructions: assistant.instructions+`.Heute ist ${dayName}, der ${date} um ${time}`,
+            instructions:
+              assistant.instructions +
+              `.Heute ist ${dayName}, der ${date} um ${time}`,
           },
           eventHandler
         )
@@ -432,11 +439,15 @@ app.ws("/api/chat", async (ws, req) => {
           ws.send(JSON.stringify(chatMsg));
         })
         .on("end", async () => {
+          console.log(
+            "End event called: pendingFuntions=" + pendingFunctions
+          );
           resContent = resContent.replace("sandbox:/mnt/data/", "storage/");
-          chatMsg.messages = converter.makeHtml(resContent);
-          chatMsg.end = true;
-          ws.send(JSON.stringify(chatMsg));
-          console.log("End event called:" + resContent);
+          if (!pendingFunctions) {
+            chatMsg.end = true;
+            chatMsg.messages = converter.makeHtml(resContent);
+            ws.send(JSON.stringify(chatMsg));
+          }
         });
     } catch (error) {
       chatMsg.end = true;
