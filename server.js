@@ -1,4 +1,4 @@
-const VERSION = "1.3.0";
+const VERSION = "1.3.1";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -12,6 +12,7 @@ import http from "http";
 import https from "https";
 import cors from "cors";
 import { encode } from "querystring";
+import moment from "moment";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -280,7 +281,7 @@ class EventHandler extends EventEmitter {
   }
 }
 
-const assistant = await oai.beta.assistants.retrieve(process.env.AID);
+var assistant = await oai.beta.assistants.retrieve(process.env.AID);
 var requests = {};
 
 var chatMsg = {
@@ -303,6 +304,7 @@ app.ws("/api/chat", async (ws, req) => {
   const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
   var currentTime = new Date().toLocaleString();
   console.log(`New WS connection from IP: ${ip} at ${currentTime}`);
+
 
   const thread = await oai.beta.threads.create();
   console.log("thread created");
@@ -390,11 +392,21 @@ app.ws("/api/chat", async (ws, req) => {
         messages: userMessage,
       };
 
+      moment.locale("de");
+
+      const now = moment();
+      const dayName = now.format("dddd");
+      const date = now.format("DD.MM.YYYY");
+      const time = now.format("HH:mm");
+
+      console.log(`Heute ist ${dayName}, der ${date} um ${time}`);
+
       const run = oai.beta.threads.runs
         .stream(
           thread.id,
           {
             assistant_id: process.env.AID,
+            instructions: assistant.instructions+`.Heute ist ${dayName}, der ${date} um ${time}`,
           },
           eventHandler
         )
