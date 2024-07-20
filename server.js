@@ -1,4 +1,4 @@
-const VERSION = "1.3.2";
+const VERSION = "1.3.3";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -172,7 +172,9 @@ class EventHandler extends EventEmitter {
         );
         //console.log("\r\nRun completed" + JSON.stringify(r, null, 2));
         if (r != undefined) {
-          chatMsg.messages = converter.makeHtml(r[0].content[0].text.value);
+          resContent = r[0].content[0].text.value;
+          resContent = resContent.replace("\r\n\r\n", "\r\n");
+          chatMsg.messages = converter.makeHtml(resContent);
           chatMsg.end = true;
           pendingFunctions = false;
           this.ws.send(JSON.stringify(chatMsg));
@@ -443,6 +445,7 @@ app.ws("/api/chat", async (ws, req) => {
             "End event called: pendingFuntions=" + pendingFunctions
           );
           resContent = resContent.replace("sandbox:/mnt/data/", "storage/");
+          resContent = resContent.replace("\r\n\r\n", "\r\n");
           if (!pendingFunctions) {
             chatMsg.end = true;
             chatMsg.messages = converter.makeHtml(resContent);
