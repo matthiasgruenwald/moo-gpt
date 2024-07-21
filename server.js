@@ -174,6 +174,7 @@ class EventHandler extends EventEmitter {
         if (r != undefined) {
           resContent = r[0].content[0].text.value;
           resContent = resContent.replace("\r\n\r\n", "\r\n");
+          console.log('Antwort: ' + resContent);
           chatMsg.messages = converter.makeHtml(resContent);
           chatMsg.end = true;
           pendingFunctions = false;
@@ -447,6 +448,7 @@ app.ws("/api/chat", async (ws, req) => {
           resContent = resContent.replace("sandbox:/mnt/data/", "storage/");
           resContent = resContent.replace("\r\n\r\n", "\r\n");
           if (!pendingFunctions) {
+            console.log('Antwort: ' + resContent);
             chatMsg.end = true;
             chatMsg.messages = converter.makeHtml(resContent);
             ws.send(JSON.stringify(chatMsg));
