@@ -15,22 +15,25 @@ export class MMBBSBOT {
     // load css
     const head = document.querySelector("head");
     const css = document.createElement("link");
-    css.href = this.settings.protocol + "://" + this.settings.host + ":" + this.settings.port + "/styles.css";
-    css.rel = "stylesheet";
-    head.appendChild(css);
-
-    // Create chat icon
-    const chatIcon = document.createElement("div");
-    chatIcon.id = "chat-icon";
-    chatIcon.className = "chat-icon";
-    chatIcon.innerHTML =
-      '<img src="' +
+    css.href =
       this.settings.protocol +
       "://" +
       this.settings.host +
       ":" +
       this.settings.port +
-      '/chat-icon.png" alt="Chat Icon">';
+      "/styles.css";
+    css.rel = "stylesheet";
+    head.appendChild(css);
+
+    // Create chat icon
+    const chatIcon = document.createElement("div");
+    const icon = this.settings.chat_icon
+      ? this.settings.chat_icon
+      : `${this.settings.protocol}://${this.settings.host}:${this.settings.port}/chat-icon.png`;
+   //console.log("icon: ", icon);
+    chatIcon.id = "chat-icon";
+    chatIcon.className = "chat-icon";
+    chatIcon.innerHTML = '<img src="' + icon + '" alt="Chat Icon">';
     chatIcon.onclick = this.toggleChat.bind(this);
     document.body.appendChild(chatIcon);
 
@@ -41,12 +44,16 @@ export class MMBBSBOT {
 
     // Create chat header
     const chatHeader = document.createElement("div");
+    const title = this.settings.title
+      ? this.settings.title
+      : "MMBbS GPT";
+
     chatHeader.className = "chat-header";
     chatHeader.innerHTML = `
             <div class="chat-header-icon-container">
-                <img src="${this.settings.protocol}://${this.settings.host}:${this.settings.port}/chat-icon.png" alt="Chat Icon" class="chat-header-icon">
+                <img src="${icon}" alt="Chat Icon" class="chat-header-icon">
             </div>
-            <h1>MMBbS GPT</h1>
+            <h1>${title}</h1>
             <div class="header-icon" onclick="toggleChat()">
                 <img src="${this.settings.protocol}://${this.settings.host}:${this.settings.port}/close-icon.png" alt="Close Icon">
             </div>
@@ -54,12 +61,13 @@ export class MMBBSBOT {
     chatContainer.appendChild(chatHeader);
 
     // Create chat window
+    const opener = this.settings.opener ? this.settings.opener : "Hallo, wie kann ich ihnen helfen?";
     const chatWindow = document.createElement("div");
     chatWindow.id = "chat-window";
     chatWindow.className = "chat-window";
     chatWindow.innerHTML = `
             <div class="message received">
-                <p>Hallo, wie kann ich ihnen helfen?</p>
+                <p>${opener}</p>
             </div>
         `;
     chatContainer.appendChild(chatWindow);
@@ -88,7 +96,7 @@ export class MMBBSBOT {
       (window.location.protocol === "https:" ? "443" : "80");
     const protocol = this.settings.protocol === "https" ? "wss" : "ws";
     const wsUrl = `${protocol}://${host}:${port}/api/chat`;
-    console.log('wsUrl: ', wsUrl);
+    console.log("wsUrl: ", wsUrl);
     this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {

@@ -73,7 +73,10 @@ Der Chatbot kann über folgende Anweisung in eine andere Webseite eingebaut werd
     const settings = {
         "host": "service.joerg-tuttas.de",
         "protocol":"https",
-        "port": 3000
+        "port": 3000,
+        "opener":"Hallo wie kann ich Ihnen helfen?",
+        "title":"Tuttas GPT",
+        "chat_icon": "https://service.joerg-tuttas.de/tu.png"
     };
 
     import {
@@ -82,6 +85,12 @@ Der Chatbot kann über folgende Anweisung in eine andere Webseite eingebaut werd
     const bot = new MMBBSBOT(settings);
 </script>
 ```
+
+**Die Anpassungen im Einzelnen:**
+
+- **opener** [optiona]: Begrüßungsnachricht
+- **title** [optiona]: Die Überschrift des Bots
+- **chat_icon** [optiona]: Die vollständige URL zum Chat-Icon
 
 ggf. muss natürlich die URL der Importanweisung angepasst werden.
 

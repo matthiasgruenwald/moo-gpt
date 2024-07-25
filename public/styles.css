@@ -2,7 +2,7 @@ body {
     height: 100vh;
     margin: 0;
     position: relative;
-    overflow: hidden;
+    
 }
 
 .chat-icon {
