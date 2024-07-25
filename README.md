@@ -88,9 +88,9 @@ Der Chatbot kann über folgende Anweisung in eine andere Webseite eingebaut werd
 
 **Die Anpassungen im Einzelnen:**
 
-- **opener** [optiona]: Begrüßungsnachricht
-- **title** [optiona]: Die Überschrift des Bots
-- **chat_icon** [optiona]: Die vollständige URL zum Chat-Icon
+- **opener** [optional]: Begrüßungsnachricht
+- **title** [optional]: Die Überschrift des Bots
+- **chat_icon** [optional]: Die vollständige URL zum Chat-Icon
 
 ggf. muss natürlich die URL der Importanweisung angepasst werden.
 
