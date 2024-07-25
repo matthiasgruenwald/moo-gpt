@@ -5,11 +5,11 @@ docker pushlocal:
   image: docker:stable
   stage: Push to local Registry
   only:
-    - main
+    - lehrer
   script:
     - echo "$LOCAL_REGISTRY" | docker login -u root --password-stdin service.joerg-tuttas.de:5555
-    - docker build -t service.joerg-tuttas.de:5555/root/mmbbs_gpt .
-    - docker push service.joerg-tuttas.de:5555/root/mmbbs_gpt
+    - docker build -t service.joerg-tuttas.de:5555/root/mmbbs_gpt:lehrer .
+    - docker push service.joerg-tuttas.de:5555/root/mmbbs_gpt:lehrer
   tags:
     - myrunner
 

@@ -76,7 +76,9 @@ Der Chatbot kann über folgende Anweisung in eine andere Webseite eingebaut werd
         "port": 3000,
         "opener":"Hallo wie kann ich Ihnen helfen?",
         "title":"Tuttas GPT",
-        "chat_icon": "https://service.joerg-tuttas.de/tu.png"
+        "chat_icon": "https://service.joerg-tuttas.de/tu.png",
+        "task":"Die konkrete Aufgabe",
+        "hints": "Zusätzliche Informationen im System Kontext"
     };
 
     import {
