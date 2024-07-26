@@ -101,6 +101,16 @@ export class MMBBSBOT {
 
     this.ws.onopen = () => {
       console.log("WebSocket connection established");
+
+      var obj={type:"settings",data:this.settings};
+      
+      // Das "setting"-Objekt als JSON-String senden
+      try {
+        this.ws.send(JSON.stringify(obj));
+        console.log('Settings sent successfully!'+JSON.stringify(obj));
+      } catch (error) {
+        console.error("Send error:", error);
+      }
     };
 
     this.ws.onerror = (error) => {
@@ -167,7 +177,7 @@ export class MMBBSBOT {
       message.innerHTML = `<p>${messageText}</p>`;
       chatWindow.appendChild(message);
       chatInput.value = "";
-      this.ws.send(JSON.stringify({ message: messageText }));
+      this.ws.send(JSON.stringify({ type: "chatmsg", data:{message: messageText }}));
 
       const loading = document.createElement("div");
       loading.className = "message_loading";

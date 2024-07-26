@@ -96,6 +96,8 @@ body {
     border-radius: 20px;
     max-width: 60%;
     word-wrap: break-word;
+    max-width: 100%; /* Stellt sicher, dass es nicht breiter wird */
+    
 }
 
 .received {

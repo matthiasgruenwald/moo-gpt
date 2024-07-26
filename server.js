@@ -1,4 +1,4 @@
-const VERSION = "1.3.3";
+const VERSION = "1.4.0";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -37,6 +37,98 @@ if (fs.existsSync(CERT_FILE) && fs.existsSync(KEY_FILE)) {
   console.log("Starting HTTP/WS server");
 }
 
+/**
+ * Middle ware to limit the number of requests from a single IP address
+ */
+const requests = {};
+
+function limitRequests(ws, req, next) {
+  const ip = req.socket.remoteAddress;
+  console.log("Client IP:", ip);
+
+  // Sicherstellen, dass das `requests` Objekt die IP enthält
+  if (!requests[ip]) {
+    requests[ip] = { count: 0, date: "" };
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Überprüfen, ob das Datum aktualisiert werden muss
+  if (requests[ip].date !== today) {
+    requests[ip].count = 0;
+    requests[ip].date = today;
+  }
+
+  // Erhöhe den Anfragenzähler
+  requests[ip].count++;
+
+  console.log("requests", JSON.stringify(requests[ip]));
+
+  // Prüfen, ob ein Limit definiert ist und ob es überschritten wurde
+  if (process.env.MAX_REQUESTS != undefined) {
+    if (requests[ip].count > process.env.MAX_REQUESTS) {
+      const chatMsg = {
+        end: true,
+        messages: "Error: Too many requests from this IP",
+      };
+      ws.send(JSON.stringify(chatMsg));
+      ws.close(1008, "Rate limit exceeded"); // Code 1008: Policy Violation
+      return;
+    }
+  }
+
+  next();
+}
+
+function checkOrigin(ws, req, next) {
+  const origin = req.headers.origin;
+  console.log("origin", origin);
+  if (process.env.ALLOWED_ORIGIN != undefined) {
+    console.log("ALLOWED_ORIGIN", process.env.ALLOWED_ORIGIN);
+    if (!origin.startsWith(process.env.ALLOWED_ORIGIN)) {
+      console.log("Origin not allowed");
+      ws.close(1008, "Origin not allowed");
+      return;
+    }
+  }
+  next();
+}
+
+function checkFormat(ws, msgObj, next) {
+  if (!msgObj.hasOwnProperty("type")) {
+    chatMsg.end = true;
+    chatMsg.messages =
+      "Error: Missing or wrong Parameter 'type' in JSON message";
+    ws.send(JSON.stringify(chatMsg));
+    console.log("Error: Missing or wrong Parameter 'type' in JSON message");
+    return;
+  } else if (typeof msgObj.type !== "string") {
+    chatMsg.end = true;
+    chatMsg.messages =
+      "Error: Parameter 'type' is not a string in JSON message";
+    ws.send(JSON.stringify(chatMsg));
+    console.log("Error: Parameter 'type' is not a string in JSON message");
+    return;
+  }
+  if (!msgObj.hasOwnProperty("data")) {
+    chatMsg.end = true;
+    chatMsg.messages =
+      "Error: Missing or wrong Parameter 'data' in JSON message";
+    ws.send(JSON.stringify(chatMsg));
+    console.log("Error: Missing or wrong Parameter 'data' in JSON message");
+    return;
+  } else if (typeof msgObj.data !== "object") {
+    chatMsg.end = true;
+    chatMsg.messages =
+      "Error: Parameter 'data' is not a object in JSON message";
+    ws.send(JSON.stringify(chatMsg));
+    console.log("Error: Parameter 'data' is not a object in JSON message");
+    return;
+  }
+
+  next();
+}
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -54,6 +146,7 @@ if (process.env.AID === undefined) {
 const oai = new OpenAI({
   apiKey: process.env.APIKEY,
 });
+var assistant = await oai.beta.assistants.retrieve(process.env.AID);
 
 var resContent = "";
 
@@ -174,12 +267,11 @@ class EventHandler extends EventEmitter {
         if (r != undefined) {
           resContent = r[0].content[0].text.value;
           resContent = resContent.replace("\r\n\r\n", "\r\n");
-          console.log('Antwort: ' + resContent);
+          console.log("Antwort: " + resContent);
           chatMsg.messages = converter.makeHtml(resContent);
           chatMsg.end = true;
           pendingFunctions = false;
           this.ws.send(JSON.stringify(chatMsg));
-
         }
       } else if (event.event === "thread.message.completed") {
         var citation = "<br><br><b>Quelle(n):</b>&nbsp;";
@@ -259,7 +351,6 @@ class EventHandler extends EventEmitter {
 
   async handleRunStatus(run, threadId) {
     console.log("handleRunStatus called:");
-    
 
     // Check if the run is completed
     if (run.status === "completed") {
@@ -290,44 +381,148 @@ class EventHandler extends EventEmitter {
   }
 }
 
-var assistant = await oai.beta.assistants.retrieve(process.env.AID);
-var requests = {};
-
 var chatMsg = {
   end: false,
   messages: "",
 };
 
+var thread = undefined;
+var settings = undefined;
 app.ws("/api/chat", async (ws, req) => {
-  const origin = req.headers.origin;
-  console.log("origin", origin);
-  if (process.env.ALLOWED_ORIGIN != undefined) {
-    console.log("ALLOWED_ORIGIN", process.env.ALLOWED_ORIGIN);
-    if (!origin.startsWith(process.env.ALLOWED_ORIGIN)) {
-      console.log("Origin not allowed");
-      ws.close();
-      return;
-    }
-  }
+  limitRequests(ws, req, () => {
+    checkOrigin(ws, req, () => {
+      ws.on("message", (message) => {
+        console.log("Message received:", message);
+        try {
+          var msgObj = JSON.parse(message);
+          console.log("msgObj:", JSON.stringify(msgObj, null, 2));
+          checkFormat(ws, msgObj, async () => {
+            switch (msgObj.type) {
+              case "settings":
+                settings = msgObj.data;
+                console.log("Settings received: " + JSON.stringify(settings));
+                console.log("ws connection opened");
+                thread = await oai.beta.threads.create();
+                console.log("thread created" + thread.id);
 
-  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-  var currentTime = new Date().toLocaleString();
-  console.log(`New WS connection from IP: ${ip} at ${currentTime}`);
+                break;
+              case "chatmsg":
+                // Handle user typing notification
+                if (msgObj.data.message === "about") {
+                  resContent =
+                    "**Version " +
+                    VERSION +
+                    "**\r\n\r\n 2024 by Dr. Jörg Tuttas.";
+                  chatMsg.messages = converter.makeHtml(resContent);
+                  chatMsg.end = true;
+                  ws.send(JSON.stringify(chatMsg));
+                  return;
+                } else {
+                  handleMsg(ws, thread, msgObj.data.message);
+                }
+                break;
+              default:
+                // Handle unknown message type
+                break;
+            }
+          });
+        } catch (error) {
+          chatMsg.end = true;
+          chatMsg.messages = "Error: " + error.message;
+          ws.send(JSON.stringify(chatMsg));
+          console.log("Error: ", error);
+          return;
+        }
+      });
+    });
+  });
+});
 
-  const thread = await oai.beta.threads.create();
-  console.log("thread created");
+function handleMsg(ws, thread, userMessage) {
+  console.log("handleMsg called " + thread.id);
+  var citations = [];
+  const eventHandler = new EventHandler(oai, ws, citations);
+  eventHandler.on("event", eventHandler.onEvent.bind(eventHandler));
 
-  // Initialize request count for this IP if it doesn't exist
-  var today = new Date().toISOString().slice(0, 10);
-  if (!requests[ip]) {
-    requests[ip] = { count: 0, date: today };
-  } else if (requests[ip].date !== today) {
-    // Reset the count if the date has changed
-    requests[ip].count = 0;
-    requests[ip].date = today;
-  }
+  var citationindex = 1;
+  resContent = "";
 
-  ws.on("message", async (message) => {
+  console.log("Message received:", userMessage);
+
+  const msg = oai.beta.threads.messages.create(thread.id, {
+    role: "user",
+    content: userMessage,
+  });
+
+  chatMsg = {
+    end: false,
+    messages: userMessage,
+  };
+
+  moment.locale("de");
+
+  const now = moment();
+  const dayName = now.format("dddd");
+  const date = now.format("DD.MM.YYYY");
+  const time = now.format("HH:mm");
+
+  console.log(`Heute ist ${dayName}, der ${date} um ${time}`);
+
+  const run = oai.beta.threads.runs
+    .stream(
+      thread.id,
+      {
+        assistant_id: process.env.AID,
+        instructions:
+          assistant.instructions +
+          `.Heute ist ${dayName}, der ${date} um ${time}.` +
+          settings.hints +
+          settings.task,
+      },
+      eventHandler
+    )
+    .on("event", (event) => {
+      eventHandler.emit("event", event);
+    })
+    .on("textDelta", async (textDelta, snapshot) => {
+      if (textDelta.hasOwnProperty("annotations")) {
+        for (let annotation of textDelta.annotations) {
+          const { file_citation } = annotation;
+          if (file_citation) {
+            console.log("File Citation", file_citation.file_id);
+            citations.push(file_citation.file_id);
+          }
+          textDelta.value = " [" + citationindex + "] ";
+          citationindex++;
+        }
+        resContent += textDelta.value;
+      } else {
+        resContent += textDelta.value;
+      }
+      chatMsg.messages = converter.makeHtml(resContent);
+      ws.send(JSON.stringify(chatMsg));
+    })
+    .on("end", async () => {
+      console.log("End event called: pendingFuntions=" + pendingFunctions);
+      resContent = resContent.replace("sandbox:/mnt/data/", "storage/");
+      resContent = resContent.replace("\r\n\r\n", "\r\n");
+      if (!pendingFunctions) {
+        console.log("Antwort: " + resContent);
+        chatMsg.end = true;
+        chatMsg.messages = converter.makeHtml(resContent);
+        ws.send(JSON.stringify(chatMsg));
+      }
+    });
+}
+
+/*
+  ws.on("connection", (ws,req) => {
+    console.log("WS connection opened");
+    const thread = oai.beta.threads.create();
+    console.log("thread created");
+  });
+  ws.on("message", (message) => {
+    console.log("Message received:", message);
     var citations = [];
     const eventHandler = new EventHandler(oai, ws, citations);
     eventHandler.on("event", eventHandler.onEvent.bind(eventHandler));
@@ -337,49 +532,10 @@ app.ws("/api/chat", async (ws, req) => {
     try {
       console.log("Message received:", message);
       const msgObj = JSON.parse(message);
-
-      if (!msgObj.hasOwnProperty("message")) {
-        chatMsg.end = true;
-        chatMsg.messages =
-          "Error: Missing or wrong Parameter 'message' in JSON message";
-        ws.send(JSON.stringify(chatMsg));
-        console.log(
-          "Error: Missing or wrong Parameter 'message' in JSON message"
-        );
-        return;
-      } else if (typeof msgObj.message !== "string") {
-        chatMsg.end = true;
-        chatMsg.messages =
-          "Error: Parameter 'message' is not a string in JSON message";
-        ws.send(JSON.stringify(chatMsg));
-        console.log(
-          "Error: Parameter 'message' is not a string in JSON message"
-        );
-        return;
-      }
-
-      currentTime = new Date().toLocaleString();
+      const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+      var currentTime = new Date().toLocaleString();
       const userMessage = JSON.parse(message).message;
       console.log(`\r\nuserMessage ${ip} at ${currentTime}:`, userMessage);
-
-      today = new Date().toISOString().slice(0, 10);
-      // Increment request count for this IP
-      if (requests[ip].date !== today) {
-        requests[ip].count = 0;
-        requests[ip].date = today;
-      }
-      requests[ip].count++;
-
-      console.log("requests", JSON.stringify(requests[ip]));
-      if (process.env.MAX_REQUESTS != undefined) {
-        if (requests[ip].count > process.env.MAX_REQUESTS) {
-          chatMsg.end = true;
-          chatMsg.messages = "Error: Too many requests from this IP";
-          ws.send(JSON.stringify(chatMsg));
-          ws.close();
-          return;
-        }
-      }
 
       if (userMessage === "about") {
         resContent =
@@ -390,7 +546,7 @@ app.ws("/api/chat", async (ws, req) => {
         return;
       }
 
-      const msg = await oai.beta.threads.messages.create(thread.id, {
+      const msg = oai.beta.threads.messages.create(thread.id, {
         role: "user",
         content: userMessage,
       });
@@ -442,13 +598,11 @@ app.ws("/api/chat", async (ws, req) => {
           ws.send(JSON.stringify(chatMsg));
         })
         .on("end", async () => {
-          console.log(
-            "End event called: pendingFuntions=" + pendingFunctions
-          );
+          console.log("End event called: pendingFuntions=" + pendingFunctions);
           resContent = resContent.replace("sandbox:/mnt/data/", "storage/");
           resContent = resContent.replace("\r\n\r\n", "\r\n");
           if (!pendingFunctions) {
-            console.log('Antwort: ' + resContent);
+            console.log("Antwort: " + resContent);
             chatMsg.end = true;
             chatMsg.messages = converter.makeHtml(resContent);
             ws.send(JSON.stringify(chatMsg));
@@ -463,6 +617,7 @@ app.ws("/api/chat", async (ws, req) => {
     }
   });
 });
+*/
 
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
