@@ -78,7 +78,7 @@ Der Chatbot kann über folgende Anweisung in eine andere Webseite eingebaut werd
         "title":"Tuttas GPT",
         "chat_icon": "https://service.joerg-tuttas.de/tu.png",
         "task":"Die konkrete Aufgabe",
-        "hints": "Zusätzliche Informationen im System Kontext"
+        "hints": "Du bist Experte in Java Programmierung."
     };
 
     import {
@@ -96,4 +96,32 @@ Der Chatbot kann über folgende Anweisung in eine andere Webseite eingebaut werd
 
 ggf. muss natürlich die URL der Importanweisung angepasst werden.
 
+## Einfügen in eine Moodle Aufgabe
+
+```html
+<script type="module" async="" id="mmbbs-bot">
+    // Wählt das erste Element mit der Klasse "activity-description" aus
+    var element = document.querySelector('.activity-description');
+    var htmlContent = element.innerHTML;
+    const settings = {
+        "host": "service.joerg-tuttas.de",
+        "protocol": "https",
+        "port": 3001,
+        "opener": "Hallo wie kann ich Dir bei der Aufgabe helfen?",
+        "chat_icon": "https://service.joerg-tuttas.de/tu.png",
+        "title": "Tuttas GPT",
+        "task": htmlContent,
+        "hints": "Du bist Experte in Java Programmierung, Du erstellst aber keinen Java Code als Beispiel sondern gibst lediglich Lösungshinweise."
+    };
+
+    import {
+        MMBBSBOT
+    } from 'https://service.joerg-tuttas.de:3001/mmbbs-bot.js';
+    const bot = new MMBBSBOT(settings);
+</script>
+```
+
 ## ToDo
+
+- Middle Ware testen
+- Syntax Highlightning

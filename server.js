@@ -294,6 +294,7 @@ class EventHandler extends EventEmitter {
             citation += "[" + num + "]:" + citedFile.filename;
           }
           num++;
+          resContent = resContent.replace("\r\n\r\n", "\r\n");
           chatMsg.messages = converter.makeHtml(resContent + citation);
           this.ws.send(JSON.stringify(chatMsg));
         });
@@ -499,6 +500,7 @@ function handleMsg(ws, thread, userMessage) {
       } else {
         resContent += textDelta.value;
       }
+      resContent = resContent.replace("\r\n\r\n", "\r\n");
       chatMsg.messages = converter.makeHtml(resContent);
       ws.send(JSON.stringify(chatMsg));
     })

@@ -36,6 +36,14 @@ function showConnectionLostMessage() {
 
 ws.onopen = function () {
   console.log("WebSocket connection established");
+  const settings = {
+    opener: "Hallo wie kann ich Ihnen helfen?",
+    title: "Tuttas GPT",
+    chat_icon: "https://service.joerg-tuttas.de/tu.png",
+    task: "",
+    hints: "",
+  };
+  ws.send(JSON.stringify({ type: "settings", data: settings }));
 };
 
 ws.onerror = function (error) {
@@ -102,7 +110,9 @@ function sendMessage() {
     message.innerHTML = `<p>${messageText}</p>`;
     chatWindow.appendChild(message);
     chatInput.value = "";
-    ws.send(JSON.stringify({ message: messageText }));
+    ws.send(
+      JSON.stringify({ type: "chatmsg", data: { message: messageText } })
+    );
     // Füge ein loading.gif hinzu
     const loading = document.createElement("div");
     loading.className = "message_loading";
