@@ -42,7 +42,7 @@ if (fs.existsSync(CERT_FILE) && fs.existsSync(KEY_FILE)) {
  */
 const requests = {};
 
-function limitRequests(ws, req, next) {
+function limitRequests(ws, req,message, next) {
   const ip = req.socket.remoteAddress;
   console.log("Client IP:", ip);
 
@@ -63,7 +63,7 @@ function limitRequests(ws, req, next) {
   requests[ip].count++;
 
   console.log("requests", JSON.stringify(requests[ip]));
-
+  console.log("MAX_REQUESTS", process.env.MAX_REQUESTS);
   // Prüfen, ob ein Limit definiert ist und ob es überschritten wurde
   if (process.env.MAX_REQUESTS != undefined) {
     if (requests[ip].count > process.env.MAX_REQUESTS) {
@@ -86,6 +86,11 @@ function checkOrigin(ws, req, next) {
   if (process.env.ALLOWED_ORIGIN != undefined) {
     console.log("ALLOWED_ORIGIN", process.env.ALLOWED_ORIGIN);
     if (!origin.startsWith(process.env.ALLOWED_ORIGIN)) {
+      const chatMsg = {
+        end: true,
+        messages: "Error: Origin not allowed",
+      };
+      ws.send(JSON.stringify(chatMsg));
       console.log("Origin not allowed");
       ws.close(1008, "Origin not allowed");
       return;
@@ -390,9 +395,9 @@ var chatMsg = {
 var thread = undefined;
 var settings = undefined;
 app.ws("/api/chat", async (ws, req) => {
-  limitRequests(ws, req, () => {
-    checkOrigin(ws, req, () => {
-      ws.on("message", (message) => {
+  checkOrigin(ws, req, () => {
+    ws.on("message", (message) => {
+      limitRequests(ws, req, message, () => {
         console.log("Message received:", message);
         try {
           var msgObj = JSON.parse(message);
