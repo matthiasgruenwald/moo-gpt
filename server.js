@@ -1,4 +1,4 @@
-const VERSION = "1.4.1";
+const VERSION = "1.4.2";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -393,16 +393,16 @@ var chatMsg = {
   messages: "",
 };
 
-var thread = undefined;
-var settings = undefined;
-var citations = [];
-var eventHandler = undefined;
 app.ws("/api/chat", (ws, req) => {
   checkOrigin(ws, req, () => {
     settings = {
       hints: "",
       task: "",
     };
+    var thread = undefined;
+    var settings = undefined;
+    var citations = [];
+    var eventHandler = undefined;
 
     ws.on("message", (message) => {
       limitRequests(ws, req, message, () => {
@@ -435,7 +435,7 @@ app.ws("/api/chat", (ws, req) => {
                   ws.send(JSON.stringify(chatMsg));
                   return;
                 } else {
-                  handleMsg(ws, thread, msgObj.data.message);
+                  handleMsg(ws, thread, msgObj.data.message,settings,eventHandler);
                 }
                 break;
               default:
@@ -455,9 +455,7 @@ app.ws("/api/chat", (ws, req) => {
   });
 });
 
-var run=undefined;
-
-function handleMsg(ws, thread, userMessage) {
+function handleMsg(ws, thread, userMessage,settings,eventHandler) {
   console.log("handleMsg called " + thread.id);
 
   var citationindex = 1;
@@ -483,10 +481,10 @@ function handleMsg(ws, thread, userMessage) {
   const time = now.format("HH:mm");
 
   console.log(`Heute ist ${dayName}, der ${date} um ${time}`);
-  console.log('task='+settings.task);
+  console.log("task=" + settings.task);
 
   try {
-    run = oai.beta.threads.runs
+    var run = oai.beta.threads.runs
       .stream(
         thread.id,
         {
