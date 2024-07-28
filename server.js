@@ -1,4 +1,4 @@
-const VERSION = "1.4.0";
+const VERSION = "1.4.1";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -13,6 +13,7 @@ import https from "https";
 import cors from "cors";
 import { encode } from "querystring";
 import moment from "moment";
+import { log } from "console";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -42,7 +43,7 @@ if (fs.existsSync(CERT_FILE) && fs.existsSync(KEY_FILE)) {
  */
 const requests = {};
 
-function limitRequests(ws, req,message, next) {
+function limitRequests(ws, req, message, next) {
   const ip = req.socket.remoteAddress;
   console.log("Client IP:", ip);
 
@@ -394,8 +395,15 @@ var chatMsg = {
 
 var thread = undefined;
 var settings = undefined;
-app.ws("/api/chat", async (ws, req) => {
+var citations = [];
+var eventHandler = undefined;
+app.ws("/api/chat", (ws, req) => {
   checkOrigin(ws, req, () => {
+    settings = {
+      hints: "",
+      task: "",
+    };
+
     ws.on("message", (message) => {
       limitRequests(ws, req, message, () => {
         console.log("Message received:", message);
@@ -407,10 +415,13 @@ app.ws("/api/chat", async (ws, req) => {
               case "settings":
                 settings = msgObj.data;
                 console.log("Settings received: " + JSON.stringify(settings));
-                console.log("ws connection opened");
                 thread = await oai.beta.threads.create();
-                console.log("thread created" + thread.id);
-
+                console.log("thread created:" + thread.id);
+                eventHandler = new EventHandler(oai, ws, citations);
+                eventHandler.on(
+                  "event",
+                  eventHandler.onEvent.bind(eventHandler)
+                );
                 break;
               case "chatmsg":
                 // Handle user typing notification
@@ -444,11 +455,10 @@ app.ws("/api/chat", async (ws, req) => {
   });
 });
 
+var run=undefined;
+
 function handleMsg(ws, thread, userMessage) {
   console.log("handleMsg called " + thread.id);
-  var citations = [];
-  const eventHandler = new EventHandler(oai, ws, citations);
-  eventHandler.on("event", eventHandler.onEvent.bind(eventHandler));
 
   var citationindex = 1;
   resContent = "";
@@ -473,53 +483,61 @@ function handleMsg(ws, thread, userMessage) {
   const time = now.format("HH:mm");
 
   console.log(`Heute ist ${dayName}, der ${date} um ${time}`);
+  console.log('task='+settings.task);
 
-  const run = oai.beta.threads.runs
-    .stream(
-      thread.id,
-      {
-        assistant_id: process.env.AID,
-        instructions:
-          assistant.instructions +
-          `.Heute ist ${dayName}, der ${date} um ${time}.` +
-          settings.hints +
-          settings.task,
-      },
-      eventHandler
-    )
-    .on("event", (event) => {
-      eventHandler.emit("event", event);
-    })
-    .on("textDelta", async (textDelta, snapshot) => {
-      if (textDelta.hasOwnProperty("annotations")) {
-        for (let annotation of textDelta.annotations) {
-          const { file_citation } = annotation;
-          if (file_citation) {
-            console.log("File Citation", file_citation.file_id);
-            citations.push(file_citation.file_id);
+  try {
+    run = oai.beta.threads.runs
+      .stream(
+        thread.id,
+        {
+          assistant_id: process.env.AID,
+          instructions:
+            assistant.instructions +
+            `.Heute ist ${dayName}, der ${date} um ${time}.` +
+            settings.hints +
+            settings.task,
+        },
+        eventHandler
+      )
+      .on("event", (event) => {
+        eventHandler.emit("event", event);
+      })
+      .on("textDelta", async (textDelta, snapshot) => {
+        if (textDelta.hasOwnProperty("annotations")) {
+          for (let annotation of textDelta.annotations) {
+            const { file_citation } = annotation;
+            if (file_citation) {
+              console.log("File Citation", file_citation.file_id);
+              citations.push(file_citation.file_id);
+            }
+            textDelta.value = " [" + citationindex + "] ";
+            citationindex++;
           }
-          textDelta.value = " [" + citationindex + "] ";
-          citationindex++;
+          resContent += textDelta.value;
+        } else {
+          resContent += textDelta.value;
         }
-        resContent += textDelta.value;
-      } else {
-        resContent += textDelta.value;
-      }
-      resContent = resContent.replace("\r\n\r\n", "\r\n");
-      chatMsg.messages = converter.makeHtml(resContent);
-      ws.send(JSON.stringify(chatMsg));
-    })
-    .on("end", async () => {
-      console.log("End event called: pendingFuntions=" + pendingFunctions);
-      resContent = resContent.replace("sandbox:/mnt/data/", "storage/");
-      resContent = resContent.replace("\r\n\r\n", "\r\n");
-      if (!pendingFunctions) {
-        console.log("Antwort: " + resContent);
-        chatMsg.end = true;
+        resContent = resContent.replace("\r\n\r\n", "\r\n");
         chatMsg.messages = converter.makeHtml(resContent);
         ws.send(JSON.stringify(chatMsg));
-      }
-    });
+      })
+      .on("end", async () => {
+        console.log("End event called: pendingFuntions=" + pendingFunctions);
+        resContent = resContent.replace("sandbox:/mnt/data/", "storage/");
+        resContent = resContent.replace("\r\n\r\n", "\r\n");
+        if (!pendingFunctions) {
+          console.log("Antwort: " + resContent);
+          chatMsg.end = true;
+          chatMsg.messages = converter.makeHtml(resContent);
+          ws.send(JSON.stringify(chatMsg));
+        }
+      });
+  } catch (error) {
+    chatMsg.end = true;
+    chatMsg.messages = "Error: " + error.message;
+    ws.send(JSON.stringify(chatMsg));
+    console.log("Error: ", error);
+  }
 }
 
 /*
