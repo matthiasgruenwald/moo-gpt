@@ -1,4 +1,4 @@
-const VERSION = "1.4.2";
+const VERSION = "1.4.3";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -537,110 +537,6 @@ function handleMsg(ws, thread, userMessage,settings,eventHandler) {
     console.log("Error: ", error);
   }
 }
-
-/*
-  ws.on("connection", (ws,req) => {
-    console.log("WS connection opened");
-    const thread = oai.beta.threads.create();
-    console.log("thread created");
-  });
-  ws.on("message", (message) => {
-    console.log("Message received:", message);
-    var citations = [];
-    const eventHandler = new EventHandler(oai, ws, citations);
-    eventHandler.on("event", eventHandler.onEvent.bind(eventHandler));
-
-    var citationindex = 1;
-    resContent = "";
-    try {
-      console.log("Message received:", message);
-      const msgObj = JSON.parse(message);
-      const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-      var currentTime = new Date().toLocaleString();
-      const userMessage = JSON.parse(message).message;
-      console.log(`\r\nuserMessage ${ip} at ${currentTime}:`, userMessage);
-
-      if (userMessage === "about") {
-        resContent =
-          "**Version " + VERSION + "**\r\n\r\n 2024 by Dr. Jörg Tuttas.";
-        chatMsg.messages = converter.makeHtml(resContent);
-        chatMsg.end = true;
-        ws.send(JSON.stringify(chatMsg));
-        return;
-      }
-
-      const msg = oai.beta.threads.messages.create(thread.id, {
-        role: "user",
-        content: userMessage,
-      });
-
-      chatMsg = {
-        end: false,
-        messages: userMessage,
-      };
-
-      moment.locale("de");
-
-      const now = moment();
-      const dayName = now.format("dddd");
-      const date = now.format("DD.MM.YYYY");
-      const time = now.format("HH:mm");
-
-      console.log(`Heute ist ${dayName}, der ${date} um ${time}`);
-
-      const run = oai.beta.threads.runs
-        .stream(
-          thread.id,
-          {
-            assistant_id: process.env.AID,
-            instructions:
-              assistant.instructions +
-              `.Heute ist ${dayName}, der ${date} um ${time}`,
-          },
-          eventHandler
-        )
-        .on("event", (event) => {
-          eventHandler.emit("event", event);
-        })
-        .on("textDelta", async (textDelta, snapshot) => {
-          if (textDelta.hasOwnProperty("annotations")) {
-            for (let annotation of textDelta.annotations) {
-              const { file_citation } = annotation;
-              if (file_citation) {
-                console.log("File Citation", file_citation.file_id);
-                citations.push(file_citation.file_id);
-              }
-              textDelta.value = " [" + citationindex + "] ";
-              citationindex++;
-            }
-            resContent += textDelta.value;
-          } else {
-            resContent += textDelta.value;
-          }
-          chatMsg.messages = converter.makeHtml(resContent);
-          ws.send(JSON.stringify(chatMsg));
-        })
-        .on("end", async () => {
-          console.log("End event called: pendingFuntions=" + pendingFunctions);
-          resContent = resContent.replace("sandbox:/mnt/data/", "storage/");
-          resContent = resContent.replace("\r\n\r\n", "\r\n");
-          if (!pendingFunctions) {
-            console.log("Antwort: " + resContent);
-            chatMsg.end = true;
-            chatMsg.messages = converter.makeHtml(resContent);
-            ws.send(JSON.stringify(chatMsg));
-          }
-        });
-    } catch (error) {
-      chatMsg.end = true;
-      chatMsg.messages = "Error: " + error.message;
-
-      ws.send(JSON.stringify(chatMsg));
-      console.log("Error: ", error);
-    }
-  });
-});
-*/
 
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

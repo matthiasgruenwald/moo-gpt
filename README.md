@@ -123,5 +123,4 @@ ggf. muss natürlich die URL der Importanweisung angepasst werden.
 
 ## ToDo
 
-- Middle Ware testen
 - Syntax Highlightning
