@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown to HTML with LaTeX</title>
+    <!-- MathJax -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: {
+                fontCache: 'global'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- Marked.js -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Prism.js -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js"></script>
+    <!-- Add more languages if needed -->
+</head>
+
+<body>
+    <div id="mdcontent"></div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            var markdownContent = `
+# Beispiel:
+\`\`\`python
+# Dies ist ein Kommentar. Er wird vom Python-Interpreter ignoriert.
+
+import math # Importiert die Mathematikbibliothek
+
+# Berechne den Umfang eines Kreises mit einem Radius von 5
+radius = 5
+umfang = 2 * math.pi * radius # Formel für den Umfang
+
+print("Der Umfang des Kreises beträgt:", umfang) # Ausgabe des Ergebnisses
+\`\`\`
+
+1. **Verstehe das Ziel**: Das ursprüngliche Programm wandelt Grad in Bogenmaß um. Deine Aufgabe besteht darin,
+den umgekehrten Prozess durchzuführen, d.h. Bogenmaß in Grad umzurechnen.
+
+2. **Recherchiere die Formel**: Du musst wissen, dass es eine Beziehung zwischen Grad und Bogenmaß gibt. Diese
+lautet:
+\[\\text{Grad} = \\text{Bogenmaß} \\times \\frac{180}{\\pi}\]
+
+
+3. **Schritte im Code**:
+- Importiere wie im ursprünglichen Programm die \`math\`-Bibliothek.
+- Ändere die Eingabe so, dass nach Bogenmaß gefragt wird.
+- Verwende die Umrechnungsformel, um Bogenmaß in Grad zu konvertieren.
+- Gib das Ergebnis in Grad aus.
+            `;
+
+            markdownContent = markdownContent.replace("\[", '$$');
+            markdownContent = markdownContent.replace("\]", '$$');
+
+            // Markdown in HTML umwandeln
+            const htmlContent = marked.parse(markdownContent);
+
+            // In die Webseite einfügen
+            document.getElementById('mdcontent').innerHTML = htmlContent;
+
+            // Syntax-Highlighting anwenden
+            Prism.highlightAll();
+
+            // MathJax anwenden
+            MathJax.typesetPromise(["#mdcontent"]);
+
+        });
+    </script>
+</body>
+
+</html>
