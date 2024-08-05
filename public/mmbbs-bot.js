@@ -102,19 +102,30 @@ export class MMBBSBOT {
 
     // Load katex.js
     const katexScript = document.createElement("script");
-    katexScript.src = "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js";
+    katexScript.src =
+      "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js";
+    katexScript.defer = true;
+    katexScript.onload = () => {
+      console.log("KaTeX loaded");
+    };
     document.head.appendChild(katexScript);
 
     const katexScript2 = document.createElement("script");
     katexScript2.src =
       "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js";
+    katexScript2.defer = true;
+    katexScript2.onload = () => {
+      console.log("KaTeX auto-render loaded");
+    };
     document.head.appendChild(katexScript2);
-
-
 
     // Load Marked.js
     const markedScript = document.createElement("script");
     markedScript.src = "https://cdn.jsdelivr.net/npm/marked/marked.min.js";
+    markedScript.defer = true;
+    markedScript.onload = () => {
+      console.log("Marked.js loaded");
+    };
     document.head.appendChild(markedScript);
 
     // Load Prism.js CSS
@@ -128,25 +139,39 @@ export class MMBBSBOT {
     const prismScript = document.createElement("script");
     prismScript.src =
       "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js";
+    prismScript.defer = true;
+    prismScript.onload = () => {
+      console.log("Prism.js loaded");
+      Prism.highlightAll();
+    };
     document.head.appendChild(prismScript);
 
     const prismPythonScript = document.createElement("script");
     prismPythonScript.src =
       "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js";
+    prismPythonScript.defer = true;
+    prismPythonScript.onload = () => {
+      console.log("Prism Python loaded");
+    };
     document.head.appendChild(prismPythonScript);
+
     const prismJavaScript = document.createElement("script");
     prismJavaScript.src =
       "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js";
+    prismJavaScript.defer = true;
+    prismJavaScript.onload = () => {
+      console.log("Prism Java loaded");
+    };
     document.head.appendChild(prismJavaScript);
+
     const prismJsonScript = document.createElement("script");
     prismJsonScript.src =
       "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js";
+    prismJsonScript.defer = true;
+    prismJsonScript.onload = () => {
+      console.log("Prism JSON loaded");
+    };
     document.head.appendChild(prismJsonScript);
-
-    // Add more languages if needed
-    // const prismAnotherLangScript = document.createElement("script");
-    // prismAnotherLangScript.src = "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-<language>.min.js";
-    // document.head.appendChild(prismAnotherLangScript);
   }
 
   setupWebSocket() {
@@ -204,8 +229,8 @@ export class MMBBSBOT {
         // Ersetzen von \) durch $#
         messageText = messageText.replace(/\\\)/g, "$#");
         // Markdown in HTML umwandeln
-        //const htmlContent = marked.parse(messageText);
-        const htmlContent = messageText;
+        const htmlContent = marked.parse(messageText);
+        //const htmlContent = messageText;
         if (this.msgCount == 0) {
           const loading = document.getElementById("loading");
           if (loading) {
