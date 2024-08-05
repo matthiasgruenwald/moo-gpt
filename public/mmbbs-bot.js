@@ -119,15 +119,17 @@ loadExternalLibraries() {
     };
 
     return Promise.all([
+      loadScript('https://cdn.jsdelivr.net/npm/marked/marked.min.js'),
+      /*
       loadCss('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.css'),
       loadScript('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js'),
       loadScript('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js'),
-      loadScript('https://cdn.jsdelivr.net/npm/marked/marked.min.js'),
       loadCss('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism.min.css'),
       loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js'),
       loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js'),
       loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js'),
       loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js'),
+      */
     ]);
   }
  
