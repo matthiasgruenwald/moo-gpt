@@ -232,8 +232,8 @@ export class MMBBSBOT {
         // Ersetzen von \) durch $#
         messageText = messageText.replace(/\\\)/g, "$#");
         // Markdown in HTML umwandeln
-        const htmlContent = marked.parse(messageText);
-        //const htmlContent = messageText;
+        //const htmlContent = marked.parse(messageText);
+        const htmlContent = messageText;
         if (this.msgCount == 0) {
           const loading = document.getElementById("loading");
           if (loading) {
