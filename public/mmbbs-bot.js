@@ -245,29 +245,33 @@ export class MMBBSBOT {
           message.innerHTML = `${htmlContent}`;
           chatWindow.appendChild(message);
           var mathDiv = message;
+          /*
           renderMathInElement(mathDiv, {
             delimiters: [
               { left: "$$", right: "$$", display: true },
               { left: "$", right: "$", display: false },
             ],
           });
+          */
         } else {
           const lastReceivedMessage = chatWindow.querySelector(
             ".message.received:last-child"
           );
           lastReceivedMessage.innerHTML = `${htmlContent}`;
           var mathDiv = lastReceivedMessage;
+          /*
           renderMathInElement(mathDiv, {
             delimiters: [
               { left: "$$", right: "$$", display: true },
               { left: "$", right: "$", display: false },
             ],
           });
+          */
         }
         this.msgCount += 1;
 
         // Syntax-Highlighting anwenden
-        Prism.highlightAll();
+        //Prism.highlightAll();
 
         if (messageObj.end == true) {
           chatInput.disabled = false;
