@@ -25,12 +25,15 @@ export class MMBBSBOT {
     css.rel = "stylesheet";
     head.appendChild(css);
 
+    // Load external libraries
+    this.loadExternalLibraries();
+
     // Create chat icon
     const chatIcon = document.createElement("div");
     const icon = this.settings.chat_icon
       ? this.settings.chat_icon
       : `${this.settings.protocol}://${this.settings.host}:${this.settings.port}/chat-icon.png`;
-   //console.log("icon: ", icon);
+    //console.log("icon: ", icon);
     chatIcon.id = "chat-icon";
     chatIcon.className = "chat-icon";
     chatIcon.innerHTML = '<img src="' + icon + '" alt="Chat Icon">';
@@ -44,9 +47,7 @@ export class MMBBSBOT {
 
     // Create chat header
     const chatHeader = document.createElement("div");
-    const title = this.settings.title
-      ? this.settings.title
-      : "MMBbS GPT";
+    const title = this.settings.title ? this.settings.title : "MMBbS GPT";
 
     chatHeader.className = "chat-header";
     chatHeader.innerHTML = `
@@ -61,7 +62,9 @@ export class MMBBSBOT {
     chatContainer.appendChild(chatHeader);
 
     // Create chat window
-    const opener = this.settings.opener ? this.settings.opener : "Hallo, wie kann ich ihnen helfen?";
+    const opener = this.settings.opener
+      ? this.settings.opener
+      : "Hallo, wie kann ich ihnen helfen?";
     const chatWindow = document.createElement("div");
     chatWindow.id = "chat-window";
     chatWindow.className = "chat-window";
@@ -89,6 +92,63 @@ export class MMBBSBOT {
     window.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
+  loadExternalLibraries() {
+    // Load KaTeX CSS
+    const katexCss = document.createElement("link");
+    katexCss.href =
+      "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.css";
+    katexCss.rel = "stylesheet";
+    document.head.appendChild(katexCss);
+
+    // Load katex.js
+    const katexScript = document.createElement("script");
+    katexScript.src = "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js";
+    document.head.appendChild(katexScript);
+
+    const katexScript2 = document.createElement("script");
+    katexScript2.src =
+      "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js";
+    document.head.appendChild(katexScript2);
+
+
+
+    // Load Marked.js
+    const markedScript = document.createElement("script");
+    markedScript.src = "https://cdn.jsdelivr.net/npm/marked/marked.min.js";
+    document.head.appendChild(markedScript);
+
+    // Load Prism.js CSS
+    const prismCss = document.createElement("link");
+    prismCss.href =
+      "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism.min.css";
+    prismCss.rel = "stylesheet";
+    document.head.appendChild(prismCss);
+
+    // Load Prism.js Scripts
+    const prismScript = document.createElement("script");
+    prismScript.src =
+      "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js";
+    document.head.appendChild(prismScript);
+
+    const prismPythonScript = document.createElement("script");
+    prismPythonScript.src =
+      "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js";
+    document.head.appendChild(prismPythonScript);
+    const prismJavaScript = document.createElement("script");
+    prismJavaScript.src =
+      "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js";
+    document.head.appendChild(prismJavaScript);
+    const prismJsonScript = document.createElement("script");
+    prismJsonScript.src =
+      "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js";
+    document.head.appendChild(prismJsonScript);
+
+    // Add more languages if needed
+    // const prismAnotherLangScript = document.createElement("script");
+    // prismAnotherLangScript.src = "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-<language>.min.js";
+    // document.head.appendChild(prismAnotherLangScript);
+  }
+
   setupWebSocket() {
     const host = this.settings.host || "localhost";
     const port =
@@ -102,12 +162,12 @@ export class MMBBSBOT {
     this.ws.onopen = () => {
       console.log("WebSocket connection established");
 
-      var obj={type:"settings",data:this.settings};
-      
+      var obj = { type: "settings", data: this.settings };
+
       // Das "setting"-Objekt als JSON-String senden
       try {
         this.ws.send(JSON.stringify(obj));
-        console.log('Settings sent successfully!'+JSON.stringify(obj));
+        console.log("Settings sent successfully!" + JSON.stringify(obj));
       } catch (error) {
         console.error("Send error:", error);
       }
@@ -133,8 +193,18 @@ export class MMBBSBOT {
 
       try {
         const messageObj = JSON.parse(event.data);
-        const messageText = messageObj.messages;
+        var messageText = messageObj.messages;
 
+        // Ersetzen von \[ durch $$
+        messageText = messageText.replace(/\\\[/g, "$$$");
+        // Ersetzen von \] durch $$
+        messageText = messageText.replace(/\\\]/g, "$$$");
+        // Ersetzen von \( durch $
+        messageText = messageText.replace(/\\\(/g, "$");
+        // Ersetzen von \) durch $#
+        messageText = messageText.replace(/\\\)/g, "$#");
+        // Markdown in HTML umwandeln
+        const htmlContent = marked.parse(messageText);
         if (this.msgCount == 0) {
           const loading = document.getElementById("loading");
           if (loading) {
@@ -143,15 +213,32 @@ export class MMBBSBOT {
 
           const message = document.createElement("div");
           message.className = "message received";
-          message.innerHTML = `${messageText}`;
+          message.innerHTML = `${htmlContent}`;
           chatWindow.appendChild(message);
+          var mathDiv = message;
+          renderMathInElement(mathDiv, {
+            delimiters: [
+              { left: "$$", right: "$$", display: true },
+              { left: "$", right: "$", display: false },
+            ],
+          });
         } else {
           const lastReceivedMessage = chatWindow.querySelector(
             ".message.received:last-child"
           );
-          lastReceivedMessage.innerHTML = `${messageText}`;
+          lastReceivedMessage.innerHTML = `${htmlContent}`;
+          var mathDiv = lastReceivedMessage;
+          renderMathInElement(mathDiv, {
+            delimiters: [
+              { left: "$$", right: "$$", display: true },
+              { left: "$", right: "$", display: false },
+            ],
+          });
         }
         this.msgCount += 1;
+
+        // Syntax-Highlighting anwenden
+        Prism.highlightAll();
 
         if (messageObj.end == true) {
           chatInput.disabled = false;
@@ -177,7 +264,9 @@ export class MMBBSBOT {
       message.innerHTML = `<p>${messageText}</p>`;
       chatWindow.appendChild(message);
       chatInput.value = "";
-      this.ws.send(JSON.stringify({ type: "chatmsg", data:{message: messageText }}));
+      this.ws.send(
+        JSON.stringify({ type: "chatmsg", data: { message: messageText } })
+      );
 
       const loading = document.createElement("div");
       loading.className = "message_loading";

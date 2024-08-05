@@ -57,7 +57,7 @@ ws.onclose = function () {
 };
 
 ws.onmessage = function (event) {
-  if (event.end == true) {  
+  if (event.end == true) {
     console.log("onmessage function called" + JSON.stringify(event.data));
   }
   //document.getElementById("chat-log").value += event.data;
@@ -65,7 +65,18 @@ ws.onmessage = function (event) {
   const chatInput = document.getElementById("chat-input");
   try {
     const messageObj = JSON.parse(event.data);
-    const messageText = messageObj.messages;
+    var messageText = messageObj.messages;
+    // Ersetzen von \[ durch $$
+    messageText = messageText.replace(/\\\[/g, "$$$");
+    // Ersetzen von \] durch $$
+    messageText = messageText.replace(/\\\]/g, "$$$");
+    // Ersetzen von \( durch $
+    messageText = messageText.replace(/\\\(/g, "$");
+    // Ersetzen von \) durch $#
+    messageText = messageText.replace(/\\\)/g, "$#");
+    //console.log("messageText: ", messageText);
+    // Markdown in HTML umwandeln
+    const htmlContent = marked.parse(messageText);
 
     if (msgCount == 0) {
       const loading = document.getElementById("loading");
@@ -76,15 +87,31 @@ ws.onmessage = function (event) {
       const message = document.createElement("div");
       message.className = "message received";
 
-      message.innerHTML = `${messageText}`;
+      message.innerHTML = `${htmlContent}`;
       chatWindow.appendChild(message);
+      var mathDiv = message;
+      renderMathInElement(mathDiv, {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "$", right: "$", display: false },
+      ]});
     } else {
       const lastReceivedMessage = chatWindow.querySelector(
         ".message.received:last-child"
       );
-      lastReceivedMessage.innerHTML = `${messageText}`;
+      lastReceivedMessage.innerHTML = `${htmlContent}`;
+      var mathDiv = lastReceivedMessage;
+      renderMathInElement(mathDiv, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+        ],
+      });
     }
     msgCount += 1;
+
+    // Syntax-Highlighting anwenden
+    Prism.highlightAll();
 
     if (messageObj.end == true) {
       chatInput.disabled = false;

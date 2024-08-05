@@ -1,4 +1,4 @@
-const VERSION = "1.4.3";
+const VERSION = "1.5.0";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -7,7 +7,6 @@ import OpenAI from "openai";
 import fs from "fs";
 import expressWs from "express-ws";
 import EventEmitter from "events";
-import Showdown from "showdown";
 import http from "http";
 import https from "https";
 import cors from "cors";
@@ -17,7 +16,6 @@ import { log } from "console";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const converter = new Showdown.Converter();
 
 const CONFIG_DIR = "./config";
 const CERT_FILE = `${CONFIG_DIR}/server.cert`;
@@ -274,7 +272,7 @@ class EventHandler extends EventEmitter {
           resContent = r[0].content[0].text.value;
           resContent = resContent.replace("\r\n\r\n", "\r\n");
           console.log("Antwort: " + resContent);
-          chatMsg.messages = converter.makeHtml(resContent);
+          chatMsg.messages = resContent;
           chatMsg.end = true;
           pendingFunctions = false;
           this.ws.send(JSON.stringify(chatMsg));
@@ -301,7 +299,7 @@ class EventHandler extends EventEmitter {
           }
           num++;
           resContent = resContent.replace("\r\n\r\n", "\r\n");
-          chatMsg.messages = converter.makeHtml(resContent + citation);
+          chatMsg.messages = resContent + citation;
           this.ws.send(JSON.stringify(chatMsg));
         });
       } else if (event === "thread.run.textDelta") {
@@ -430,7 +428,7 @@ app.ws("/api/chat", (ws, req) => {
                     "**Version " +
                     VERSION +
                     "**\r\n\r\n 2024 by Dr. Jörg Tuttas.";
-                  chatMsg.messages = converter.makeHtml(resContent);
+                  chatMsg.messages = resContent;
                   chatMsg.end = true;
                   ws.send(JSON.stringify(chatMsg));
                   return;
@@ -516,17 +514,18 @@ function handleMsg(ws, thread, userMessage,settings,eventHandler) {
           resContent += textDelta.value;
         }
         resContent = resContent.replace("\r\n\r\n", "\r\n");
-        chatMsg.messages = converter.makeHtml(resContent);
+        chatMsg.messages = resContent;
         ws.send(JSON.stringify(chatMsg));
       })
       .on("end", async () => {
         console.log("End event called: pendingFuntions=" + pendingFunctions);
         resContent = resContent.replace("sandbox:/mnt/data/", "storage/");
         resContent = resContent.replace("\r\n\r\n", "\r\n");
+
         if (!pendingFunctions) {
           console.log("Antwort: " + resContent);
           chatMsg.end = true;
-          chatMsg.messages = converter.makeHtml(resContent);
+          chatMsg.messages = resContent;
           ws.send(JSON.stringify(chatMsg));
         }
       });

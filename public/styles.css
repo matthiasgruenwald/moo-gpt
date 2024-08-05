@@ -91,11 +91,10 @@ body {
 }
 
 .chat-container pre code {
-    color: #FFFF00; /* Gelbe Farbe */
-}
+    }
 
 .chat-container code {
-    color: #FFFF00; /* Gelbe Farbe */
+    
 }
 
 .message {
