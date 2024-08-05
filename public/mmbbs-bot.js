@@ -12,7 +12,7 @@ export class MMBBSBOT {
       this.createChatInterface();
       this.setupWebSocket();
     } catch (error) {
-      console.error('Error loading libraries:', error);
+      console.error("Error loading libraries:", error);
     }
   }
 
@@ -30,12 +30,11 @@ export class MMBBSBOT {
     css.rel = "stylesheet";
     head.appendChild(css);
 
-        // Create chat icon
+    // Create chat icon
     const chatIcon = document.createElement("div");
     const icon = this.settings.chat_icon
       ? this.settings.chat_icon
       : `${this.settings.protocol}://${this.settings.host}:${this.settings.port}/chat-icon.png`;
-    //console.log("icon: ", icon);
     chatIcon.id = "chat-icon";
     chatIcon.className = "chat-icon";
     chatIcon.innerHTML = '<img src="' + icon + '" alt="Chat Icon">';
@@ -94,24 +93,24 @@ export class MMBBSBOT {
     window.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
-  
-loadExternalLibraries() {
+  loadExternalLibraries() {
     const loadScript = (src) => {
       return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
+        const script = document.createElement("script");
         script.src = src;
         script.defer = true;
         script.onload = () => resolve(src);
-        script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+        script.onerror = () =>
+          reject(new Error(`Failed to load script: ${src}`));
         document.head.appendChild(script);
       });
     };
 
     const loadCss = (href) => {
       return new Promise((resolve, reject) => {
-        const link = document.createElement('link');
+        const link = document.createElement("link");
         link.href = href;
-        link.rel = 'stylesheet';
+        link.rel = "stylesheet";
         link.onload = () => resolve(href);
         link.onerror = () => reject(new Error(`Failed to load CSS: ${href}`));
         document.head.appendChild(link);
@@ -119,20 +118,18 @@ loadExternalLibraries() {
     };
 
     return Promise.all([
-      loadScript('https://cdn.jsdelivr.net/npm/marked/marked.min.js'),
-      /*
-      loadCss('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.css'),
-      loadScript('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js'),
-      loadScript('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js'),
-      loadCss('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism.min.css'),
-      loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js'),
-      loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js'),
-      loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js'),
-      loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js'),
-      */
+      loadScript("https://cdn.jsdelivr.net/npm/marked/marked.min.js"),
+      // Uncomment the following lines to load KaTeX and Prism.js libraries
+      // loadCss('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.css'),
+      // loadScript('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js'),
+      // loadScript('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js'),
+      // loadCss('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism.min.css'),
+      // loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js'),
+      // loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js'),
+      // loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js'),
+      // loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js'),
     ]);
   }
- 
 
   setupWebSocket() {
     const host = this.settings.host || "localhost";
@@ -147,9 +144,8 @@ loadExternalLibraries() {
     this.ws.onopen = () => {
       console.log("WebSocket connection established");
 
-      var obj = { type: "settings", data: this.settings };
+      const obj = { type: "settings", data: this.settings };
 
-      // Das "setting"-Objekt als JSON-String senden
       try {
         this.ws.send(JSON.stringify(obj));
         console.log("Settings sent successfully!" + JSON.stringify(obj));
@@ -169,16 +165,12 @@ loadExternalLibraries() {
     };
 
     this.ws.onmessage = (event) => {
-      if (event.end == true) {
-        console.log("onmessage function called" + JSON.stringify(event.data));
-      }
-
       const chatWindow = document.getElementById("chat-window");
       const chatInput = document.getElementById("chat-input");
 
       try {
         const messageObj = JSON.parse(event.data);
-        var messageText = messageObj.messages;
+        let messageText = messageObj.messages;
 
         // Ersetzen von \[ durch $$
         messageText = messageText.replace(/\\\[/g, "$$$");
@@ -190,8 +182,8 @@ loadExternalLibraries() {
         messageText = messageText.replace(/\\\)/g, "$#");
         // Markdown in HTML umwandeln
         const htmlContent = marked.parse(messageText);
-        //const htmlContent = messageText;
-        if (this.msgCount == 0) {
+
+        if (this.msgCount === 0) {
           const loading = document.getElementById("loading");
           if (loading) {
             chatWindow.removeChild(loading);
@@ -201,36 +193,18 @@ loadExternalLibraries() {
           message.className = "message received";
           message.innerHTML = `${htmlContent}`;
           chatWindow.appendChild(message);
-          var mathDiv = message;
-          /*
-          renderMathInElement(mathDiv, {
-            delimiters: [
-              { left: "$$", right: "$$", display: true },
-              { left: "$", right: "$", display: false },
-            ],
-          });
-          */
         } else {
           const lastReceivedMessage = chatWindow.querySelector(
             ".message.received:last-child"
           );
           lastReceivedMessage.innerHTML = `${htmlContent}`;
-          var mathDiv = lastReceivedMessage;
-          /*
-          renderMathInElement(mathDiv, {
-            delimiters: [
-              { left: "$$", right: "$$", display: true },
-              { left: "$", right: "$", display: false },
-            ],
-          });
-          */
         }
         this.msgCount += 1;
 
-        // Syntax-Highlighting anwenden
-        //Prism.highlightAll();
+        // Uncomment the following line to apply syntax highlighting
+        // Prism.highlightAll();
 
-        if (messageObj.end == true) {
+        if (messageObj.end === true) {
           chatInput.disabled = false;
           chatInput.focus();
           document.getElementById("send-button").disabled = false;
