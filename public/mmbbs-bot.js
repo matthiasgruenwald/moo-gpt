@@ -6,9 +6,14 @@ export class MMBBSBOT {
     this.init();
   }
 
-  init() {
-    this.createChatInterface();
-    this.setupWebSocket();
+  async init() {
+    try {
+      await this.loadExternalLibraries();
+      this.createChatInterface();
+      this.setupWebSocket();
+    } catch (error) {
+      console.error('Error loading libraries:', error);
+    }
   }
 
   createChatInterface() {
@@ -25,10 +30,7 @@ export class MMBBSBOT {
     css.rel = "stylesheet";
     head.appendChild(css);
 
-    // Load external libraries
-    this.loadExternalLibraries();
-
-    // Create chat icon
+        // Create chat icon
     const chatIcon = document.createElement("div");
     const icon = this.settings.chat_icon
       ? this.settings.chat_icon
@@ -92,93 +94,43 @@ export class MMBBSBOT {
     window.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
-  loadExternalLibraries() {
-    /*
-    // Load KaTeX CSS
-    const katexCss = document.createElement("link");
-    katexCss.href =
-      "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.css";
-    katexCss.rel = "stylesheet";
-    document.head.appendChild(katexCss);
-
-    // Load katex.js
-    const katexScript = document.createElement("script");
-    katexScript.src =
-      "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js";
-    katexScript.defer = true;
-    katexScript.onload = () => {
-      console.log("KaTeX loaded");
+  
+loadExternalLibraries() {
+    const loadScript = (src) => {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.defer = true;
+        script.onload = () => resolve(src);
+        script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+        document.head.appendChild(script);
+      });
     };
-    document.head.appendChild(katexScript);
 
-    const katexScript2 = document.createElement("script");
-    katexScript2.src =
-      "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js";
-    katexScript2.defer = true;
-    katexScript2.onload = () => {
-      console.log("KaTeX auto-render loaded");
+    const loadCss = (href) => {
+      return new Promise((resolve, reject) => {
+        const link = document.createElement('link');
+        link.href = href;
+        link.rel = 'stylesheet';
+        link.onload = () => resolve(href);
+        link.onerror = () => reject(new Error(`Failed to load CSS: ${href}`));
+        document.head.appendChild(link);
+      });
     };
-    document.head.appendChild(katexScript2);
 
-    */
-
-    // Load Marked.js
-    const markedScript = document.createElement("script");
-    markedScript.src = "https://cdn.jsdelivr.net/npm/marked/marked.min.js";
-    markedScript.defer = true;
-    markedScript.onload = () => {
-      console.log("Marked.js loaded");
-    };
-    document.head.appendChild(markedScript);
-
-    
-    /*
-    // Load Prism.js CSS
-    const prismCss = document.createElement("link");
-    prismCss.href =
-      "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism.min.css";
-    prismCss.rel = "stylesheet";
-    document.head.appendChild(prismCss);
-
-    // Load Prism.js Scripts
-    const prismScript = document.createElement("script");
-    prismScript.src =
-      "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js";
-    prismScript.defer = true;
-    prismScript.onload = () => {
-      console.log("Prism.js loaded");
-      Prism.highlightAll();
-    };
-    document.head.appendChild(prismScript);
-
-    const prismPythonScript = document.createElement("script");
-    prismPythonScript.src =
-      "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js";
-    prismPythonScript.defer = true;
-    prismPythonScript.onload = () => {
-      console.log("Prism Python loaded");
-    };
-    document.head.appendChild(prismPythonScript);
-
-    const prismJavaScript = document.createElement("script");
-    prismJavaScript.src =
-      "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js";
-    prismJavaScript.defer = true;
-    prismJavaScript.onload = () => {
-      console.log("Prism Java loaded");
-    };
-    document.head.appendChild(prismJavaScript);
-
-    const prismJsonScript = document.createElement("script");
-    prismJsonScript.src =
-      "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js";
-    prismJsonScript.defer = true;
-    prismJsonScript.onload = () => {
-      console.log("Prism JSON loaded");
-    };
-    document.head.appendChild(prismJsonScript);
-    */
+    return Promise.all([
+      loadCss('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.css'),
+      loadScript('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js'),
+      loadScript('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js'),
+      loadScript('https://cdn.jsdelivr.net/npm/marked/marked.min.js'),
+      loadCss('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism.min.css'),
+      loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js'),
+      loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js'),
+      loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js'),
+      loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js'),
+    ]);
   }
+ 
 
   setupWebSocket() {
     const host = this.settings.host || "localhost";
