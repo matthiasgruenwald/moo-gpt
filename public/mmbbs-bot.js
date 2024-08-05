@@ -120,6 +120,8 @@ export class MMBBSBOT {
     };
     document.head.appendChild(katexScript2);
 
+    */
+
     // Load Marked.js
     const markedScript = document.createElement("script");
     markedScript.src = "https://cdn.jsdelivr.net/npm/marked/marked.min.js";
@@ -130,6 +132,7 @@ export class MMBBSBOT {
     document.head.appendChild(markedScript);
 
     
+    /*
     // Load Prism.js CSS
     const prismCss = document.createElement("link");
     prismCss.href =
@@ -232,8 +235,8 @@ export class MMBBSBOT {
         // Ersetzen von \) durch $#
         messageText = messageText.replace(/\\\)/g, "$#");
         // Markdown in HTML umwandeln
-        //const htmlContent = marked.parse(messageText);
-        const htmlContent = messageText;
+        const htmlContent = marked.parse(messageText);
+        //const htmlContent = messageText;
         if (this.msgCount == 0) {
           const loading = document.getElementById("loading");
           if (loading) {
