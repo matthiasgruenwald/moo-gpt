@@ -128,6 +128,7 @@ export class MMBBSBOT {
     };
     document.head.appendChild(markedScript);
 
+    /*
     // Load Prism.js CSS
     const prismCss = document.createElement("link");
     prismCss.href =
@@ -172,6 +173,7 @@ export class MMBBSBOT {
       console.log("Prism JSON loaded");
     };
     document.head.appendChild(prismJsonScript);
+    */
   }
 
   setupWebSocket() {
