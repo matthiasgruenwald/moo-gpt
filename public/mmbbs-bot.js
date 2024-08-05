@@ -93,6 +93,7 @@ export class MMBBSBOT {
   }
 
   loadExternalLibraries() {
+    /*
     // Load KaTeX CSS
     const katexCss = document.createElement("link");
     katexCss.href =
@@ -128,7 +129,7 @@ export class MMBBSBOT {
     };
     document.head.appendChild(markedScript);
 
-    /*
+    
     // Load Prism.js CSS
     const prismCss = document.createElement("link");
     prismCss.href =
