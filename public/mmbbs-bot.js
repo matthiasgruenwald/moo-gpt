@@ -98,7 +98,6 @@ export class MMBBSBOT {
       return new Promise((resolve, reject) => {
         const script = document.createElement("script");
         script.src = src;
-        script.defer = true;
         script.onload = () => resolve(src);
         script.onerror = () =>
           reject(new Error(`Failed to load script: ${src}`));
