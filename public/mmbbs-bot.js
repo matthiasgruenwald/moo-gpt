@@ -206,30 +206,17 @@ export class MMBBSBOT {
           message.className = "message received";
           message.innerHTML = `${htmlContent}`;
           chatWindow.appendChild(message);
-          const mathDiv = message;
-          renderMathInElement(mathDiv, {
-            delimiters: [
-              { left: "$$", right: "$$", display: true },
-              { left: "$", right: "$", display: false },
-            ],
-          });
+          this.renderMathInElement(message);
         } else {
           const lastReceivedMessage = chatWindow.querySelector(
             ".message.received:last-child"
           );
           lastReceivedMessage.innerHTML = `${htmlContent}`;
-          const mathDiv = lastReceivedMessage;
-          renderMathInElement(mathDiv, {
-            delimiters: [
-              { left: "$$", right: "$$", display: true },
-              { left: "$", right: "$", display: false },
-            ],
-          });
+          this.renderMathInElement(lastReceivedMessage);
         }
         this.msgCount += 1;
 
-        // Syntax-Highlighting anwenden
-        Prism.highlightAll();
+        this.applySyntaxHighlighting();
 
         if (messageObj.end === true) {
           chatInput.disabled = false;
@@ -241,6 +228,23 @@ export class MMBBSBOT {
         console.log("Error parsing JSON message:", error);
       }
     };
+  }
+
+  renderMathInElement(element) {
+    if (window.renderMathInElement) {
+      renderMathInElement(element, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+        ],
+      });
+    }
+  }
+
+  applySyntaxHighlighting() {
+    if (window.Prism) {
+      Prism.highlightAll();
+    }
   }
 
   sendMessage() {
