@@ -6,18 +6,6 @@ export class MMBBSBOT {
     this.init();
   }
 
-  async loadExtScript(scr) {
-    return new Promise((resolve, reject) => {
-      require([scr], (module) => {
-        console.log("Loaded " + scr + " successfully:", module);
-        resolve(module);
-      }, (error) => {
-        console.error("Error loading script:", error);
-        reject(error);
-      });
-    });
-  }
-
   async loadScript(src) {
     return new Promise((resolve, reject) => {
       const script = document.createElement("script");
@@ -30,6 +18,11 @@ export class MMBBSBOT {
 
   async init() {
     try {
+      // Load marked library dynamically
+      await this.loadScript(
+        "https://cdn.jsdelivr.net/npm/marked/marked.min.js"
+      );
+
       var scripts = [
         "katex",
         "autoRender",
@@ -76,11 +69,6 @@ export class MMBBSBOT {
       // Load all scripts and wait for completion
       await Promise.all(scripts.map(this.loadExtScript));
 
-      // Load marked library dynamically
-      await this.loadScript(
-        "https://cdn.jsdelivr.net/npm/marked/marked.min.js"
-      );
-
       // Call additional setup functions after all scripts are loaded
       this.loadExternalLibraries();
       this.createChatInterface();
@@ -88,6 +76,18 @@ export class MMBBSBOT {
     } catch (error) {
       console.error("Error loading libraries:", error);
     }
+  }
+
+  async loadExtScript(scr) {
+    return new Promise((resolve, reject) => {
+      require([scr], (module) => {
+        console.log("Loaded " + scr + " successfully:", module);
+        resolve(module);
+      }, (error) => {
+        console.error("Error loading script:", error);
+        reject(error);
+      });
+    });
   }
 
   createChatInterface() {
@@ -232,7 +232,7 @@ export class MMBBSBOT {
       this.showConnectionLostMessage();
     };
 
-    this.ws.onmessage = async (event) => {
+    this.ws.onmessage = (event) => {
       const chatWindow = document.getElementById("chat-window");
       const chatInput = document.getElementById("chat-input");
 
