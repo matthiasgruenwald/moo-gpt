@@ -10,6 +10,7 @@ export class MMBBSBOT {
     try {
       await this.loadExternalLibraries();
       this.createChatInterface();
+      console.log("createChatInterface renderMathInElement"=renderMathInElement);
       this.setupWebSocket();
     } catch (error) {
       console.error("Error loading libraries:", error);
@@ -117,11 +118,11 @@ export class MMBBSBOT {
     };
 
     return Promise.all([
-      loadScript("https://cdn.jsdelivr.net/npm/marked/marked.min.js"),
+      //loadScript("https://cdn.jsdelivr.net/npm/marked/marked.min.js"),
       // Uncomment the following lines to load KaTeX and Prism.js libraries
-      // loadCss('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.css'),
-      // loadScript('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js'),
-      // loadScript('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js'),
+       loadCss('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.css'),
+       loadScript('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js'),
+       loadScript('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js'),
       // loadCss('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism.min.css'),
       // loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js'),
       // loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js'),
@@ -180,7 +181,8 @@ export class MMBBSBOT {
         // Ersetzen von \) durch $#
         messageText = messageText.replace(/\\\)/g, "$#");
         // Markdown in HTML umwandeln
-        const htmlContent = marked.parse(messageText);
+        //const htmlContent = marked.parse(messageText);
+        const htmlContent = messageText;
 
         if (this.msgCount === 0) {
           const loading = document.getElementById("loading");
