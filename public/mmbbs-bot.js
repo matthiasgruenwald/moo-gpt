@@ -10,7 +10,7 @@ export class MMBBSBOT {
     try {
       await this.loadExternalLibraries();
       this.createChatInterface();
-      console.log("createChatInterface renderMathInElement"=renderMathInElement);
+      console.log("createChatInterface enderMathInElement:"+renderMathInElement);
       this.setupWebSocket();
     } catch (error) {
       console.error("Error loading libraries:", error);
