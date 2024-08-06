@@ -23,6 +23,7 @@ export class MMBBSBOT {
         "https://cdn.jsdelivr.net/npm/marked/marked.min.js"
       );
 
+      // Other scripts to load with RequireJS
       var scripts = [
         "katex",
         "autoRender",
@@ -67,7 +68,7 @@ export class MMBBSBOT {
       });
 
       // Load all scripts and wait for completion
-      await Promise.all(scripts.map(this.loadExtScript));
+      await Promise.all(scripts.map(this.loadExtScript.bind(this)));
 
       // Call additional setup functions after all scripts are loaded
       this.loadExternalLibraries();
