@@ -1,4 +1,4 @@
-class MMBBSBOT {
+export class MMBBSBOT {
   constructor(settings) {
     this.settings = settings;
     this.msgCount = 0;
