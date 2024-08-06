@@ -1,4 +1,4 @@
-export class MMBBSBOT {
+class MMBBSBOT {
   constructor(settings) {
     this.settings = settings;
     this.msgCount = 0;
@@ -22,13 +22,13 @@ export class MMBBSBOT {
     try {
       var scripts;
       scripts = [
-        "https://cdn.jsdelivr.net/npm/marked/marked.min.js",
-        "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js",
-        "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min.js",
-        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js",
-        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js",
-        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js",
-        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js",
+        "marked",
+        "katex",
+        "autoRender",
+        "prism",
+        "prismPython",
+        "prismJava",
+        "prismJson",
       ];
 
       // RequireJS configuration
@@ -48,6 +48,9 @@ export class MMBBSBOT {
             "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min",
         },
         shim: {
+          prism: {
+            exports: "Prism",
+          },
           prismPython: {
             deps: ["prism"],
           },
@@ -62,6 +65,7 @@ export class MMBBSBOT {
 
       // Load all scripts and wait for completion
       await Promise.all(scripts.map(this.loadExtScript));
+
       // Call additional setup functions after all scripts are loaded
       this.loadExternalLibraries();
       this.createChatInterface();
