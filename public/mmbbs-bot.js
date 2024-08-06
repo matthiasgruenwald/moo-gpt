@@ -6,25 +6,13 @@ export class MMBBSBOT {
     this.init();
   }
 
-  async loadScript(src) {
-    return new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = src;
-      script.onload = () => resolve(script);
-      script.onerror = () => reject(new Error(`Script load error for ${src}`));
-      document.head.append(script);
-    });
-  }
-
+  
   async init() {
     try {
-      // Load marked library dynamically
-      await this.loadScript(
-        "https://cdn.jsdelivr.net/npm/marked/marked.min.js"
-      );
 
       // Other scripts to load with RequireJS
       var scripts = [
+        "marked",
         "katex",
         "autoRender",
         "prism",
@@ -36,6 +24,7 @@ export class MMBBSBOT {
       // RequireJS configuration
       require.config({
         paths: {
+          marked: "https://cdn.jsdelivr.net/npm/marked/marked.min",
           katex: "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min",
           autoRender:
             "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min",
@@ -251,9 +240,9 @@ export class MMBBSBOT {
         messageText = messageText.replace(/\\\)/g, "$");
 
         // Sicherstellen, dass marked geladen ist
-        if (typeof window.marked !== "undefined") {
+        if (typeof marked !== "undefined") {
           // Markdown in HTML umwandeln
-          const htmlContent = window.marked.parse(messageText);
+          const htmlContent = marked.parse(messageText);
 
           if (this.msgCount === 0) {
             const loading = document.getElementById("loading");
