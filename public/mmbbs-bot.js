@@ -7,25 +7,32 @@ export class MMBBSBOT {
   }
 
   async loadExtScript(scr) {
-    // Dynamisches Laden der KaTeX-Bibliothek von einem CDN
-    await import(scr)
-      .then((katex) => {
-        console.log("loaded "+scr+" successfully:", katex);
+    return import(scr)
+      .then((module) => {
+        console.log("Loaded " + scr + " successfully:", module);
       })
       .catch((error) => {
         console.error("Error loading or rendering KaTeX:", error);
+        throw error; // re-throw the error to ensure Promise.all catches it
       });
   }
 
-  init() {
+  async init() {
     try {
-      this.loadExtScript("https://cdn.jsdelivr.net/npm/marked/marked.min.js");
-      this.loadExtScript("https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.mjs");
-      this.loadExtScript("https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js");
-      this.loadExtScript("https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js");
-      this.loadExtScript("https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js");
-      this.loadExtScript("https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js");
-      this.loadExtScript("https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js");
+      const scripts = [
+        "https://cdn.jsdelivr.net/npm/marked/marked.min.js",
+        "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.mjs",
+        "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js",
+      ];
+
+      // Load all scripts and wait for completion
+      await Promise.all(scripts.map(this.loadExtScript));
+
+      // Call additional setup functions after all scripts are loaded
       this.loadExternalLibraries();
       this.createChatInterface();
       this.setupWebSocket();
