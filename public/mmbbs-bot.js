@@ -12,22 +12,34 @@ export class MMBBSBOT {
         console.log("Loaded " + scr + " successfully:", module);
       })
       .catch((error) => {
-        console.error("Error loading or rendering KaTeX:", error);
+        console.error("Error loading script:", error);
         throw error; // re-throw the error to ensure Promise.all catches it
       });
   }
 
   async init() {
     try {
-      const scripts = [
-        //"https://cdn.jsdelivr.net/npm/marked/marked.min.js",
-        "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.mjs",
-        "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js",
-        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js",
-        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js",
-        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js",
-        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js",
-      ];
+      var scripts;
+      if (typeof marked === "undefined") {
+        scripts = [
+          "https://cdn.jsdelivr.net/npm/marked/marked.min.js",
+          "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js",
+          "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min.js",
+          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js",
+          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js",
+          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js",
+          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js",
+        ];
+      } else {
+        scripts = [
+          "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js",
+          "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min.js",
+          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js",
+          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js",
+          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js",
+          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js",
+        ];
+      }
 
       // Load all scripts and wait for completion
       await Promise.all(scripts.map(this.loadExtScript));
@@ -124,7 +136,6 @@ export class MMBBSBOT {
         const script = document.createElement("script");
         script.src = src;
         script.defer = true;
-        script.type = "module";
         script.onload = () => resolve(src);
         script.onerror = () =>
           reject(new Error(`Failed to load script: ${src}`));
@@ -144,25 +155,10 @@ export class MMBBSBOT {
     };
 
     return Promise.all([
-      //loadScript("https://cdn.jsdelivr.net/npm/marked/marked.min.js"),
-      loadCss("https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.css"),
-      //loadScript("https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js"),
-      //loadScript("https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js"),
+      loadCss("https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css"),
       loadCss(
         "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism.min.css"
       ),
-      //loadScript("https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js"),
-      /*
-      loadScript(
-        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js"
-      ),
-      loadScript(
-        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js"
-      ),
-      loadScript(
-        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js"
-      ),
-      */
     ]);
   }
 
@@ -208,13 +204,13 @@ export class MMBBSBOT {
         let messageText = messageObj.messages;
 
         // Ersetzen von \[ durch $$
-        messageText = messageText.replace(/\\\[/g, "$$$");
+        messageText = messageText.replace(/\\\[/g, "$$");
         // Ersetzen von \] durch $$
-        messageText = messageText.replace(/\\\]/g, "$$$");
+        messageText = messageText.replace(/\\\]/g, "$$");
         // Ersetzen von \( durch $
         messageText = messageText.replace(/\\\(/g, "$");
-        // Ersetzen von \) durch $#
-        messageText = messageText.replace(/\\\)/g, "$#");
+        // Ersetzen von \) durch $
+        messageText = messageText.replace(/\\\)/g, "$");
         // Markdown in HTML umwandeln
         const htmlContent = marked.parse(messageText);
 
@@ -228,25 +224,13 @@ export class MMBBSBOT {
           message.className = "message received";
           message.innerHTML = `${htmlContent}`;
           chatWindow.appendChild(message);
-          var mathDiv = message;
-          renderMathInElement(mathDiv, {
-            delimiters: [
-              { left: "$$", right: "$$", display: true },
-              { left: "$", right: "$", display: false },
-            ],
-          });
+          this.renderMathInElement(message);
         } else {
           const lastReceivedMessage = chatWindow.querySelector(
             ".message.received:last-child"
           );
           lastReceivedMessage.innerHTML = `${htmlContent}`;
-          var mathDiv = lastReceivedMessage;
-          renderMathInElement(mathDiv, {
-            delimiters: [
-              { left: "$$", right: "$$", display: true },
-              { left: "$", right: "$", display: false },
-            ],
-          });
+          this.renderMathInElement(lastReceivedMessage);
         }
         this.msgCount += 1;
 
@@ -266,7 +250,7 @@ export class MMBBSBOT {
 
   renderMathInElement(element) {
     if (window.renderMathInElement) {
-      renderMathInElement(element, {
+      window.renderMathInElement(element, {
         delimiters: [
           { left: "$$", right: "$$", display: true },
           { left: "$", right: "$", display: false },
@@ -277,7 +261,7 @@ export class MMBBSBOT {
 
   applySyntaxHighlighting() {
     if (window.Prism) {
-      Prism.highlightAll();
+      window.Prism.highlightAll();
     }
   }
 
