@@ -20,7 +20,7 @@ export class MMBBSBOT {
   async init() {
     try {
       const scripts = [
-        "https://cdn.jsdelivr.net/npm/marked/marked.min.js",
+        //"https://cdn.jsdelivr.net/npm/marked/marked.min.js",
         "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.mjs",
         "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js",
         "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js",
