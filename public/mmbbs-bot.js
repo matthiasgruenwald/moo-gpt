@@ -25,20 +25,26 @@ export class MMBBSBOT {
           "https://cdn.jsdelivr.net/npm/marked/marked.min.js",
           "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js",
           "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min.js",
+        ];
+      } else {
+        scripts = [
+          "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js",
+          "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min.js",
+        ];
+      }
+
+      // Load all scripts and wait for completion
+      await Promise.all(scripts.map(this.loadExtScript));
+
+      if (typeof Prism === "undefined") {
+        scripts = [
           "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js",
           "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js",
           "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js",
           "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js",
         ];
       } else {
-        scripts = [
-          "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js",
-          "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min.js",
-          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js",
-          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js",
-          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js",
-          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js",
-        ];
+        scripts = [];
       }
 
       // Load all scripts and wait for completion
