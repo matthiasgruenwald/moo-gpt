@@ -69,6 +69,13 @@ export class MMBBSBOT {
       // Load all scripts and wait for completion
       await Promise.all(scripts.map(this.loadExtScript));
 
+      // Verify if marked is loaded
+      if (typeof window.marked === "undefined") {
+        await this.loadScript(
+          "https://cdn.jsdelivr.net/npm/marked/marked.min.js"
+        );
+      }
+
       // Call additional setup functions after all scripts are loaded
       this.loadExternalLibraries();
       this.createChatInterface();
@@ -76,6 +83,16 @@ export class MMBBSBOT {
     } catch (error) {
       console.error("Error loading libraries:", error);
     }
+  }
+
+  loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = src;
+      script.onload = () => resolve(script);
+      script.onerror = () => reject(new Error(`Script load error for ${src}`));
+      document.head.append(script);
+    });
   }
 
   createChatInterface() {
@@ -220,7 +237,7 @@ export class MMBBSBOT {
       this.showConnectionLostMessage();
     };
 
-    this.ws.onmessage = (event) => {
+    this.ws.onmessage = async (event) => {
       const chatWindow = document.getElementById("chat-window");
       const chatInput = document.getElementById("chat-input");
 
@@ -238,41 +255,43 @@ export class MMBBSBOT {
         messageText = messageText.replace(/\\\)/g, "$");
 
         // Sicherstellen, dass marked geladen ist
-        if (typeof window.marked !== "undefined") {
-          // Markdown in HTML umwandeln
-          const htmlContent = window.marked.parse(messageText);
-
-          if (this.msgCount === 0) {
-            const loading = document.getElementById("loading");
-            if (loading) {
-              chatWindow.removeChild(loading);
-            }
-
-            const message = document.createElement("div");
-            message.className = "message received";
-            message.innerHTML = `${htmlContent}`;
-            chatWindow.appendChild(message);
-            this.renderMathInElement(message);
-          } else {
-            const lastReceivedMessage = chatWindow.querySelector(
-              ".message.received:last-child"
-            );
-            lastReceivedMessage.innerHTML = `${htmlContent}`;
-            this.renderMathInElement(lastReceivedMessage);
-          }
-          this.msgCount += 1;
-
-          this.applySyntaxHighlighting();
-
-          if (messageObj.end === true) {
-            chatInput.disabled = false;
-            chatInput.focus();
-            document.getElementById("send-button").disabled = false;
-          }
-          chatWindow.scrollTop = chatWindow.scrollHeight;
-        } else {
-          console.error("Marked library is not loaded.");
+        if (typeof window.marked === "undefined") {
+          await this.loadScript(
+            "https://cdn.jsdelivr.net/npm/marked/marked.min.js"
+          );
         }
+
+        // Markdown in HTML umwandeln
+        const htmlContent = window.marked.parse(messageText);
+
+        if (this.msgCount === 0) {
+          const loading = document.getElementById("loading");
+          if (loading) {
+            chatWindow.removeChild(loading);
+          }
+
+          const message = document.createElement("div");
+          message.className = "message received";
+          message.innerHTML = `${htmlContent}`;
+          chatWindow.appendChild(message);
+          this.renderMathInElement(message);
+        } else {
+          const lastReceivedMessage = chatWindow.querySelector(
+            ".message.received:last-child"
+          );
+          lastReceivedMessage.innerHTML = `${htmlContent}`;
+          this.renderMathInElement(lastReceivedMessage);
+        }
+        this.msgCount += 1;
+
+        this.applySyntaxHighlighting();
+
+        if (messageObj.end === true) {
+          chatInput.disabled = false;
+          chatInput.focus();
+          document.getElementById("send-button").disabled = false;
+        }
+        chatWindow.scrollTop = chatWindow.scrollHeight;
       } catch (error) {
         console.log("Error parsing JSON message:", error);
       }
