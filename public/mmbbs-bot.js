@@ -6,9 +6,27 @@ export class MMBBSBOT {
     this.init();
   }
 
-  async init() {
+  async loadExtScript(scr) {
+    // Dynamisches Laden der KaTeX-Bibliothek von einem CDN
+    await import(scr)
+      .then((katex) => {
+        console.log("loaded "+scr+" successfully:", katex);
+      })
+      .catch((error) => {
+        console.error("Error loading or rendering KaTeX:", error);
+      });
+  }
+
+  init() {
     try {
-      await this.loadExternalLibraries();
+      this.loadExtScript("https://cdn.jsdelivr.net/npm/marked/marked.min.js");
+      this.loadExtScript("https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.mjs");
+      this.loadExtScript("https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js");
+      this.loadExtScript("https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js");
+      this.loadExtScript("https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js");
+      this.loadExtScript("https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js");
+      this.loadExtScript("https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js");
+      this.loadExternalLibraries();
       this.createChatInterface();
       this.setupWebSocket();
     } catch (error) {
@@ -99,6 +117,7 @@ export class MMBBSBOT {
         const script = document.createElement("script");
         script.src = src;
         script.defer = true;
+        script.type = "module";
         script.onload = () => resolve(src);
         script.onerror = () =>
           reject(new Error(`Failed to load script: ${src}`));
@@ -118,20 +137,15 @@ export class MMBBSBOT {
     };
 
     return Promise.all([
-      loadScript("https://cdn.jsdelivr.net/npm/marked/marked.min.js"),
+      //loadScript("https://cdn.jsdelivr.net/npm/marked/marked.min.js"),
       loadCss("https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.css"),
-      loadScript(
-        "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js"
-      ),
-      loadScript(
-        "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js"
-      ),
+      //loadScript("https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js"),
+      //loadScript("https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js"),
       loadCss(
         "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism.min.css"
       ),
-      loadScript(
-        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js"
-      ),
+      //loadScript("https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js"),
+      /*
       loadScript(
         "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js"
       ),
@@ -141,6 +155,7 @@ export class MMBBSBOT {
       loadScript(
         "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js"
       ),
+      */
     ]);
   }
 
@@ -206,13 +221,25 @@ export class MMBBSBOT {
           message.className = "message received";
           message.innerHTML = `${htmlContent}`;
           chatWindow.appendChild(message);
-          this.renderMathInElement(message);
+          var mathDiv = message;
+          renderMathInElement(mathDiv, {
+            delimiters: [
+              { left: "$$", right: "$$", display: true },
+              { left: "$", right: "$", display: false },
+            ],
+          });
         } else {
           const lastReceivedMessage = chatWindow.querySelector(
             ".message.received:last-child"
           );
           lastReceivedMessage.innerHTML = `${htmlContent}`;
-          this.renderMathInElement(lastReceivedMessage);
+          var mathDiv = lastReceivedMessage;
+          renderMathInElement(mathDiv, {
+            delimiters: [
+              { left: "$$", right: "$$", display: true },
+              { left: "$", right: "$", display: false },
+            ],
+          });
         }
         this.msgCount += 1;
 
