@@ -53,12 +53,15 @@ export class MMBBSBOT {
           },
           prismPython: {
             deps: ["prism"],
+            exports: "Prism",
           },
           prismJava: {
             deps: ["prism"],
+            exports: "Prism",
           },
           prismJson: {
             deps: ["prism"],
+            exports: "Prism",
           },
         },
       });
