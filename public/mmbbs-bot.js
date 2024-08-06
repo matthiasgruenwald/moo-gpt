@@ -10,7 +10,6 @@ export class MMBBSBOT {
     try {
       await this.loadExternalLibraries();
       this.createChatInterface();
-      console.log("createChatInterface enderMathInElement:"+renderMathInElement);
       this.setupWebSocket();
     } catch (error) {
       console.error("Error loading libraries:", error);
@@ -99,6 +98,7 @@ export class MMBBSBOT {
       return new Promise((resolve, reject) => {
         const script = document.createElement("script");
         script.src = src;
+        script.defer = true;
         script.onload = () => resolve(src);
         script.onerror = () =>
           reject(new Error(`Failed to load script: ${src}`));
@@ -118,16 +118,29 @@ export class MMBBSBOT {
     };
 
     return Promise.all([
-      //loadScript("https://cdn.jsdelivr.net/npm/marked/marked.min.js"),
-      // Uncomment the following lines to load KaTeX and Prism.js libraries
-       loadCss('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.css'),
-       loadScript('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js'),
-       loadScript('https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js'),
-      // loadCss('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism.min.css'),
-      // loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js'),
-      // loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js'),
-      // loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js'),
-      // loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js'),
+      loadScript("https://cdn.jsdelivr.net/npm/marked/marked.min.js"),
+      loadCss("https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.css"),
+      loadScript(
+        "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js"
+      ),
+      loadScript(
+        "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js"
+      ),
+      loadCss(
+        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism.min.css"
+      ),
+      loadScript(
+        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js"
+      ),
+      loadScript(
+        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js"
+      ),
+      loadScript(
+        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js"
+      ),
+      loadScript(
+        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js"
+      ),
     ]);
   }
 
@@ -181,8 +194,7 @@ export class MMBBSBOT {
         // Ersetzen von \) durch $#
         messageText = messageText.replace(/\\\)/g, "$#");
         // Markdown in HTML umwandeln
-        //const htmlContent = marked.parse(messageText);
-        const htmlContent = messageText;
+        const htmlContent = marked.parse(messageText);
 
         if (this.msgCount === 0) {
           const loading = document.getElementById("loading");
@@ -194,16 +206,30 @@ export class MMBBSBOT {
           message.className = "message received";
           message.innerHTML = `${htmlContent}`;
           chatWindow.appendChild(message);
+          const mathDiv = message;
+          renderMathInElement(mathDiv, {
+            delimiters: [
+              { left: "$$", right: "$$", display: true },
+              { left: "$", right: "$", display: false },
+            ],
+          });
         } else {
           const lastReceivedMessage = chatWindow.querySelector(
             ".message.received:last-child"
           );
           lastReceivedMessage.innerHTML = `${htmlContent}`;
+          const mathDiv = lastReceivedMessage;
+          renderMathInElement(mathDiv, {
+            delimiters: [
+              { left: "$$", right: "$$", display: true },
+              { left: "$", right: "$", display: false },
+            ],
+          });
         }
         this.msgCount += 1;
 
-        // Uncomment the following line to apply syntax highlighting
-        // Prism.highlightAll();
+        // Syntax-Highlighting anwenden
+        Prism.highlightAll();
 
         if (messageObj.end === true) {
           chatInput.disabled = false;
