@@ -7,32 +7,61 @@ export class MMBBSBOT {
   }
 
   async loadExtScript(scr) {
-    return import(scr)
-      .then((module) => {
+    return new Promise((resolve, reject) => {
+      require([scr], (module) => {
         console.log("Loaded " + scr + " successfully:", module);
-      })
-      .catch((error) => {
+        resolve(module);
+      }, (error) => {
         console.error("Error loading script:", error);
-        throw error; // re-throw the error to ensure Promise.all catches it
+        reject(error);
       });
+    });
   }
 
   async init() {
     try {
       var scripts;
-        scripts = [
-          "https://cdn.jsdelivr.net/npm/marked/marked.min.js",
-          "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js",
-          "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min.js",
-          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js",
-          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js",
-          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js",
-          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js",
-        ];
+      scripts = [
+        "https://cdn.jsdelivr.net/npm/marked/marked.min.js",
+        "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js",
+        "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js",
+      ];
 
-        // Load all scripts and wait for completion
+      // RequireJS configuration
+      require.config({
+        paths: {
+          marked: "https://cdn.jsdelivr.net/npm/marked/marked.min",
+          katex: "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min",
+          autoRender:
+            "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min",
+          prism:
+            "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min",
+          prismPython:
+            "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min",
+          prismJava:
+            "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min",
+          prismJson:
+            "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min",
+        },
+        shim: {
+          prismPython: {
+            deps: ["prism"],
+          },
+          prismJava: {
+            deps: ["prism"],
+          },
+          prismJson: {
+            deps: ["prism"],
+          },
+        },
+      });
+
+      // Load all scripts and wait for completion
       await Promise.all(scripts.map(this.loadExtScript));
-
       // Call additional setup functions after all scripts are loaded
       this.loadExternalLibraries();
       this.createChatInterface();
