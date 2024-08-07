@@ -53,7 +53,7 @@ export class MMBBSBOT {
       });
 
       // Load all scripts and wait for completion
-      await Promise.all(scripts.map(this.loadExtScript.bind(this)));
+      //await Promise.all(scripts.map(this.loadExtScript.bind(this)));
 
       // Call additional setup functions after all scripts are loaded
       this.loadExternalLibraries();
@@ -178,6 +178,9 @@ export class MMBBSBOT {
     };
 
     return Promise.all([
+      loadScript(
+        "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.4.0/highlight.min.js"
+      ),
       loadCss("https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css"),
       loadCss(
         "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism.min.css"
@@ -249,6 +252,7 @@ export class MMBBSBOT {
           message.className = "message received";
           message.innerHTML = `${htmlContent}`;
           chatWindow.appendChild(message);
+          /*
           var mathDiv = message;
           renderMathInElement(mathDiv, {
             delimiters: [
@@ -256,11 +260,13 @@ export class MMBBSBOT {
               { left: "$", right: "$", display: false },
             ],
           });
+          */
         } else {
           const lastReceivedMessage = chatWindow.querySelector(
             ".message.received:last-child"
           );
           lastReceivedMessage.innerHTML = `${htmlContent}`;
+          /*
           var mathDiv = lastReceivedMessage;
           renderMathInElement(mathDiv, {
             delimiters: [
@@ -268,11 +274,13 @@ export class MMBBSBOT {
               { left: "$", right: "$", display: false },
             ],
           });
+          */
         }
         this.msgCount += 1;
 
         // Syntax-Highlighting anwenden
-        Prism.highlightAll();
+        //Prism.highlightAll();
+        hljs.highlightAll();
 
         if (messageObj.end === true) {
           chatInput.disabled = false;
@@ -344,23 +352,3 @@ export class MMBBSBOT {
   }
 }
 
-// Ensure the RequireJS script is loaded and initialized
-(function () {
-  const script = document.createElement("script");
-  script.src =
-    "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js";
-  script.onload = () => {
-    console.log('RequireJS loaded');
-    new MMBBSBOT({
-      protocol: "https",
-      host: "service.joerg-tuttas.de",
-      port: "3001",
-      title: "MMBbS GPT",
-      opener: "Hallo, wie kann ich Ihnen helfen?",
-    });
-  };
-  script.onerror = (error) => {
-    console.error("Failed to load RequireJS:", error);
-  };
-  document.head.appendChild(script);
-})();
