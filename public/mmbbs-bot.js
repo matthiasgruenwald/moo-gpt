@@ -351,14 +351,6 @@ export class MMBBSBOT {
     "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js";
   script.onload = () => {
     console.log('RequireJS loaded');
-    var mathDiv = {};
-    
-    renderMathInElement(mathDiv, {
-      delimiters: [
-        { left: "$$", right: "$$", display: true },
-        { left: "$", right: "$", display: false },
-      ],
-    });
     new MMBBSBOT({
       protocol: "https",
       host: "service.joerg-tuttas.de",
