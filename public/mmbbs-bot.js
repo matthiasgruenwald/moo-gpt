@@ -350,12 +350,20 @@ export class MMBBSBOT {
   script.src =
     "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js";
   script.onload = () => {
+    console.log('RequireJS loaded');
+    var mathDiv = {};
+    
+    renderMathInElement(mathDiv, {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "$", right: "$", display: false },
+      ],
+    });
     new MMBBSBOT({
       protocol: "https",
-      host: "example.com",
-      port: "443",
+      host: "service.joerg-tuttas.de",
+      port: "3001",
       title: "MMBbS GPT",
-      chat_icon: "https://example.com/chat-icon.png",
       opener: "Hallo, wie kann ich Ihnen helfen?",
     });
   };
