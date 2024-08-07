@@ -8,55 +8,6 @@ export class MMBBSBOT {
 
   async init() {
     try {
-      // Other scripts to load with RequireJS
-      /*
-      var scripts = [
-        "katex",
-        "autoRender",
-        "prism",
-        "prismPython",
-        "prismJava",
-        "prismJson",
-      ];
-
-      // RequireJS configuration
-      require.config({
-        paths: {
-          katex: "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min",
-          autoRender:
-            "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min",
-          prism:
-            "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min",
-          prismPython:
-            "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min",
-          prismJava:
-            "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min",
-          prismJson:
-            "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min",
-        },
-        shim: {
-          prism: {
-            exports: "Prism",
-          },
-          prismPython: {
-            deps: ["prism"],
-            exports: "Prism",
-          },
-          prismJava: {
-            deps: ["prism"],
-            exports: "Prism",
-          },
-          prismJson: {
-            deps: ["prism"],
-            exports: "Prism",
-          },
-        },
-      });
-
-      // Load all scripts and wait for completion
-      //await Promise.all(scripts.map(this.loadExtScript.bind(this)));
-      */
-      // Call additional setup functions after all scripts are loaded
       this.loadExternalLibraries();
       this.createChatInterface();
       this.setupWebSocket();
@@ -65,17 +16,6 @@ export class MMBBSBOT {
     }
   }
 
-  async loadExtScript(scr) {
-    return new Promise((resolve, reject) => {
-      require([scr], (module) => {
-        console.log("Loaded " + scr + " successfully:", module);
-        resolve(module);
-      }, (error) => {
-        console.error("Error loading script:", error);
-        reject(error);
-      });
-    });
-  }
 
   createChatInterface() {
     // load css
@@ -238,7 +178,7 @@ export class MMBBSBOT {
 
         // Sicherstellen, dass marked geladen ist
         // Markdown in HTML umwandeln
-        const htmlContent = messageText;
+        const htmlContent = window.marked.parse(messageText);;
 
         if (this.msgCount === 0) {
           const loading = document.getElementById("loading");
@@ -250,29 +190,29 @@ export class MMBBSBOT {
           message.className = "message received";
           message.innerHTML = `${htmlContent}`;
           chatWindow.appendChild(message);
-          /*
+          
           var mathDiv = message;
-          renderMathInElement(mathDiv, {
+          window.renderMathInElement(mathDiv, {
             delimiters: [
               { left: "$$", right: "$$", display: true },
               { left: "$", right: "$", display: false },
             ],
           });
-          */
+          
         } else {
           const lastReceivedMessage = chatWindow.querySelector(
             ".message.received:last-child"
           );
           lastReceivedMessage.innerHTML = `${htmlContent}`;
-          /*
+          
           var mathDiv = lastReceivedMessage;
-          renderMathInElement(mathDiv, {
+          window.renderMathInElement(mathDiv, {
             delimiters: [
               { left: "$$", right: "$$", display: true },
               { left: "$", right: "$", display: false },
             ],
           });
-          */
+          
         }
         this.msgCount += 1;
 
