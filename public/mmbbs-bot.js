@@ -21,10 +21,9 @@ export class MMBBSBOT {
       // RequireJS configuration
       require.config({
         paths: {
-          //marked: "https://cdn.jsdelivr.net/npm/marked/marked.min",
-          katex: "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js",
+          katex: "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min",
           autoRender:
-            "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js",
+            "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min",
           prism:
             "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min",
           prismPython:
@@ -344,3 +343,24 @@ export class MMBBSBOT {
       '<div class="connection-lost">Connection lost</div>';
   }
 }
+
+// Ensure the RequireJS script is loaded and initialized
+(function () {
+  const script = document.createElement("script");
+  script.src =
+    "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js";
+  script.onload = () => {
+    new MMBBSBOT({
+      protocol: "https",
+      host: "example.com",
+      port: "443",
+      title: "MMBbS GPT",
+      chat_icon: "https://example.com/chat-icon.png",
+      opener: "Hallo, wie kann ich Ihnen helfen?",
+    });
+  };
+  script.onerror = (error) => {
+    console.error("Failed to load RequireJS:", error);
+  };
+  document.head.appendChild(script);
+})();
