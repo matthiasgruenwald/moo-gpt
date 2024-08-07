@@ -1,4 +1,12 @@
 import {marked} from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+import katex from "https://cdn.jsdelivr.net/npm/katex@0.16.11/+esm";
+import renderMathInElement from "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.mjs";
+import prismEs6 from "https://cdn.jsdelivr.net/npm/prism-es6@1.2.0/+esm";
+
+// Load language java for syntax highlighting
+import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-java.min.js";
+import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-python.min.js";
+import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-json.min.js";
 
 export class MMBBSBOT {
 
@@ -7,6 +15,10 @@ export class MMBBSBOT {
     this.msgCount = 0;
     this.ws = null;
     this.marked = marked;
+    this.katex = katex;
+    this.renderMathInElement = renderMathInElement;
+    this.prismEs6 = prismEs6;
+    
     this.init();
   }
 
@@ -196,7 +208,7 @@ export class MMBBSBOT {
           chatWindow.appendChild(message);
           
           var mathDiv = message;
-          window.renderMathInElement(messageText, mathDiv, {
+          renderMathInElement( mathDiv, {
             delimiters: [
               { left: "$$", right: "$$", display: true },
               { left: "$", right: "$", display: false },
@@ -210,7 +222,7 @@ export class MMBBSBOT {
           lastReceivedMessage.innerHTML = `${htmlContent}`;
           
           var mathDiv = lastReceivedMessage;
-          window.renderMathInElement(messageText, mathDiv, {
+          renderMathInElement( mathDiv, {
             delimiters: [
               { left: "$$", right: "$$", display: true },
               { left: "$", right: "$", display: false },
@@ -221,7 +233,7 @@ export class MMBBSBOT {
         this.msgCount += 1;
 
         // Syntax-Highlighting anwenden
-        window.Prism.highlightAll();
+        Prism.highlightAll();
         
 
         if (messageObj.end === true) {

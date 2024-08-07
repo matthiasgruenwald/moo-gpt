@@ -1,45 +1,47 @@
-<p dir="ltr" style="text-align: left;"></p>
-<h3 id="übung-2">Übung Klasse erstellen</h3>
-<ul>
-    <li><span style="font-size: 0.9375rem;">Erstelle eine Klasse Person mit zwei Attributen.</span><br></li>
-    <li><span style="font-size: 0.9375rem;">Kapsel diese Attribute und mache Sie über öffentliche Methoden
-            zugänglich.&nbsp;</span></li>
-</ul>
-<p>Geben Sie im Anschluss ihren Java Code hier ab!</p><br>
-<p></p>
 <script type="module" async="" id="mmbbs-bot">
-    // Funktion zum Laden einer externen JavaScript-Datei
-    import {
-        MMBBSBOT
-    } from 'https://service.joerg-tuttas.de:3001/mmbbs-bot.js';
+    // Funktion zum Laden einer externen JavaScript-Datei als Promise
+    function loadScript(url) {
+        return new Promise((resolve, reject) => {
+            var script = document.createElement('script');
+            script.type = 'text/javascript';
 
-    function loadScript(url, callback) {
-        var script = document.createElement('script');
-        script.type = 'text/javascript';
+            script.onload = function () {
+                console.log(url + ' geladen.');
+                resolve();
+            };
 
-        // Wenn das Skript geladen ist, rufe die Callback-Funktion auf
-        script.onload = function () {
-            console.log(url + ' geladen.');
-            if (callback) {
-                callback();
-            }
-        };
+            script.onerror = function () {
+                reject(new Error(url + ' konnte nicht geladen werden.'));
+            };
 
-        // Setze die Skriptquelle auf die übergebene URL
-        script.src = url;
-
-        // Füge das Skript dem Dokument hinzu
-        document.head.appendChild(script);
+            script.src = url;
+            document.head.appendChild(script);
+        });
     }
 
-    // Beispiel zum Laden von jQuery und dann Ausführen eines Codes
-    loadScript('https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.4.0/highlight.min.js', function () {
-        // Code, der ausgeführt wird, nachdem jQuery geladen ist
-        console.log("Bibo geladen!")
+    // Liste der zu ladenden Skripte
+    const scripts = [
+        'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.4.0/highlight.min.js',
+        // Weitere Skripte hier hinzufügen
+        "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js",
+        "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-python.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-java.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/components/prism-json.min.js"
+    ];
+
+    // Import des MMBBSBOT Moduls
+    import { MMBBSBOT } from 'https://service.joerg-tuttas.de:3001/mmbbs-bot.js';
+
+    // Funktion, die aufgerufen wird, wenn alle Skripte geladen sind
+    function initializeBot() {
+        console.log("Alle Bibliotheken geladen!");
+
         hljs.highlightAll();
-        // Wählt das erste Element mit der Klasse "activity-description" aus
         var element = document.querySelector('.activity-description');
         var htmlContent = element.innerHTML;
+
         const settings = {
             "host": "service.joerg-tuttas.de",
             "protocol": "https",
@@ -52,5 +54,10 @@
         };
 
         const bot = new MMBBSBOT(settings);
-    });
+    }
+
+    // Alle Skripte laden und dann den Bot initialisieren
+    Promise.all(scripts.map(loadScript))
+        .then(initializeBot)
+        .catch(error => console.error(error));
 </script>
