@@ -174,8 +174,12 @@ export class MMBBSBOT {
     };
 
     return Promise.all([
-      loadScript ("https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min"),
-      loadScript ("https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min"),
+      loadScript(
+        "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js"
+      ),
+      loadScript(
+        "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js"
+      ),
       loadCss("https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css"),
       loadCss(
         "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism.min.css"
