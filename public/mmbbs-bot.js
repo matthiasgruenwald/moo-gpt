@@ -9,6 +9,7 @@ export class MMBBSBOT {
   async init() {
     try {
       // Other scripts to load with RequireJS
+      /*
       var scripts = [
         "katex",
         "autoRender",
@@ -54,7 +55,7 @@ export class MMBBSBOT {
 
       // Load all scripts and wait for completion
       //await Promise.all(scripts.map(this.loadExtScript.bind(this)));
-
+      */
       // Call additional setup functions after all scripts are loaded
       this.loadExternalLibraries();
       this.createChatInterface();
@@ -178,9 +179,6 @@ export class MMBBSBOT {
     };
 
     return Promise.all([
-      loadScript(
-        "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.4.0/highlight.min.js"
-      ),
       loadCss("https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css"),
       loadCss(
         "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism.min.css"
