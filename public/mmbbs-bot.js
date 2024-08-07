@@ -196,7 +196,7 @@ export class MMBBSBOT {
           chatWindow.appendChild(message);
           
           var mathDiv = message;
-          window.renderMathInElement(mathDiv, {
+          window.renderMathInElement(messageText, mathDiv, {
             delimiters: [
               { left: "$$", right: "$$", display: true },
               { left: "$", right: "$", display: false },
@@ -210,7 +210,7 @@ export class MMBBSBOT {
           lastReceivedMessage.innerHTML = `${htmlContent}`;
           
           var mathDiv = lastReceivedMessage;
-          window.renderMathInElement(mathDiv, {
+          window.renderMathInElement(messageText, mathDiv, {
             delimiters: [
               { left: "$$", right: "$$", display: true },
               { left: "$", right: "$", display: false },
