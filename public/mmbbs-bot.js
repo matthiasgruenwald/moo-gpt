@@ -277,8 +277,8 @@ export class MMBBSBOT {
         this.msgCount += 1;
 
         // Syntax-Highlighting anwenden
-        //Prism.highlightAll();
-        hljs.highlightAll();
+        window.Prism.highlightAll();
+        
 
         if (messageObj.end === true) {
           chatInput.disabled = false;
