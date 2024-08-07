@@ -6,13 +6,10 @@ export class MMBBSBOT {
     this.init();
   }
 
-  
   async init() {
     try {
-
       // Other scripts to load with RequireJS
       var scripts = [
-        "marked",
         "katex",
         "autoRender",
         "prism",
@@ -24,7 +21,7 @@ export class MMBBSBOT {
       // RequireJS configuration
       require.config({
         paths: {
-          marked: "https://cdn.jsdelivr.net/npm/marked/marked.min",
+          //marked: "https://cdn.jsdelivr.net/npm/marked/marked.min",
           katex: "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min",
           autoRender:
             "https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/contrib/auto-render.min",
@@ -240,41 +237,37 @@ export class MMBBSBOT {
         messageText = messageText.replace(/\\\)/g, "$");
 
         // Sicherstellen, dass marked geladen ist
-        if (typeof marked !== "undefined") {
-          // Markdown in HTML umwandeln
-          const htmlContent = marked.parse(messageText);
+        // Markdown in HTML umwandeln
+        const htmlContent = messageText;
 
-          if (this.msgCount === 0) {
-            const loading = document.getElementById("loading");
-            if (loading) {
-              chatWindow.removeChild(loading);
-            }
-
-            const message = document.createElement("div");
-            message.className = "message received";
-            message.innerHTML = `${htmlContent}`;
-            chatWindow.appendChild(message);
-            this.renderMathInElement(message);
-          } else {
-            const lastReceivedMessage = chatWindow.querySelector(
-              ".message.received:last-child"
-            );
-            lastReceivedMessage.innerHTML = `${htmlContent}`;
-            this.renderMathInElement(lastReceivedMessage);
+        if (this.msgCount === 0) {
+          const loading = document.getElementById("loading");
+          if (loading) {
+            chatWindow.removeChild(loading);
           }
-          this.msgCount += 1;
 
-          this.applySyntaxHighlighting();
-
-          if (messageObj.end === true) {
-            chatInput.disabled = false;
-            chatInput.focus();
-            document.getElementById("send-button").disabled = false;
-          }
-          chatWindow.scrollTop = chatWindow.scrollHeight;
+          const message = document.createElement("div");
+          message.className = "message received";
+          message.innerHTML = `${htmlContent}`;
+          chatWindow.appendChild(message);
+          this.renderMathInElement(message);
         } else {
-          console.error("Marked library is not loaded.");
+          const lastReceivedMessage = chatWindow.querySelector(
+            ".message.received:last-child"
+          );
+          lastReceivedMessage.innerHTML = `${htmlContent}`;
+          this.renderMathInElement(lastReceivedMessage);
         }
+        this.msgCount += 1;
+
+        this.applySyntaxHighlighting();
+
+        if (messageObj.end === true) {
+          chatInput.disabled = false;
+          chatInput.focus();
+          document.getElementById("send-button").disabled = false;
+        }
+        chatWindow.scrollTop = chatWindow.scrollHeight;
       } catch (error) {
         console.log("Error parsing JSON message:", error);
       }
