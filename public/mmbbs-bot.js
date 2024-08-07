@@ -1,8 +1,12 @@
+import {marked} from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+
 export class MMBBSBOT {
+
   constructor(settings) {
     this.settings = settings;
     this.msgCount = 0;
     this.ws = null;
+    this.marked = marked;
     this.init();
   }
 
@@ -178,7 +182,7 @@ export class MMBBSBOT {
 
         // Sicherstellen, dass marked geladen ist
         // Markdown in HTML umwandeln
-        const htmlContent = window.marked.parse(messageText);;
+        const htmlContent = this.marked.parse(messageText);;
 
         if (this.msgCount === 0) {
           const loading = document.getElementById("loading");
