@@ -10,6 +10,8 @@ export class MMBBSBOT {
     try {
       // Other scripts to load with RequireJS
       var scripts = [
+        "katex",
+        "autoRender",
         "prism",
         "prismPython",
         "prismJava",
@@ -20,6 +22,9 @@ export class MMBBSBOT {
       require.config({
         paths: {
           //marked: "https://cdn.jsdelivr.net/npm/marked/marked.min",
+          katex: "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js",
+          autoRender:
+            "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js",
           prism:
             "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min",
           prismPython:
@@ -174,12 +179,6 @@ export class MMBBSBOT {
     };
 
     return Promise.all([
-      loadScript(
-        "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/katex.min.js"
-      ),
-      loadScript(
-        "https://cdn.jsdelivr.net/npm/katex@0.13.18/dist/contrib/auto-render.min.js"
-      ),
       loadCss("https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css"),
       loadCss(
         "https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/themes/prism.min.css"
