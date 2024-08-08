@@ -403,6 +403,10 @@ app.ws("/api/chat", (ws, req) => {
     ws.on("message", (message) => {
       limitRequests(ws, req, message, () => {
         console.log("Message received:", message);
+        var chatMsg = {
+          end: false,
+          messages: ""
+        };
         try {
           var msgObj = JSON.parse(message);
           console.log("msgObj:", JSON.stringify(msgObj, null, 2));
@@ -422,7 +426,7 @@ app.ws("/api/chat", (ws, req) => {
               case "chatmsg":
                 // Handle user typing notification
                 if (msgObj.data.message === "about") {
-                  resContent =
+                  var resContent =
                     "**Version " +
                     VERSION +
                     "**\r\n\r\n 2024 by Dr. Jörg Tuttas.";
