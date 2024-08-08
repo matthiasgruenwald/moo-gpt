@@ -1,4 +1,4 @@
-const VERSION = "1.5.2";
+const VERSION = "1.5.3";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -152,7 +152,7 @@ const oai = new OpenAI({
 });
 var assistant = await oai.beta.assistants.retrieve(process.env.AID);
 
-var resContent = "";
+
 
 async function fetchPage(url) {
   console.log("fetchPage:", url);
@@ -250,11 +250,13 @@ async function query_homepage(toolId, query) {
 }
 
 class EventHandler extends EventEmitter {
+  
   constructor(client, ws, citations) {
     super();
     this.client = client;
     this.ws = ws;
     this.citations = citations;
+    this.resContent = "";
     console.log("EventHandler constructor called");
   }
 
@@ -386,10 +388,6 @@ class EventHandler extends EventEmitter {
   }
 }
 
-var chatMsg = {
-  end: false,
-  messages: "",
-};
 
 app.ws("/api/chat", (ws, req) => {
   checkOrigin(ws, req, () => {
@@ -457,7 +455,7 @@ function handleMsg(ws, thread, userMessage,settings,eventHandler) {
   console.log("handleMsg called " + thread.id);
 
   var citationindex = 1;
-  resContent = "";
+  var resContent = "";
 
   console.log("Message received:", userMessage);
 
@@ -466,7 +464,7 @@ function handleMsg(ws, thread, userMessage,settings,eventHandler) {
     content: userMessage,
   });
 
-  chatMsg = {
+  var chatMsg = {
     end: false,
     messages: userMessage,
   };
