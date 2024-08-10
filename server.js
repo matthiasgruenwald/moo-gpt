@@ -22,7 +22,6 @@ const CONFIG_DIR = "./config";
 const CERT_FILE = `${CONFIG_DIR}/server.cert`;
 const KEY_FILE = `${CONFIG_DIR}/server.key`;
 let server;
-var pendingFunctions = false;
 
 if (fs.existsSync(CERT_FILE) && fs.existsSync(KEY_FILE)) {
   const privateKey = fs.readFileSync(KEY_FILE, "utf8");
@@ -190,7 +189,6 @@ async function fetchAndExtract(query) {
 
   var result = "";
   const browser = await puppeteer.launch({
-    executablePath: "/usr/bin/chromium-browser",
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
@@ -273,7 +271,7 @@ async function fetchAndExtract(query) {
  */
 
 async function query_homepage(toolId, query) {
-  pendingFunctions = true;
+  
   console.log("------- CALLING AN EXTERNAL API ----------");
   console.log("query", JSON.stringify(query));
   var encoded = encodeURIComponent(query);
@@ -293,6 +291,8 @@ class EventHandler extends EventEmitter {
     this.ws = ws;
     this.citations = citations;
     this.resContent = resContent;
+    this.pendingFunctions = false;
+
     console.log("EventHandler constructor called");
   }
 
@@ -306,6 +306,7 @@ class EventHandler extends EventEmitter {
       console.log("**" + event.event + "**");
       if (event.event === "thread.run.requires_action") {
         //console.log(event);
+        this.pendingFunctions = true;
         const r = await this.handleRequiresAction(
           event.data,
           event.data.thread_id
@@ -317,7 +318,7 @@ class EventHandler extends EventEmitter {
           console.log("Antwort: " + this.resContent);
           chatMsg.messages = this.resContent;
           chatMsg.end = true;
-          pendingFunctions = false;
+          this.pendingFunctions = false;
           this.ws.send(JSON.stringify(chatMsg));
         }
       } else if (event.event === "thread.message.completed") {
@@ -572,7 +573,7 @@ function handleMsg(ws, thread, userMessage, settings, eventHandler) {
         ws.send(JSON.stringify(chatMsg));
       })
       .on("end", async () => {
-        console.log("End event called: pendingFuntions=" + pendingFunctions);
+        console.log("End event called: pendingFuntions=" + eventHandler.pendingFunctions);
         eventHandler.resContent = eventHandler.resContent.replace(
           "sandbox:/mnt/data/",
           "storage/"
@@ -582,7 +583,7 @@ function handleMsg(ws, thread, userMessage, settings, eventHandler) {
           "\r\n"
         );
 
-        if (!pendingFunctions) {
+        if (!eventHandler.pendingFunctions) {
           console.log("Antwort: " + eventHandler.resContent);
           chatMsg.end = true;
           chatMsg.messages = eventHandler.resContent;
