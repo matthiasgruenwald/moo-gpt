@@ -189,19 +189,22 @@ async function fetchAndExtract(query) {
 
   var result = "";
   const browser = await puppeteer.launch({
-    executablePath: "/usr/bin/chromium-browser",
+    executablePath: "/usr/bin/chromium",
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
+  console.log('1');
   const page = await browser.newPage();
-
+  console.log('2');
+  
   const searchQuery = query + " site:mmbbs.de";
-
+  
+  console.log('3');
   await page.goto("https://duckduckgo.com/");
   await page.type('input[name="q"]', searchQuery);
   await page.keyboard.press("Enter");
 
-
+  console.log('los geht es');
   var results = [];
   try {
     // Warten, bis die Ergebnisse geladen sind. Hier verwenden wir den `.result__body` Selektor.
@@ -278,7 +281,7 @@ async function query_homepage(toolId, query) {
   var encoded = encodeURIComponent(query);
   const url = "https://duckduckgo.com/" + query;
   const result = await fetchAndExtract(query); // Awaiting the result
-  //console.log("\r\n\r\n-------------->" + result + "<---------------");
+  console.log("\r\n\r\n-------------->" + result + "<---------------");
   return {
     tool_call_id: toolId,
     output: result,
