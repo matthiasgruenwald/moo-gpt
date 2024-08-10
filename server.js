@@ -189,6 +189,7 @@ async function fetchAndExtract(query) {
 
   var result = "";
   const browser = await puppeteer.launch({
+    executablePath: "/usr/bin/chromium-browser",
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
