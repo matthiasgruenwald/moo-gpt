@@ -16,6 +16,7 @@
     "express-ws": "^5.0.2",
     "moment": "^2.30.1",
     "openai": "^4.52.3",
+    "puppeteer": "^23.0.2",
     "showdown": "^2.1.0",
     "ws": "^8.18.0"
   }

@@ -13,6 +13,7 @@ import cors from "cors";
 import { encode } from "querystring";
 import moment from "moment";
 import { log } from "console";
+import puppeteer from "puppeteer";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -184,20 +185,53 @@ function extractLinks(html) {
   return links;
 }
 
-async function fetchAndExtract(url) {
-  console.log("fetchAndExtract:", url);
-  let result = "";
+async function fetchAndExtract(query) {
+  console.log("fetchAndExtract:", query);
 
-  const html = await fetchPage(url);
-  //console.log('--html-->'+html+"<---");
-  if (!html) return result;
+  var result = "";
+  const browser = await puppeteer.launch({ headless: true });
+  const page = await browser.newPage();
 
-  const links = extractLinks(html);
-  console.log("Anzahl links:", links.length);
-  var max = links.length;
+  const searchQuery = query + " site:mmbbs.de";
+
+  await page.goto("https://duckduckgo.com/");
+  await page.type('input[name="q"]', searchQuery);
+  await page.keyboard.press("Enter");
+
+
+  var results = [];
+  try {
+    // Warten, bis die Ergebnisse geladen sind. Hier verwenden wir den `.result__body` Selektor.
+    console.log("Page loaded");
+
+    await page.waitForSelector(".react-results--main", { timeout: 60000 });
+
+    results = await page.evaluate(() => {
+      let links = [];
+      let items = document.querySelectorAll("a[data-testid='result-title-a']");
+      for (let i = 0; i < 3; i++) {
+        const url = items[i].href;
+        if (!url.endsWith(".pdf")) {
+          // Ausschluss von Links, die auf .pdf enden
+          links.push(url);
+        }
+      }
+      return links;
+    });
+    console.log(results);
+  } catch (error) {
+    console.error("An error occurred:", error);
+  } finally {
+    await browser.close();
+  }
+
+  console.log("Anzahl links:", results.length);
+  var max = results.length;
   if (max > 2) max = 2;
   for (var i = 0; i < max; i++) {
-    const absoluteLink = new URL(links[i], url).href;
+    console.log('Get Link Nr. ' + i + ': ' + results[i]);
+    
+    const absoluteLink = new URL(results[i], results[i]).href;
     console.log("Get Link Nr. " + i + ": Destination " + absoluteLink);
     const linkHtml = await fetchPage(absoluteLink);
     if (linkHtml) {
@@ -206,6 +240,7 @@ async function fetchAndExtract(url) {
       result += linkText;
       //result.push({ url: absoluteLink, text: linkText });
     }
+    
   }
 
   return result;
@@ -238,8 +273,8 @@ async function query_homepage(toolId, query) {
   console.log("------- CALLING AN EXTERNAL API ----------");
   console.log("query", JSON.stringify(query));
   var encoded = encodeURIComponent(query);
-  const url = "https://www.mmbbs.de/?s=" + encoded;
-  const result = await fetchAndExtract(url); // Awaiting the result
+  const url = "https://duckduckgo.com/" + query;
+  const result = await fetchAndExtract(query); // Awaiting the result
   //console.log("\r\n\r\n-------------->" + result + "<---------------");
   return {
     tool_call_id: toolId,
@@ -248,7 +283,7 @@ async function query_homepage(toolId, query) {
 }
 
 class EventHandler extends EventEmitter {
-  constructor(client, ws, citations,resContent) {
+  constructor(client, ws, citations, resContent) {
     super();
     this.client = client;
     this.ws = ws;
@@ -341,7 +376,7 @@ class EventHandler extends EventEmitter {
         })
       );
 
-      //console.log("toolOutputs:", JSON.stringify(toolOutputs));
+      console.log("toolOutputs:", JSON.stringify(toolOutputs));
       if (toolOutputs.length > 0) {
         const result = await oai.beta.threads.runs.submitToolOutputsAndPoll(
           threadId,
@@ -420,7 +455,7 @@ app.ws("/api/chat", (ws, req) => {
                 console.log("Settings received: " + JSON.stringify(settings));
                 thread = await oai.beta.threads.create();
                 console.log("thread created:" + thread.id);
-                eventHandler = new EventHandler(oai, ws, citations,resContent);
+                eventHandler = new EventHandler(oai, ws, citations, resContent);
                 eventHandler.on(
                   "event",
                   eventHandler.onEvent.bind(eventHandler)
