@@ -189,7 +189,10 @@ async function fetchAndExtract(query) {
   console.log("fetchAndExtract:", query);
 
   var result = "";
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await puppeteer.launch({
+    executablePath: "/usr/bin/chromium-browser",
+    headless: true,
+  });
   const page = await browser.newPage();
 
   const searchQuery = query + " site:mmbbs.de";
