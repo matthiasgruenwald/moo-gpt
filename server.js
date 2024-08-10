@@ -152,8 +152,6 @@ const oai = new OpenAI({
 });
 var assistant = await oai.beta.assistants.retrieve(process.env.AID);
 
-
-
 async function fetchPage(url) {
   console.log("fetchPage:", url);
   try {
@@ -250,18 +248,22 @@ async function query_homepage(toolId, query) {
 }
 
 class EventHandler extends EventEmitter {
-  
-  constructor(client, ws, citations) {
+  constructor(client, ws, citations,resContent) {
     super();
     this.client = client;
     this.ws = ws;
     this.citations = citations;
-    this.resContent = "";
+    this.resContent = resContent;
     console.log("EventHandler constructor called");
   }
 
   async onEvent(event) {
     try {
+      var chatMsg = {
+        end: false,
+        messages: "",
+      };
+
       console.log("**" + event.event + "**");
       if (event.event === "thread.run.requires_action") {
         //console.log(event);
@@ -271,10 +273,10 @@ class EventHandler extends EventEmitter {
         );
         //console.log("\r\nRun completed" + JSON.stringify(r, null, 2));
         if (r != undefined) {
-          resContent = r[0].content[0].text.value;
-          resContent = resContent.replace("\r\n\r\n", "\r\n");
-          console.log("Antwort: " + resContent);
-          chatMsg.messages = resContent;
+          this.resContent = r[0].content[0].text.value;
+          this.resContent = this.resContent.replace("\r\n\r\n", "\r\n");
+          console.log("Antwort: " + this.resContent);
+          chatMsg.messages = this.resContent;
           chatMsg.end = true;
           pendingFunctions = false;
           this.ws.send(JSON.stringify(chatMsg));
@@ -300,8 +302,8 @@ class EventHandler extends EventEmitter {
             citation += "[" + num + "]:" + citedFile.filename;
           }
           num++;
-          resContent = resContent.replace("\r\n\r\n", "\r\n");
-          chatMsg.messages = resContent + citation;
+          this.resContent = this.resContent.replace("\r\n\r\n", "\r\n");
+          chatMsg.messages = this.resContent + citation;
           this.ws.send(JSON.stringify(chatMsg));
         });
       } else if (event === "thread.run.textDelta") {
@@ -388,7 +390,6 @@ class EventHandler extends EventEmitter {
   }
 }
 
-
 app.ws("/api/chat", (ws, req) => {
   checkOrigin(ws, req, () => {
     settings = {
@@ -397,15 +398,17 @@ app.ws("/api/chat", (ws, req) => {
     };
     var thread = undefined;
     var settings = undefined;
-    var citations = [];
+
     var eventHandler = undefined;
 
     ws.on("message", (message) => {
       limitRequests(ws, req, message, () => {
         console.log("Message received:", message);
+        var citations = [];
+        var resContent = "";
         var chatMsg = {
           end: false,
-          messages: ""
+          messages: "",
         };
         try {
           var msgObj = JSON.parse(message);
@@ -417,7 +420,7 @@ app.ws("/api/chat", (ws, req) => {
                 console.log("Settings received: " + JSON.stringify(settings));
                 thread = await oai.beta.threads.create();
                 console.log("thread created:" + thread.id);
-                eventHandler = new EventHandler(oai, ws, citations);
+                eventHandler = new EventHandler(oai, ws, citations,resContent);
                 eventHandler.on(
                   "event",
                   eventHandler.onEvent.bind(eventHandler)
@@ -435,7 +438,13 @@ app.ws("/api/chat", (ws, req) => {
                   ws.send(JSON.stringify(chatMsg));
                   return;
                 } else {
-                  handleMsg(ws, thread, msgObj.data.message,settings,eventHandler);
+                  handleMsg(
+                    ws,
+                    thread,
+                    msgObj.data.message,
+                    settings,
+                    eventHandler
+                  );
                 }
                 break;
               default:
@@ -455,11 +464,12 @@ app.ws("/api/chat", (ws, req) => {
   });
 });
 
-function handleMsg(ws, thread, userMessage,settings,eventHandler) {
+function handleMsg(ws, thread, userMessage, settings, eventHandler) {
   console.log("handleMsg called " + thread.id);
 
   var citationindex = 1;
-  var resContent = "";
+  eventHandler.resContent = "";
+  eventHandler.citations = [];
 
   console.log("Message received:", userMessage);
 
@@ -506,28 +516,37 @@ function handleMsg(ws, thread, userMessage,settings,eventHandler) {
             const { file_citation } = annotation;
             if (file_citation) {
               console.log("File Citation", file_citation.file_id);
-              citations.push(file_citation.file_id);
+              eventHandler.citations.push(file_citation.file_id);
             }
             textDelta.value = " [" + citationindex + "] ";
             citationindex++;
           }
-          resContent += textDelta.value;
+          eventHandler.resContent += textDelta.value;
         } else {
-          resContent += textDelta.value;
+          eventHandler.resContent += textDelta.value;
         }
-        resContent = resContent.replace("\r\n\r\n", "\r\n");
-        chatMsg.messages = resContent;
+        eventHandler.resContent = eventHandler.resContent.replace(
+          "\r\n\r\n",
+          "\r\n"
+        );
+        chatMsg.messages = eventHandler.resContent;
         ws.send(JSON.stringify(chatMsg));
       })
       .on("end", async () => {
         console.log("End event called: pendingFuntions=" + pendingFunctions);
-        resContent = resContent.replace("sandbox:/mnt/data/", "storage/");
-        resContent = resContent.replace("\r\n\r\n", "\r\n");
+        eventHandler.resContent = eventHandler.resContent.replace(
+          "sandbox:/mnt/data/",
+          "storage/"
+        );
+        eventHandler.resContent = eventHandler.resContent.replace(
+          "\r\n\r\n",
+          "\r\n"
+        );
 
         if (!pendingFunctions) {
-          console.log("Antwort: " + resContent);
+          console.log("Antwort: " + eventHandler.resContent);
           chatMsg.end = true;
-          chatMsg.messages = resContent;
+          chatMsg.messages = eventHandler.resContent;
           ws.send(JSON.stringify(chatMsg));
         }
       });
