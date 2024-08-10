@@ -8,8 +8,8 @@ docker pushlocal:
     - lehrer
   script:
     - echo "$LOCAL_REGISTRY" | docker login -u root --password-stdin service.joerg-tuttas.de:5555
-    - docker build -t service.joerg-tuttas.de:5555/root/mmbbs_gpt:lehrer .
-    - docker push service.joerg-tuttas.de:5555/root/mmbbs_gpt:lehrer
+    - docker build -t service.joerg-tuttas.de:5555/root/mmbbs_gpt .
+    - docker push service.joerg-tuttas.de:5555/root/mmbbs_gpt
   tags:
     - myrunner
 

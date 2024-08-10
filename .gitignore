@@ -5,3 +5,4 @@ public/storage
 config/server.cert
 config/server.key
 public/chat-icon.png
+.gitlab-ci.yml
