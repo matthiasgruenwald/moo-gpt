@@ -1,4 +1,4 @@
-const VERSION = "1.5.3";
+const VERSION = "1.5.4";
 
 import axios from "axios";
 import cheerio from "cheerio";
