@@ -189,13 +189,19 @@ async function fetchAndExtract(query) {
 
   var result = "";
   const browser = await puppeteer.launch({
-    executablePath: "/usr/bin/chromium",
+    //executablePath: "/usr/bin/chromium",
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    dumpio: true,
   });
   console.log('1');
-  const page = await browser.newPage();
-  console.log('2');
+  var page;
+  try {
+    page = await browser.newPage();
+    console.log("2");
+  } catch (error) {
+    console.error("Error creating a new page:", error);
+  }
   
   const searchQuery = query + " site:mmbbs.de";
   
