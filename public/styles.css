@@ -176,3 +176,8 @@ button:hover {
 
     
 }
+
+/* Positioniert den Chatbot links von drawer-right, wenn vorhanden */
+.drawer-right + .chat-container {
+    right: calc(20px + 300px); /* Breite von drawer-right hinzufügen */
+}

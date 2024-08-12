@@ -4,6 +4,7 @@ import axios from "axios";
 import cheerio from "cheerio";
 import express from "express";
 import OpenAI from "openai";
+import AsyncOpenAI from "openai";
 import fs from "fs";
 import expressWs from "express-ws";
 import EventEmitter from "events";
@@ -147,7 +148,7 @@ if (process.env.AID === undefined) {
   process.exit(1);
 }
 
-const oai = new OpenAI({
+const oai = new AsyncOpenAI({
   apiKey: process.env.APIKEY,
 });
 var assistant = await oai.beta.assistants.retrieve(process.env.AID);
@@ -607,6 +608,9 @@ function handleMsg(ws, thread, userMessage, settings, eventHandler,run) {
           chatMsg.messages = eventHandler.resContent;
           ws.send(JSON.stringify(chatMsg));
         }
+      })
+      .on("error", (error) => {
+        console.error("Error:", error);
       });
   } catch (error) {
     chatMsg.end = true;
