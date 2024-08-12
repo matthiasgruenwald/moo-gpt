@@ -1,4 +1,4 @@
-const VERSION = "1.5.4";
+const VERSION = "1.5.5";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -517,7 +517,7 @@ app.ws("/api/chat", (ws, req) => {
   });
 });
 
-function handleMsg(ws, thread, userMessage, settings, eventHandler,run) {
+async function handleMsg(ws, thread, userMessage, settings, eventHandler,run) {
   console.log("handleMsg called " + thread.id);
 
   var citationindex = 1;
@@ -551,6 +551,13 @@ function handleMsg(ws, thread, userMessage, settings, eventHandler,run) {
     run.cancel();
 
   }
+
+  const runs = await oai.beta.threads.runs.list(
+    thread.id,
+  );
+
+  console.log("RUNS:"+JSON.stringify(runs));
+
 
   try {
     run = oai.beta.threads.runs
