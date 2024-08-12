@@ -96,7 +96,7 @@ Der Chatbot kann über folgende Anweisung in eine andere Webseite eingebaut werd
 
 ggf. muss natürlich die URL der Importanweisung angepasst werden.
 
-## Einfügen in eine Moodle Aufgabe
+## Einfügen in eine Moodle Aufgabe 
 
 ```html
 <script type="module" async="" id="mmbbs-bot">
