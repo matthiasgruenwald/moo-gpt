@@ -448,6 +448,7 @@ app.ws("/api/chat", (ws, req) => {
     };
     var thread = undefined;
     var settings = undefined;
+    var run = undefined;
 
     var eventHandler = undefined;
 
@@ -493,7 +494,8 @@ app.ws("/api/chat", (ws, req) => {
                     thread,
                     msgObj.data.message,
                     settings,
-                    eventHandler
+                    eventHandler,
+                    run
                   );
                 }
                 break;
@@ -514,7 +516,7 @@ app.ws("/api/chat", (ws, req) => {
   });
 });
 
-function handleMsg(ws, thread, userMessage, settings, eventHandler) {
+function handleMsg(ws, thread, userMessage, settings, eventHandler,run) {
   console.log("handleMsg called " + thread.id);
 
   var citationindex = 1;
@@ -541,10 +543,16 @@ function handleMsg(ws, thread, userMessage, settings, eventHandler) {
   const time = now.format("HH:mm");
 
   console.log(`Heute ist ${dayName}, der ${date} um ${time}`);
-  console.log("task=" + settings.task);
+  //console.log("task=" + settings.task);
+
+  if (run!=undefined) {
+    console.log("run is defined");
+    run.cancel();
+
+  }
 
   try {
-    var run = oai.beta.threads.runs
+    run = oai.beta.threads.runs
       .stream(
         thread.id,
         {
