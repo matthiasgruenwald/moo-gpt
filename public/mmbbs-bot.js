@@ -1,4 +1,4 @@
-import {marked} from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import katex from "https://cdn.jsdelivr.net/npm/katex@0.16.11/+esm";
 import renderMathInElement from "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.mjs";
 import prismEs6 from "https://cdn.jsdelivr.net/npm/prism-es6@1.2.0/+esm";
@@ -9,7 +9,6 @@ import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-python.min.js";
 import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-json.min.js";
 
 export class MMBBSBOT {
-
   constructor(settings) {
     this.settings = settings;
     this.msgCount = 0;
@@ -18,7 +17,7 @@ export class MMBBSBOT {
     this.katex = katex;
     this.renderMathInElement = renderMathInElement;
     this.prismEs6 = prismEs6;
-    
+
     this.init();
   }
 
@@ -32,31 +31,25 @@ export class MMBBSBOT {
     }
   }
 
-
   createChatInterface() {
-    // load css
+    console.log("createChatInterface");
+
+    // Load CSS
     const head = document.querySelector("head");
     const css = document.createElement("link");
-    css.href =
-      this.settings.protocol +
-      "://" +
-      this.settings.host +
-      ":" +
-      this.settings.port +
-      "/styles.css";
+    css.href = `${this.settings.protocol}://${this.settings.host}:${this.settings.port}/styles.css`;
     css.rel = "stylesheet";
     head.appendChild(css);
 
     // Create chat icon
     const chatIcon = document.createElement("div");
-    const icon = this.settings.chat_icon
-      ? this.settings.chat_icon
-      : `${this.settings.protocol}://${this.settings.host}:${this.settings.port}/chat-icon.png`;
+    const icon =
+      this.settings.chat_icon ||
+      `${this.settings.protocol}://${this.settings.host}:${this.settings.port}/chat-icon.png`;
     chatIcon.id = "chat-icon";
     chatIcon.className = "chat-icon";
     chatIcon.innerHTML = '<img src="' + icon + '" alt="Chat Icon">';
     chatIcon.onclick = this.toggleChat.bind(this);
-    document.body.appendChild(chatIcon);
 
     // Create chat container
     const chatContainer = document.createElement("div");
@@ -65,44 +58,50 @@ export class MMBBSBOT {
 
     // Create chat header
     const chatHeader = document.createElement("div");
-    const title = this.settings.title ? this.settings.title : "MMBbS GPT";
+    const title = this.settings.title || "MMBbS GPT";
 
     chatHeader.className = "chat-header";
     chatHeader.innerHTML = `
-            <div class="chat-header-icon-container">
-                <img src="${icon}" alt="Chat Icon" class="chat-header-icon">
-            </div>
-            <h1>${title}</h1>
-            <div class="header-icon" onclick="toggleChat()">
-                <img src="${this.settings.protocol}://${this.settings.host}:${this.settings.port}/close-icon.png" alt="Close Icon">
-            </div>
-        `;
+        <div class="chat-header-icon-container">
+            <img src="${icon}" alt="Chat Icon" class="chat-header-icon">
+        </div>
+        <h1>${title}</h1>
+        <div class="header-icon" onclick="toggleChat()">
+            <img src="${this.settings.protocol}://${this.settings.host}:${this.settings.port}/close-icon.png" alt="Close Icon">
+        </div>`;
     chatContainer.appendChild(chatHeader);
 
     // Create chat window
-    const opener = this.settings.opener
-      ? this.settings.opener
-      : "Hallo, wie kann ich ihnen helfen?";
+    const opener = this.settings.opener || "Hallo, wie kann ich Ihnen helfen?";
     const chatWindow = document.createElement("div");
     chatWindow.id = "chat-window";
     chatWindow.className = "chat-window";
     chatWindow.innerHTML = `
-            <div class="message received">
-                <p>${opener}</p>
-            </div>
-        `;
+        <div class="message received">
+            <p>${opener}</p>
+        </div>`;
     chatContainer.appendChild(chatWindow);
 
     // Create input container
     const inputContainer = document.createElement("div");
     inputContainer.className = "input-container";
     inputContainer.innerHTML = `
-            <input type="text" id="chat-input" placeholder="Geben Sie eine Nachricht ein..." onkeydown="handleKeyDown(event)">
-            <button id="send-button" onclick="sendMessage()">Senden</button>
-        `;
+        <input type="text" id="chat-input" placeholder="Geben Sie eine Nachricht ein..." onkeydown="handleKeyDown(event)">
+        <button id="send-button" onclick="sendMessage()">Senden</button>`;
     chatContainer.appendChild(inputContainer);
 
-    document.body.appendChild(chatContainer);
+    // Check if main-inner exists
+    const mainInner = document.querySelector(".main-inner");
+
+    if (mainInner) {
+      console.log("Wir haben ein mainInner");
+      mainInner.appendChild(chatIcon);
+      mainInner.appendChild(chatContainer);
+    } else {
+      console.log("Wir haben KEIN mainInner");
+      document.body.appendChild(chatIcon);
+      document.body.appendChild(chatContainer);
+    }
 
     // Make toggleChat, sendMessage, and handleKeyDown available globally
     window.toggleChat = this.toggleChat.bind(this);
@@ -194,7 +193,7 @@ export class MMBBSBOT {
 
         // Sicherstellen, dass marked geladen ist
         // Markdown in HTML umwandeln
-        const htmlContent = this.marked.parse(messageText);;
+        const htmlContent = this.marked.parse(messageText);
 
         if (this.msgCount === 0) {
           const loading = document.getElementById("loading");
@@ -206,35 +205,32 @@ export class MMBBSBOT {
           message.className = "message received";
           message.innerHTML = `${htmlContent}`;
           chatWindow.appendChild(message);
-          
+
           var mathDiv = message;
-          renderMathInElement( mathDiv, {
+          renderMathInElement(mathDiv, {
             delimiters: [
               { left: "$$", right: "$$", display: true },
               { left: "$", right: "$", display: false },
             ],
           });
-          
         } else {
           const lastReceivedMessage = chatWindow.querySelector(
             ".message.received:last-child"
           );
           lastReceivedMessage.innerHTML = `${htmlContent}`;
-          
+
           var mathDiv = lastReceivedMessage;
-          renderMathInElement( mathDiv, {
+          renderMathInElement(mathDiv, {
             delimiters: [
               { left: "$$", right: "$$", display: true },
               { left: "$", right: "$", display: false },
             ],
           });
-          
         }
         this.msgCount += 1;
 
         // Syntax-Highlighting anwenden
         Prism.highlightAll();
-        
 
         if (messageObj.end === true) {
           chatInput.disabled = false;
@@ -305,4 +301,3 @@ export class MMBBSBOT {
       '<div class="connection-lost">Connection lost</div>';
   }
 }
-
