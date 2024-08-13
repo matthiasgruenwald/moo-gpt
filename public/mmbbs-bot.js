@@ -93,15 +93,8 @@ export class MMBBSBOT {
     // Check if main-inner exists
     const mainInner = document.querySelector(".main-inner");
 
-    if (mainInner) {
-      console.log("Wir haben ein mainInner");
-      mainInner.appendChild(chatIcon);
-      mainInner.appendChild(chatContainer);
-    } else {
-      console.log("Wir haben KEIN mainInner");
-      document.body.appendChild(chatIcon);
-      document.body.appendChild(chatContainer);
-    }
+    document.body.appendChild(chatIcon);
+    document.body.appendChild(chatContainer);
 
     // Make toggleChat, sendMessage, and handleKeyDown available globally
     window.toggleChat = this.toggleChat.bind(this);

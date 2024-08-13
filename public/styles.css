@@ -3,20 +3,19 @@ body {
     margin: 0;
     position: relative;
 }
-
 .chat-icon {
     position: fixed;
-    bottom: 0px;
-    right: 0px;
-    width: 120px;
-    height: 120px;
+    bottom: 5px; /* Abstand vom unteren Rand */
+    right: 5px; /* Abstand vom rechten Rand */
+    width: 110px;
+    height: 110px;
     cursor: pointer;
-    z-index: 1000;
+    z-index: 10000; /* Erhöhter z-index */
 }
-
 .chat-icon img {
     width: 100%;
-    height: 100%;
+    height: auto; /* Beibehaltung des Seitenverhältnisses */
+    object-fit: cover; /* Stellt sicher, dass das Bild den gesamten Raum füllt */
 }
 
 .chat-container {
@@ -32,10 +31,9 @@ body {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    z-index: 999;
+    z-index: 9999; /* Erhöhter z-index */
     display: none;
 }
-
 .chat-header {
     background-color: #003366;
     padding: 10px;
@@ -175,10 +173,3 @@ button:hover {
 .main-inner {
     position: relative;
 }
-
-.main-inner .chat-icon,
-.main-inner .chat-container {
-    position: absolute;
-    right: 0;
-}
-
