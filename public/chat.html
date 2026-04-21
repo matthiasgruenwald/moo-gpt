@@ -146,7 +146,18 @@
   let msgCount = 0;
 
   ws.onopen = () => {
+    // Input deaktivieren bis Thread bereit ist
+    document.getElementById('chat-input').disabled = true;
+    document.getElementById('send-button').disabled = true;
+    document.getElementById('chat-input').placeholder = 'Verbindung wird aufgebaut…';
     ws.send(JSON.stringify({ type: 'settings', data: settings }));
+    // Nach 3 Sekunden aktivieren (Thread-Erstellung dauert ~1-2s)
+    setTimeout(() => {
+      document.getElementById('chat-input').disabled = false;
+      document.getElementById('send-button').disabled = false;
+      document.getElementById('chat-input').placeholder = 'Nachricht eingeben...';
+      document.getElementById('chat-input').focus();
+    }, 3000);
   };
 
   ws.onerror = ws.onclose = () => {

@@ -500,6 +500,13 @@ app.ws("/api/chat", (ws, req) => {
                 );
                 break;
               case "chatmsg":
+                // Thread noch nicht bereit (race condition)
+                if (!thread) {
+                  chatMsg.end = true;
+                  chatMsg.messages = "⏳ Verbindung wird aufgebaut, bitte nochmal senden...";
+                  ws.send(JSON.stringify(chatMsg));
+                  return;
+                }
                 // Handle user typing notification
                 if (msgObj.data.message === "about") {
                   var resContent =
