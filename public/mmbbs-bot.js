@@ -134,6 +134,34 @@ export class MMBBSBOT {
     ]);
   }
 
+  async extractImagesFromTask() {
+    const images = [];
+    if (!this.settings.task) return images;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(this.settings.task, "text/html");
+      const imgTags = doc.querySelectorAll("img");
+      for (const img of imgTags) {
+        try {
+          const response = await fetch(img.src);
+          const blob = await response.blob();
+          const base64 = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+          });
+          images.push(base64);
+          console.log("Image extracted:", img.src);
+        } catch (err) {
+          console.warn("Could not fetch image:", img.src, err);
+        }
+      }
+    } catch (err) {
+      console.warn("Error extracting images:", err);
+    }
+    return images;
+  }
+
   setupWebSocket() {
     const host = this.settings.host || "localhost";
     const port =
@@ -144,14 +172,21 @@ export class MMBBSBOT {
     console.log("wsUrl: ", wsUrl);
     this.ws = new WebSocket(wsUrl);
 
-    this.ws.onopen = () => {
+    this.ws.onopen = async () => {
       console.log("WebSocket connection established");
+
+      // Bilder aus der Aufgabenstellung extrahieren und als Base64 mitsenden
+      const images = await this.extractImagesFromTask();
+      if (images.length > 0) {
+        this.settings.images = images;
+        console.log(`${images.length} Bild(er) aus Aufgabenstellung extrahiert`);
+      }
 
       const obj = { type: "settings", data: this.settings };
 
       try {
         this.ws.send(JSON.stringify(obj));
-        console.log("Settings sent successfully!" + JSON.stringify(obj));
+        console.log("Settings sent successfully!");
       } catch (error) {
         console.error("Send error:", error);
       }

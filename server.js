@@ -1,4 +1,4 @@
-const VERSION = "1.5.6";
+const VERSION = "1.6.0";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -469,9 +469,27 @@ app.ws("/api/chat", (ws, req) => {
             switch (msgObj.type) {
               case "settings":
                 settings = msgObj.data;
-                console.log("Settings received: " + JSON.stringify(settings));
+                console.log("Settings received: " + JSON.stringify({...settings, images: settings.images ? `[${settings.images.length} Bild(er)]` : 'keine'}));
                 thread = await oai.beta.threads.create();
                 console.log("thread created:" + thread.id);
+
+                // Bilder aus der Aufgabenstellung als Thread-Message hinzufügen
+                if (settings.images && settings.images.length > 0) {
+                  console.log(`Füge ${settings.images.length} Bild(er) zum Thread hinzu`);
+                  const imageContent = [
+                    { type: "text", text: "Aufgabenstellung (enthält Bilder):" },
+                    ...settings.images.map((img) => ({
+                      type: "image_url",
+                      image_url: { url: img },
+                    })),
+                  ];
+                  await oai.beta.threads.messages.create(thread.id, {
+                    role: "user",
+                    content: imageContent,
+                  });
+                  console.log("Bilder zum Thread hinzugefügt");
+                }
+
                 eventHandler = new EventHandler(oai, ws, citations, resContent);
                 eventHandler.on(
                   "event",
