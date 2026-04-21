@@ -85,13 +85,16 @@ function checkOrigin(ws, req, next) {
   console.log("origin", origin);
   if (process.env.ALLOWED_ORIGIN != undefined) {
     console.log("ALLOWED_ORIGIN", process.env.ALLOWED_ORIGIN);
-    if (!origin.startsWith(process.env.ALLOWED_ORIGIN)) {
+    // Komma-getrennte Liste von erlaubten Origins unterstützen
+    const allowedOrigins = process.env.ALLOWED_ORIGIN.split(",").map(o => o.trim());
+    const allowed = allowedOrigins.some(o => origin && origin.startsWith(o));
+    if (!allowed) {
       const chatMsg = {
         end: true,
         messages: "Error: Origin not allowed",
       };
       ws.send(JSON.stringify(chatMsg));
-      console.log("Origin not allowed");
+      console.log("Origin not allowed:", origin);
       ws.close(1008, "Origin not allowed");
       return;
     }
