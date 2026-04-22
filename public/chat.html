@@ -60,9 +60,7 @@
       color: white;
       align-self: flex-end;
     }
-    .message_loading {
-      align-self: flex-start;
-    }
+    .message_loading { align-self: flex-start; }
     .message_loading img { height: 30px; }
     #input-container {
       display: flex;
@@ -119,39 +117,40 @@
 </div>
 
 <script>
-  // URL-Parameter lesen
   const params = new URLSearchParams(window.location.search);
+  const HOST     = params.get('host')     || window.location.hostname;
+  const PROTOCOL = params.get('protocol') || (window.location.protocol === 'https:' ? 'https' : 'http');
+  const PORT     = parseInt(params.get('port')) || (window.location.protocol === 'https:' ? 443 : 3000);
+  const BASEURL  = `${PROTOCOL}://${HOST}:${PORT}`;
+
   const settings = {
-    host:     params.get('host')     || window.location.hostname,
-    protocol: params.get('protocol') || (window.location.protocol === 'https:' ? 'https' : 'http'),
-    port:     parseInt(params.get('port')) || (window.location.protocol === 'https:' ? 443 : 3000),
-    task:     params.get('task')     || '',
-    hints:    params.get('hints')    || '',
-    opener:   params.get('opener')   || 'Hallo! Wie kann ich dir helfen?',
-    title:    params.get('title')    || 'Lern-Assistent',
-    chat_icon: params.get('icon')    || null,
+    host:     HOST,
+    protocol: PROTOCOL,
+    port:     PORT,
+    task:     params.get('task')   || '',
+    hints:    params.get('hints')  || '',
+    opener:   params.get('opener') || 'Hallo! Wie kann ich dir helfen?',
+    title:    params.get('title')  || 'Lern-Assistent',
+    icon:     params.get('icon')   || null,
   };
 
-  // Opener und Titel setzen
   document.getElementById('opener-msg').innerHTML = `<p>${settings.opener}</p>`;
   document.getElementById('header-title').textContent = settings.title;
-  if (settings.chat_icon) {
-    document.getElementById('header-icon').src = settings.chat_icon;
+  if (settings.icon) {
+    document.getElementById('header-icon').src = `${BASEURL}/${settings.icon}.png`;
   }
 
-  // WebSocket aufbauen
-  const wsProtocol = settings.protocol === 'https' ? 'wss' : 'ws';
-  const wsUrl = `${wsProtocol}://${settings.host}:${settings.port}/api/chat`;
-  const ws = new WebSocket(wsUrl);
+  const wsProtocol = PROTOCOL === 'https' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${wsProtocol}://${HOST}:${PORT}/api/chat`);
   let msgCount = 0;
 
   ws.onopen = () => {
-    // Input deaktivieren bis Thread bereit ist
     document.getElementById('chat-input').disabled = true;
     document.getElementById('send-button').disabled = true;
     document.getElementById('chat-input').placeholder = 'Verbindung wird aufgebaut…';
-    ws.send(JSON.stringify({ type: 'settings', data: settings }));
-    // Nach 3 Sekunden aktivieren (Thread-Erstellung dauert ~1-2s)
+    const serverSettings = Object.assign({}, settings);
+    if (settings.icon) serverSettings.chat_icon = `${BASEURL}/${settings.icon}.png`;
+    ws.send(JSON.stringify({ type: 'settings', data: serverSettings }));
     setTimeout(() => {
       document.getElementById('chat-input').disabled = false;
       document.getElementById('send-button').disabled = false;
@@ -175,7 +174,6 @@
         .replace(/\\\[/g, '$$').replace(/\\\]/g, '$$')
         .replace(/\\\(/g, '$').replace(/\\\)/g, '$');
       const html = marked.parse(text);
-
       const loading = document.getElementById('loading');
       if (msgCount === 0) {
         if (loading) chatWindow.removeChild(loading);
@@ -207,29 +205,25 @@
   };
 
   function sendMessage() {
-    const chatInput = document.getElementById('chat-input');
+    const chatInput  = document.getElementById('chat-input');
     const chatWindow = document.getElementById('chat-window');
-    const sendBtn = document.getElementById('send-button');
+    const sendBtn    = document.getElementById('send-button');
     const text = chatInput.value.trim();
     if (!text) return;
-
     const msg = document.createElement('div');
     msg.className = 'message sent';
     msg.innerHTML = `<p>${text}</p>`;
     chatWindow.appendChild(msg);
-
     const loading = document.createElement('div');
     loading.className = 'message_loading';
     loading.id = 'loading';
-    loading.innerHTML = `<img src="${settings.protocol}://${settings.host}:${settings.port}/loading.gif" alt="...">`;
+    loading.innerHTML = `<img src="${BASEURL}/loading.gif" alt="...">`;
     chatWindow.appendChild(loading);
     chatWindow.scrollTop = chatWindow.scrollHeight;
-
     chatInput.value = '';
     chatInput.disabled = true;
     sendBtn.disabled = true;
     msgCount = 0;
-
     ws.send(JSON.stringify({ type: 'chatmsg', data: { message: text } }));
   }
 
