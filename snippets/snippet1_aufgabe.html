@@ -1,17 +1,25 @@
 <!-- Snippet 1: KI-Chat (liest Aufgabentext+Bilder) -->
 <!-- Key: abgpt | Öffnen: Spinnennetz-Button in TinyMCE-Toolbar -->
+<div id="mmbbs-settings" style="display:none;">
+  <span class="mmbbs-title">{{Titel}}</span>
+  <span class="mmbbs-opener">{{Begrüßung}}</span>
+  <span class="mmbbs-icon">{{Bild}}</span>
+  <span class="mmbbs-hints">{{Hinweise}}</span>
+</div>
 <script type="module" async id="mmbbs-bot">
+  const cfg = document.getElementById('mmbbs-settings');
+  const get = cls => cfg.querySelector('.mmbbs-' + cls)?.textContent.trim() || '';
   var element = document.querySelector('.activity-description');
   var htmlContent = element ? element.innerHTML : '';
   const settings = {
     "host":      "gpt.gruenwald.fun",
     "protocol":  "https",
     "port":      443,
-    "opener":    "{{Begrüßung}}",
-    "title":     "{{Titel}}",
-    "chat_icon": "https://gpt.gruenwald.fun/{{Bild}}.png",
+    "title":     get("title"),
+    "opener":    get("opener"),
+    "chat_icon": "https://gpt.gruenwald.fun/" + get("icon") + ".png",
     "task":      htmlContent,
-    "hints":     "{{Hinweise}}"
+    "hints":     get("hints")
   };
   import { MMBBSBOT } from 'https://gpt.gruenwald.fun/mmbbs-bot.js';
   const bot = new MMBBSBOT(settings);
