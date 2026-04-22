@@ -1,16 +1,17 @@
-<!-- Snippet 1: Lern-Assistent für Moodle-Aufgaben -->
-<!-- Liest Aufgabentext und Bilder automatisch von der Seite -->
+<!-- Snippet 1: KI-Chat (liest Aufgabentext+Bilder) -->
+<!-- Key: abgpt | Trigger: "abgpt" tippen, dann Tab drücken -->
 <script type="module" async id="mmbbs-bot">
   var element = document.querySelector('.activity-description');
   var htmlContent = element ? element.innerHTML : '';
   const settings = {
-    "host":     "gpt.gruenwald.fun",
-    "protocol": "https",
-    "port":     443,
-    "opener":   "Hallo! Wie kann ich dir bei der Aufgabe helfen?",
-    "title":    "Lern-Assistent",
-    "task":     htmlContent,
-    "hints":    "{{Hinweise für den Bot (z.B.: Du bist Biologielehrer an einer IGS Jg. 9. Gib Lösungshinweise aber keine fertigen Antworten.)}}"
+    "host":      "gpt.gruenwald.fun",
+    "protocol":  "https",
+    "port":      443,
+    "opener":    "{{Begrüßung}}",
+    "title":     "{{Titel}}",
+    "chat_icon": "{{Bild-URL}}",
+    "task":      htmlContent,
+    "hints":     "{{Hinweise}}"
   };
   import { MMBBSBOT } from 'https://gpt.gruenwald.fun/mmbbs-bot.js';
   const bot = new MMBBSBOT(settings);
