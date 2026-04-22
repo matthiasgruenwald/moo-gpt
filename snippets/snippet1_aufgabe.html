@@ -1,11 +1,13 @@
 <!-- Snippet 1: KI-Chat (liest Aufgabentext+Bilder) -->
 <!-- Key: abgpt | Öffnen: Spinnennetz-Button in TinyMCE-Toolbar -->
-<div id="mmbbs-settings" style="display:none;">
-  <span class="mmbbs-title">{{Titel}}</span>
-  <span class="mmbbs-opener">{{Begrüßung}}</span>
-  <span class="mmbbs-icon">{{Bild}}</span>
-  <span class="mmbbs-hints">{{Hinweise}}</span>
+<div id="mmbbs-settings" style="background:#EEF2FF;border:2px dashed #4F46E5;border-radius:8px;padding:10px;margin:8px 0;font-size:13px;color:#1e1b4b;">
+  <strong>⚙️ KI-Assistent – nur im Editor sichtbar, Schüler sehen dies nicht!</strong><br>
+  Titel: <span class="mmbbs-title">{{Titel}}</span><br>
+  Begrüßung: <span class="mmbbs-opener">{{Begrüßung}}</span><br>
+  Bild: <span class="mmbbs-icon">{{Bild}}</span><br>
+  Hinweise: <span class="mmbbs-hints">{{Hinweise}}</span>
 </div>
+<script>document.getElementById("mmbbs-settings").style.display="none";</script>
 <script type="module" async id="mmbbs-bot">
   const cfg = document.getElementById('mmbbs-settings');
   const get = cls => cfg.querySelector('.mmbbs-' + cls)?.textContent.trim() || '';
