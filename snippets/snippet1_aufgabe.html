@@ -1,5 +1,5 @@
 <!-- Snippet 1: KI-Chat (liest Aufgabentext+Bilder) -->
-<!-- Key: abgpt | Trigger: "abgpt" tippen, dann Tab drücken -->
+<!-- Key: abgpt | Öffnen: Spinnennetz-Button in TinyMCE-Toolbar -->
 <script type="module" async id="mmbbs-bot">
   var element = document.querySelector('.activity-description');
   var htmlContent = element ? element.innerHTML : '';
@@ -9,7 +9,7 @@
     "port":      443,
     "opener":    "{{Begrüßung}}",
     "title":     "{{Titel}}",
-    "chat_icon": "{{Bild-URL}}",
+    "chat_icon": "https://gpt.gruenwald.fun/{{Bild}}.png",
     "task":      htmlContent,
     "hints":     "{{Hinweise}}"
   };
