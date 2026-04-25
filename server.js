@@ -479,18 +479,43 @@ app.ws("/api/chat", (ws, req) => {
                 // Bilder aus der Aufgabenstellung als Thread-Message hinzufügen
                 if (settings.images && settings.images.length > 0) {
                   console.log(`Füge ${settings.images.length} Bild(er) zum Thread hinzu`);
-                  const imageContent = [
-                    { type: "text", text: "Aufgabenstellung (enthält Bilder):" },
-                    ...settings.images.map((img) => ({
-                      type: "image_url",
-                      image_url: { url: img },
-                    })),
-                  ];
-                  await oai.beta.threads.messages.create(thread.id, {
-                    role: "user",
-                    content: imageContent,
-                  });
-                  console.log("Bilder zum Thread hinzugefügt");
+                  const imageItems = [];
+                  for (const img of settings.images) {
+                    try {
+                      const parsed = new URL(img);
+                      if (!['http:', 'https:'].includes(parsed.protocol)) {
+                        console.log(`Bild übersprungen (ungültiges Protokoll): ${img}`);
+                        continue;
+                      }
+                      const res = await fetch(img);
+                      if (!res.ok) {
+                        console.log(`Bild übersprungen (HTTP ${res.status}): ${img}`);
+                        continue;
+                      }
+                      const contentType = res.headers.get('content-type') || 'image/jpeg';
+                      const buf = await res.arrayBuffer();
+                      const b64 = Buffer.from(buf).toString('base64');
+                      imageItems.push({
+                        type: "image_url",
+                        image_url: { url: `data:${contentType};base64,${b64}` },
+                      });
+                    } catch (e) {
+                      console.log(`Bild übersprungen (Fehler): ${img} - ${e.message}`);
+                    }
+                  }
+                  if (imageItems.length > 0) {
+                    const imageContent = [
+                      { type: "text", text: "Aufgabenstellung (enthält Bilder):" },
+                      ...imageItems,
+                    ];
+                    await oai.beta.threads.messages.create(thread.id, {
+                      role: "user",
+                      content: imageContent,
+                    });
+                    console.log(`${imageItems.length} Bild(er) zum Thread hinzugefügt`);
+                  } else {
+                    console.log("Keine gültigen Bilder gefunden, übersprungen");
+                  }
                 }
 
                 eventHandler = new EventHandler(oai, ws, citations, resContent);
