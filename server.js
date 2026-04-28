@@ -1,4 +1,4 @@
-const VERSION = "1.6.0";
+const VERSION = "1.6.1";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -482,23 +482,35 @@ app.ws("/api/chat", (ws, req) => {
                   const imageItems = [];
                   for (const img of settings.images) {
                     try {
-                      const parsed = new URL(img);
-                      if (!['http:', 'https:'].includes(parsed.protocol)) {
-                        console.log(`Bild übersprungen (ungültiges Protokoll): ${img}`);
-                        continue;
+                      // Prüfen, ob es bereits ein data-URL (Base64) ist
+                      if (img.startsWith('data:')) {
+                        // Direkt als data-URL verwenden (bereits Base64)
+                        imageItems.push({
+                          type: "image_url",
+                          image_url: { url: img },
+                        });
+                        console.log(`Base64-Bild hinzugefügt`);
+                      } else {
+                        // Normale URL - fetchen
+                        const parsed = new URL(img);
+                        if (!['http:', 'https:'].includes(parsed.protocol)) {
+                          console.log(`Bild übersprungen (ungültiges Protokoll): ${img}`);
+                          continue;
+                        }
+                        const res = await fetch(img);
+                        if (!res.ok) {
+                          console.log(`Bild übersprungen (HTTP ${res.status}): ${img}`);
+                          continue;
+                        }
+                        const contentType = res.headers.get('content-type') || 'image/jpeg';
+                        const buf = await res.arrayBuffer();
+                        const b64 = Buffer.from(buf).toString('base64');
+                        imageItems.push({
+                          type: "image_url",
+                          image_url: { url: `data:${contentType};base64,${b64}` },
+                        });
+                        console.log(`URL-Bild hinzugefügt: ${img}`);
                       }
-                      const res = await fetch(img);
-                      if (!res.ok) {
-                        console.log(`Bild übersprungen (HTTP ${res.status}): ${img}`);
-                        continue;
-                      }
-                      const contentType = res.headers.get('content-type') || 'image/jpeg';
-                      const buf = await res.arrayBuffer();
-                      const b64 = Buffer.from(buf).toString('base64');
-                      imageItems.push({
-                        type: "image_url",
-                        image_url: { url: `data:${contentType};base64,${b64}` },
-                      });
                     } catch (e) {
                       console.log(`Bild übersprungen (Fehler): ${img} - ${e.message}`);
                     }
