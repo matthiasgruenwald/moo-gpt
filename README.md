@@ -129,22 +129,28 @@ Manuell:
 
 Quiz-Fragen blockieren `<script>`-Tags → iframe-Variante via `tegpt`-Snippet (→ `snippets/tegpt.txt`). Aufgabentext und Hinweise werden als URL-Parameter übergeben.
 
-### Thread-Persistenz (ab v1.9.0)
+### Thread-Persistenz + Chatverlauf (ab v1.9.0 / v1.10.0)
 
-Schüler führen ihren Chat nach einem Seitenreload oder Reconnect nahtlos weiter – kein Neustart des Gesprächs.
+Schüler führen ihren Chat nach einem Seitenreload oder Reconnect nahtlos weiter – der vollständige Gesprächsverlauf wird beim Öffnen des Chat-Widgets wiederhergestellt.
 
 **Funktionsweise:**
 - `mmbbs-bot.js` liest beim Verbindungsaufbau `window.M.cfg.userId`, `window.M.cfg.fullname` und die Aktivitäts-ID (`?id=` aus URL) aus und sendet diese mit dem `settings`-Handshake
 - Der Server sucht in SQLite nach einem bestehenden Thread für userId + activityId. Falls gefunden, wird der OpenAI-Thread per `threads.retrieve()` wiederverwendet – kein Bildupload, keine neue Thread-Erstellung
 - Falls der Thread bei OpenAI nicht mehr existiert (Ablauf), wird automatisch ein neuer angelegt
+- Der Server sendet beim Reconnect den gespeicherten Chatverlauf als `type: "history"` an den Client
+- Das Chat-Fenster zeigt den vollständigen Verlauf mit Zeitstempel (DD.MM., HH:MM) und einem Separator „Früheres Gespräch vom…" – der Opener-Text entfällt
+- Alle neuen Nachrichten (gesendet und empfangen) erhalten ebenfalls einen Zeitstempel
 - Bei `ws.onclose` wird `wsInitialized = false` gesetzt: beim nächsten Chat-Öffnen verbindet sich der Bot automatisch neu
 
 **Voraussetzung:** Moodle muss `window.M.cfg.userId` bereitstellen (Standard im Boost-Theme). Ohne diese ID wird kein Lookup durchgeführt und ein neuer Thread angelegt.
+
+**Hinweis Zeitzone:** Der Container muss auf `Europe/Berlin` eingestellt sein (`timedatectl set-timezone Europe/Berlin`), damit die Zeitstempel in den Logs korrekt sind. Die Zeitstempel im Chat-Fenster werden immer korrekt dargestellt, da sie clientseitig aus UTC umgerechnet werden.
 
 ## Versionsverlauf
 
 | Version | Änderung |
 |---------|----------|
+| 1.10.0 | Chatverlauf beim Öffnen anzeigen, Zeitstempel auf allen Nachrichten |
 | 1.9.0 | Thread-Persistenz + Reconnect (Issue #3) |
 | 1.8.0 | SQLite-Logging (Issue #2) |
 | 1.7.0 | Keepalive-Ping gegen Cloudflare-Timeout (Issue #1) |
@@ -154,6 +160,6 @@ Schüler führen ihren Chat nach einem Seitenreload oder Reconnect nahtlos weite
 
 - [x] Issue #1: Keepalive-Ping (v1.7.0)
 - [x] Issue #2: SQLite-Logging (v1.8.0)
-- [x] Issue #3: Thread-Persistenz + Reconnect (v1.9.0)
+- [x] Issue #3: Thread-Persistenz + Reconnect + Chatverlauf (v1.9.0 / v1.10.0)
 - [ ] Issue #4: Rollenerkennung (Schüler/Lehrer)
 - [ ] Issue #5: Lehrer-Dashboard
