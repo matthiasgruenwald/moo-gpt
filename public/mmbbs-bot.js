@@ -13,6 +13,7 @@ export class MMBBSBOT {
     this.settings = settings;
     this.msgCount = 0;
     this.ws = null;
+    this.wsInitialized = false;
     this.marked = marked;
     this.katex = katex;
     this.renderMathInElement = renderMathInElement;
@@ -25,7 +26,6 @@ export class MMBBSBOT {
     try {
       this.loadExternalLibraries();
       this.createChatInterface();
-      this.setupWebSocket();
     } catch (error) {
       console.error("Error loading libraries:", error);
     }
@@ -315,6 +315,10 @@ export class MMBBSBOT {
       chatContainer.style.display === "none" ||
       chatContainer.style.display === ""
     ) {
+      if (!this.wsInitialized) {
+        this.setupWebSocket();
+        this.wsInitialized = true;
+      }
       chatContainer.style.display = "flex";
       chatIcon.style.display = "none";
     } else {
