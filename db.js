@@ -88,6 +88,20 @@ export function findThread({ moodle_user_id, activity_id }) {
 }
 
 /**
+ * Gibt alle Nachrichten eines Threads zurück (chronologisch).
+ * Maximal 100 Einträge, um das Chat-Fenster nicht zu überfluten.
+ * Issue #3: Chatverlauf beim Reconnect
+ */
+export function getMessages(thread_db_id) {
+  return db.prepare(`
+    SELECT role, content, created_at FROM messages
+    WHERE thread_id = ?
+    ORDER BY created_at ASC
+    LIMIT 100
+  `).all(thread_db_id);
+}
+
+/**
  * Speichert eine Nachricht (role: 'user' | 'assistant').
  */
 export function saveMessage({ thread_db_id, role, content }) {
