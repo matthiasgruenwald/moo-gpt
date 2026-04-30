@@ -67,8 +67,24 @@ export function getThreadDbId(openai_thread_id) {
 }
 
 /** updated_at aktualisieren, wenn neue Nachrichten kommen */
-function touchThread(thread_db_id) {
+export function touchThread(thread_db_id) {
   db.prepare(`UPDATE threads SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(thread_db_id);
+}
+
+/**
+ * Sucht den zuletzt aktualisierten Thread für einen Nutzer + Aktivität.
+ * Gibt das komplette row-Objekt zurück oder null.
+ * Issue #3: Thread-Persistenz
+ */
+export function findThread({ moodle_user_id, activity_id }) {
+  if (!moodle_user_id || !activity_id) return null;
+  const row = db.prepare(`
+    SELECT * FROM threads
+    WHERE moodle_user_id = ? AND activity_id = ?
+    ORDER BY updated_at DESC
+    LIMIT 1
+  `).get(moodle_user_id, activity_id);
+  return row || null;
 }
 
 /**

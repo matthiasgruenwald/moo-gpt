@@ -129,10 +129,23 @@ Manuell:
 
 Quiz-Fragen blockieren `<script>`-Tags → iframe-Variante via `tegpt`-Snippet (→ `snippets/tegpt.txt`). Aufgabentext und Hinweise werden als URL-Parameter übergeben.
 
+### Thread-Persistenz (ab v1.9.0)
+
+Schüler führen ihren Chat nach einem Seitenreload oder Reconnect nahtlos weiter – kein Neustart des Gesprächs.
+
+**Funktionsweise:**
+- `mmbbs-bot.js` liest beim Verbindungsaufbau `window.M.cfg.userId`, `window.M.cfg.fullname` und die Aktivitäts-ID (`?id=` aus URL) aus und sendet diese mit dem `settings`-Handshake
+- Der Server sucht in SQLite nach einem bestehenden Thread für userId + activityId. Falls gefunden, wird der OpenAI-Thread per `threads.retrieve()` wiederverwendet – kein Bildupload, keine neue Thread-Erstellung
+- Falls der Thread bei OpenAI nicht mehr existiert (Ablauf), wird automatisch ein neuer angelegt
+- Bei `ws.onclose` wird `wsInitialized = false` gesetzt: beim nächsten Chat-Öffnen verbindet sich der Bot automatisch neu
+
+**Voraussetzung:** Moodle muss `window.M.cfg.userId` bereitstellen (Standard im Boost-Theme). Ohne diese ID wird kein Lookup durchgeführt und ein neuer Thread angelegt.
+
 ## Versionsverlauf
 
 | Version | Änderung |
 |---------|----------|
+| 1.9.0 | Thread-Persistenz + Reconnect (Issue #3) |
 | 1.8.0 | SQLite-Logging (Issue #2) |
 | 1.7.0 | Keepalive-Ping gegen Cloudflare-Timeout (Issue #1) |
 | 1.6.x | Lazy-Init, Bilder-Upload via OpenAI Files API |
@@ -141,6 +154,6 @@ Quiz-Fragen blockieren `<script>`-Tags → iframe-Variante via `tegpt`-Snippet (
 
 - [x] Issue #1: Keepalive-Ping (v1.7.0)
 - [x] Issue #2: SQLite-Logging (v1.8.0)
-- [ ] Issue #3: Thread-Persistenz + Reconnect
+- [x] Issue #3: Thread-Persistenz + Reconnect (v1.9.0)
 - [ ] Issue #4: Rollenerkennung (Schüler/Lehrer)
 - [ ] Issue #5: Lehrer-Dashboard

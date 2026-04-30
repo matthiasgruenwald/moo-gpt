@@ -1,4 +1,4 @@
-const VERSION = "1.8.0";
+const VERSION = "1.9.0";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -15,7 +15,7 @@ import { encode } from "querystring";
 import moment from "moment";
 import { log } from "console";
 import puppeteer from "puppeteer";
-import { initDb, saveThread, saveMessage } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread } from "./db.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -457,6 +457,7 @@ app.ws("/api/chat", (ws, req) => {
     var thread = undefined;
     var settings = undefined;
     var run = undefined;
+    var threadDbId = undefined;  // Issue #3: im äußeren Scope, damit chatmsg-Handler darauf zugreifen kann
 
     var eventHandler = undefined;
 
@@ -485,19 +486,37 @@ app.ws("/api/chat", (ws, req) => {
               case "settings":
                 settings = msgObj.data;
                 console.log("Settings received: " + JSON.stringify({...settings, images: settings.images ? `[${settings.images.length} Bild(er)]` : 'keine'}));
-                thread = await oai.beta.threads.create();
-                console.log("thread created:" + thread.id);
-                // Thread in SQLite speichern (Issue #2)
-                var threadDbId = saveThread({
-                  moodle_user_id:   settings.userId   || null,
-                  moodle_user_name: settings.userName || null,
-                  activity_id:      settings.activityId || null,
-                  openai_thread_id: thread.id,
-                });
-                console.log(`[DB] Thread gespeichert, db_id=${threadDbId}`);
 
-                // Bilder aus der Aufgabenstellung als Thread-Message hinzufügen
-                if (settings.images && settings.images.length > 0) {
+                // Issue #3: Bestehenden Thread suchen oder neuen anlegen
+                let existingThreadRow = null;
+                if (settings.userId && settings.activityId) {
+                  existingThreadRow = findThread({ moodle_user_id: settings.userId, activity_id: settings.activityId });
+                }
+                if (existingThreadRow) {
+                  try {
+                    thread = await oai.beta.threads.retrieve(existingThreadRow.openai_thread_id);
+                    threadDbId = existingThreadRow.id;
+                    touchThread(threadDbId);
+                    console.log(`[DB] Bestehenden Thread wiederverwendet: ${thread.id} (db_id=${threadDbId})`);
+                  } catch (e) {
+                    console.warn(`[DB] Thread nicht mehr bei OpenAI (${existingThreadRow.openai_thread_id}), lege neuen an: ${e.message}`);
+                    existingThreadRow = null;
+                  }
+                }
+                if (!existingThreadRow) {
+                  thread = await oai.beta.threads.create();
+                  console.log("thread created: " + thread.id);
+                  threadDbId = saveThread({
+                    moodle_user_id:   settings.userId   || null,
+                    moodle_user_name: settings.userName || null,
+                    activity_id:      settings.activityId || null,
+                    openai_thread_id: thread.id,
+                  });
+                  console.log(`[DB] Neuer Thread gespeichert, db_id=${threadDbId}`);
+                }
+
+                // Bilder aus der Aufgabenstellung als Thread-Message hinzufügen (nur bei neuem Thread)
+                if (!existingThreadRow && settings.images && settings.images.length > 0) {
                   console.log(`Füge ${settings.images.length} Bild(er) zum Thread hinzu`);
                   const imageItems = [];
                   for (const img of settings.images) {

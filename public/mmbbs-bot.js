@@ -175,6 +175,18 @@ export class MMBBSBOT {
     this.ws.onopen = async () => {
       console.log("WebSocket connection established");
 
+      // Input-Container wiederherstellen (nach Reconnect)
+      this.restoreInputContainer();
+
+      // Moodle-User-Kontext auslesen (Issue #3: Thread-Persistenz)
+      const userId = window.M?.cfg?.userId?.toString() || null;
+      const userName = window.M?.cfg?.fullname || null;
+      const activityId = new URLSearchParams(window.location.search).get('id') || null;
+      if (userId) this.settings.userId = userId;
+      if (userName) this.settings.userName = userName;
+      if (activityId) this.settings.activityId = activityId;
+      console.log(`[Bot] userId=${userId}, activityId=${activityId}`);
+
       // Bilder aus der Aufgabenstellung extrahieren und als Base64 mitsenden
       const images = await this.extractImagesFromTask();
       if (images.length > 0) {
@@ -199,6 +211,7 @@ export class MMBBSBOT {
 
     this.ws.onclose = () => {
       console.warn("WebSocket connection closed");
+      this.wsInitialized = false;  // Issue #3: Reconnect beim nächsten Chat-Öffnen
       this.showConnectionLostMessage();
     };
 
@@ -327,9 +340,19 @@ export class MMBBSBOT {
     }
   }
 
+  /** Stellt den Eingabe-Bereich nach einem Reconnect wieder her. */
+  restoreInputContainer() {
+    const inputContainer = document.querySelector(".input-container");
+    if (inputContainer && !document.getElementById("chat-input")) {
+      inputContainer.innerHTML = `
+        <input type="text" id="chat-input" placeholder="Geben Sie eine Nachricht ein..." onkeydown="handleKeyDown(event)">
+        <button id="send-button" onclick="sendMessage()">Senden</button>`;
+    }
+  }
+
   showConnectionLostMessage() {
     const inputContainer = document.querySelector(".input-container");
     inputContainer.innerHTML =
-      '<div class="connection-lost">Connection lost</div>';
+      '<div class="connection-lost">Verbindung unterbrochen – Chat schließen und neu öffnen zum Wiederverbinden.</div>';
   }
 }
