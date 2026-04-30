@@ -147,6 +147,24 @@ input[type="text"] {
     width: 100%;
 }
 
+.msg-time {
+    font-size: 0.7em;
+    opacity: 0.6;
+    display: block;
+    margin-top: 4px;
+    text-align: right;
+}
+
+.history-separator {
+    text-align: center;
+    font-size: 0.75em;
+    opacity: 0.6;
+    margin: 8px 0 12px;
+    padding: 4px 0;
+    border-top: 1px solid rgba(255,255,255,0.2);
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+
 button {
     background-color: #0d6efd;
     color: white;

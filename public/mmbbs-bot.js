@@ -221,6 +221,13 @@ export class MMBBSBOT {
 
       try {
         const messageObj = JSON.parse(event.data);
+
+        // Chatverlauf beim Reconnect anzeigen (Issue #3)
+        if (messageObj.type === "history") {
+          this.renderHistory(messageObj.messages);
+          return;
+        }
+
         let messageText = messageObj.messages;
 
         // Ersetzen von \[ durch $$
@@ -274,6 +281,15 @@ export class MMBBSBOT {
         Prism.highlightAll();
 
         if (messageObj.end === true) {
+          // Zeitstempel zur fertigen Antwort hinzufügen
+          const nowStr = new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+          const lastMsg = chatWindow.querySelector(".message.received:last-child");
+          if (lastMsg && !lastMsg.querySelector(".msg-time")) {
+            const timeSpan = document.createElement("span");
+            timeSpan.className = "msg-time";
+            timeSpan.textContent = nowStr;
+            lastMsg.appendChild(timeSpan);
+          }
           chatInput.disabled = false;
           chatInput.focus();
           document.getElementById("send-button").disabled = false;
@@ -292,9 +308,10 @@ export class MMBBSBOT {
     const sendButton = document.getElementById("send-button");
 
     if (messageText.trim() !== "") {
+      const nowStr = new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
       const message = document.createElement("div");
       message.className = "message sent";
-      message.innerHTML = `<p>${messageText}</p>`;
+      message.innerHTML = `<p>${messageText}</p><span class="msg-time">${nowStr}</span>`;
       chatWindow.appendChild(message);
       chatInput.value = "";
       this.ws.send(
@@ -338,6 +355,56 @@ export class MMBBSBOT {
       chatContainer.style.display = "none";
       chatIcon.style.display = "block";
     }
+  }
+
+  /**
+   * Rendert den Chatverlauf aus der Datenbank (Issue #3).
+   * Ersetzt die Opener-Nachricht durch den tatsächlichen Verlauf mit Zeitstempeln.
+   */
+  renderHistory(messages) {
+    if (!messages || messages.length === 0) return;
+    const chatWindow = document.getElementById("chat-window");
+    chatWindow.innerHTML = ''; // Opener entfernen
+
+    // Separator mit Datum der ersten Nachricht
+    const firstDate = new Date(messages[0].created_at.replace(' ', 'T') + 'Z');
+    const dateStr = firstDate.toLocaleDateString('de-DE', {
+      timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric'
+    });
+    const sep = document.createElement("div");
+    sep.className = "history-separator";
+    sep.textContent = `Früheres Gespräch vom ${dateStr}`;
+    chatWindow.appendChild(sep);
+
+    for (const msg of messages) {
+      const time = new Date(msg.created_at.replace(' ', 'T') + 'Z')
+        .toLocaleString('de-DE', {
+          timeZone: 'Europe/Berlin',
+          hour: '2-digit', minute: '2-digit',
+          day: '2-digit', month: '2-digit'
+        });
+
+      const div = document.createElement("div");
+      if (msg.role === 'user') {
+        div.className = "message sent";
+        div.innerHTML = `<p>${msg.content}</p><span class="msg-time">${time}</span>`;
+      } else {
+        div.className = "message received";
+        const htmlContent = this.marked.parse(msg.content);
+        div.innerHTML = `${htmlContent}<span class="msg-time">${time}</span>`;
+      }
+      chatWindow.appendChild(div);
+    }
+
+    // Mathe-Rendering für History
+    renderMathInElement(chatWindow, {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "$", right: "$", display: false },
+      ],
+    });
+
+    chatWindow.scrollTop = chatWindow.scrollHeight;
   }
 
   /** Stellt den Eingabe-Bereich nach einem Reconnect wieder her. */

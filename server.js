@@ -15,7 +15,7 @@ import { encode } from "querystring";
 import moment from "moment";
 import { log } from "console";
 import puppeteer from "puppeteer";
-import { initDb, saveThread, saveMessage, findThread, touchThread } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages } from "./db.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -575,6 +575,15 @@ app.ws("/api/chat", (ws, req) => {
                     console.log(`${imageItems.length} Bild(er) zum Thread hinzugefügt`);
                   } else {
                     console.log("Keine gültigen Bilder gefunden, übersprungen");
+                  }
+                }
+
+                // Chatverlauf an Client senden (nur bei bestehendem Thread)
+                if (existingThreadRow) {
+                  const history = getMessages(threadDbId);
+                  if (history.length > 0) {
+                    ws.send(JSON.stringify({ type: "history", messages: history }));
+                    console.log(`[DB] ${history.length} Nachrichten an Client gesendet`);
                   }
                 }
 
