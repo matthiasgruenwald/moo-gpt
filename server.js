@@ -1,4 +1,4 @@
-const VERSION = "1.6.2";
+const VERSION = "1.7.0";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -455,6 +455,14 @@ app.ws("/api/chat", (ws, req) => {
     var run = undefined;
 
     var eventHandler = undefined;
+
+    // Keepalive: alle 30 Sek. ping senden, damit Cloudflare die Verbindung nicht trennt
+    const keepalive = setInterval(() => {
+      if (ws.readyState === ws.OPEN) {
+        ws.ping();
+      }
+    }, 30000);
+    ws.on("close", () => clearInterval(keepalive));
 
     ws.on("message", (message) => {
       limitRequests(ws, req, message, () => {
