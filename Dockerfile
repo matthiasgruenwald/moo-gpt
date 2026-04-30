@@ -3,7 +3,7 @@ FROM node:22-bookworm
 # Set environment to production
 ENV NODE_ENV=production
 
-# Install necessary system dependencies for running Chrome
+# Install system dependencies: Chrome (Puppeteer) + build tools (better-sqlite3)
 RUN apt-get update && apt-get install -y \
     libnss3 \
     libatk1.0-0 \
@@ -19,6 +19,8 @@ RUN apt-get update && apt-get install -y \
     libgtk-3-0 \
     libx11-xcb1 \
     libxss1 \
+    build-essential \
+    python3 \
     --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
 # Set custom Puppeteer cache directory
@@ -44,7 +46,8 @@ COPY . .
 EXPOSE 3000
 
 # Define volumes (consolidated)
-VOLUME ["/usr/src/app/public/storage", "/usr/src/app/config"]
+# chats.db: SQLite-Datenbank für Thread- und Nachrichten-Logging (Issue #2)
+VOLUME ["/usr/src/app/public/storage", "/usr/src/app/config", "/usr/src/app/chats.db"]
 
 # Ensure the node user has appropriate permissions
 RUN chown -R node:node /usr/src/app

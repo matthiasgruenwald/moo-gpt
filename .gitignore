@@ -6,3 +6,11 @@ config/server.cert
 config/server.key
 public/chat-icon.png
 .gitlab-ci.yml
+
+# SQLite-Datenbank (wird zur Laufzeit erzeugt)
+*.db
+*.db-shm
+*.db-wal
+
+# macOS
+.DS_Store

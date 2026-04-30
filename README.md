@@ -2,125 +2,124 @@
 
 ## Installation
 
-Nach dem Clonen des Repositories sind über
+`better-sqlite3` ist ein natives Addon und benötigt Build-Tools:
 
-```
+```bash
+# Debian/Ubuntu (LXC)
+apt-get install -y build-essential
 npm install
 ```
 
-die notwendigen Pakete zu installieren.
-
 ## Konfiguration
 
-Dokumente die von der KI gelesen werden sollen, müssen im Vector Storage für den Assistenten in der openAI Oberfläche hochgeladen werden. Sollen diese Dokumente auch downloadbar sein, so müssen Sie unter gleichem Namen im Order **public/storage** abgelegt werden !
+Dokumente die von der KI gelesen werden sollen, müssen im Vector Storage für den Assistenten in der openAI Oberfläche hochgeladen werden. Sollen diese Dokumente auch downloadbar sein, so müssen Sie unter gleichem Namen im Ordner **public/storage** abgelegt werden.
 
 ## Starten des Servers
 
-Zunächst muss der OpenAI API Key und die Assistenten ID als Umgebungsvariable gesetzt werden:
+Zunächst müssen die Umgebungsvariablen gesetzt werden (mindestens `APIKEY` und `AID`):
 
-```
-set APIKEY=sk-proj-geheim
-set AID=asst_uen-geheim
+```bash
+export APIKEY=sk-proj-geheim
+export AID=asst_uen-geheim
 ```
 
-Anschließend kann der Server via...
+Anschließend:
 
 ```
 npm start
 ```
 
-gestartet werden.
-
 ## Umgebungsvariablen
 
-Über die Umgebungsvariable **ALLOWED_ORIGIN** kann der Zugriff auf den Server eingeschränkt werden. Wenn die Umgebungsvariable gesetzt ist, kann der Zugriff auf den Server nur über die Domain erfolgen. Ansonsten ist der Zugriff beliebig.
+| Variable | Pflicht | Beschreibung |
+|----------|---------|--------------|
+| `APIKEY` | ✅ | OpenAI API Key |
+| `AID` | ✅ | OpenAI Assistenten-ID |
+| `ALLOWED_ORIGIN` | – | Kommagetrennte Liste erlaubter Origins (z. B. `https://moodle.mm-bbs.de`). Ohne diese Variable ist jede Origin erlaubt. |
+| `MAX_REQUESTS` | – | Max. Anfragen pro IP und Tag (z. B. `4`) |
+| `DB_PATH` | – | Pfad zur SQLite-Datenbankdatei (Standard: `/opt/mmbbs-gpt/chats.db`) |
 
-```
-set ALLOWED_ORIGIN=https://moodle.mm-bbs.de
-```
+## SQLite-Datenbank
 
-Über die Umgebungsvariable **MAX_REQUESTS** kann die Anzahl von Requests pro IP und Tag eingeschränkt werden. Ist die variable gesetzt,
+Ab v1.8.0 werden alle Chats lokal in einer SQLite-Datenbank gespeichert (`chats.db`).
 
-```
-set MAX_REQUESTS=4
-```
+**Zweck:** Nachrichten lokal spiegeln, damit spätere Features (Thread-Persistenz, Lehrer-Dashboard) ohne API-Abfragen an OpenAI auskommen.
 
-So sind pro IP nur 4 Anfragen von einer IP pro Tag möglich.
+**Tabellen:**
 
+`threads` – ein Eintrag pro OpenAI-Thread:
+
+| Spalte | Typ | Beschreibung |
+|--------|-----|--------------|
+| `id` | INTEGER PK | interne ID |
+| `moodle_user_id` | TEXT | Moodle-User-ID (ab Issue #3) |
+| `moodle_user_name` | TEXT | Anzeigename des Schülers (ab Issue #3) |
+| `activity_id` | TEXT | Moodle-Aktivitäts-ID aus URL-Parameter `?id=` (ab Issue #3) |
+| `openai_thread_id` | TEXT UNIQUE | Thread-ID bei OpenAI |
+| `created_at` / `updated_at` | DATETIME | Timestamps |
+
+`messages` – alle Nachrichten chronologisch:
+
+| Spalte | Typ | Beschreibung |
+|--------|-----|--------------|
+| `id` | INTEGER PK | interne ID |
+| `thread_id` | INTEGER FK | Verweis auf `threads.id` |
+| `role` | TEXT | `user` oder `assistant` |
+| `content` | TEXT | Nachrichtentext |
+| `created_at` | DATETIME | Timestamp |
+
+Die DB-Datei wird beim ersten Start automatisch angelegt. Pfad per `DB_PATH`-Env-Variable überschreibbar.
 
 ## Docker Container
-
-Für die Anwendung existiert auch ein Dockercontainer
 
 ```
 docker run -d -p 3000:3000 -e APIKEY=sk-proj-geheim -e AID=asst_uen-geheim service.joerg-tuttas.de:5555/root/mmbbs_gpt
 ```
 
-### Volumes
+**Volumes:**
 
-Es existieren die folgenden Volumes:
+- `/usr/src/app/public/storage` – Dokumente zum Herunterladen
+- `/usr/src/app/config` – `server.cert` / `server.key` für HTTPS/WSS
+- `/usr/src/app/chats.db` – SQLite-Datenbankdatei (neu ab v1.8.0)
 
-- **/usr/src/app/public/storage**: Für die Dokumente, die auch zum herunterladen sind.
+## Einbinden in eine Moodle-Aufgabe (Snippet: abgpt)
 
-- **/usr/src/app/config**: Für Dateien server.cert und server.key zum Aufbau der https/wss Verbindung.
+Der einfachste Weg ist das TinyMCE-Snippet `abgpt` (→ `snippets/abgpt.txt`). Es liest Aufgabentext und Bilder automatisch aus `.activity-description` und blendet die Konfiguration für Schüler aus.
 
-## Einbinden auf andere Webseiten
-
-Der Chatbot kann über folgende Anweisung in eine andere Webseite eingebaut werden.
+Manuell:
 
 ```html
 <script type="module" async="" id="mmbbs-bot">
     const settings = {
-        "host": "service.joerg-tuttas.de",
-        "protocol":"https",
-        "port": 3000,
-        "opener":"Hallo wie kann ich Ihnen helfen?",
-        "title":"Tuttas GPT",
-        "chat_icon": "https://service.joerg-tuttas.de/tu.png",
-        "task":"Die konkrete Aufgabe",
-        "hints": "Du bist Experte in Java Programmierung."
-    };
-
-    import {
-        MMBBSBOT
-    } from 'https://service.joerg-tuttas.de:3000/mmbbs-bot.js';
-    const bot = new MMBBSBOT(settings);
-</script>
-```
-
-**Die Anpassungen im Einzelnen:**
-
-- **opener** [optional]: Begrüßungsnachricht
-- **title** [optional]: Die Überschrift des Bots
-- **chat_icon** [optional]: Die vollständige URL zum Chat-Icon
-
-ggf. muss natürlich die URL der Importanweisung angepasst werden.
-
-## Einfügen in eine Moodle Aufgabe 
-
-```html
-<script type="module" async="" id="mmbbs-bot">
-    // Wählt das erste Element mit der Klasse "activity-description" aus
-    var element = document.querySelector('.activity-description');
-    var htmlContent = element.innerHTML;
-    const settings = {
-        "host": "service.joerg-tuttas.de",
+        "host": "gpt.gruenwald.fun",
         "protocol": "https",
-        "port": 3001,
-        "opener": "Hallo wie kann ich Dir bei der Aufgabe helfen?",
-        "chat_icon": "https://service.joerg-tuttas.de/tu.png",
-        "title": "Tuttas GPT",
-        "task": htmlContent,
-        "hints": "Du bist Experte in Java Programmierung, Du erstellst aber keinen Java Code als Beispiel sondern gibst lediglich Lösungshinweise."
+        "port": 443,
+        "opener": "Hallo, wie kann ich dir helfen?",
+        "title": "KI-Assistent",
+        "hints": "Du gibst nur Hinweise, keine fertigen Lösungen.",
+        "task": document.querySelector('.activity-description')?.innerHTML || ""
     };
-
-    import {
-        MMBBSBOT
-    } from 'https://service.joerg-tuttas.de:3001/mmbbs-bot.js';
+    import { MMBBSBOT } from 'https://gpt.gruenwald.fun/mmbbs-bot.js';
     const bot = new MMBBSBOT(settings);
 </script>
 ```
 
-## ToDo
+## Einbinden in eine Moodle-Testfrage (Snippet: tegpt)
 
-- Syntax Highlightning
+Quiz-Fragen blockieren `<script>`-Tags → iframe-Variante via `tegpt`-Snippet (→ `snippets/tegpt.txt`). Aufgabentext und Hinweise werden als URL-Parameter übergeben.
+
+## Versionsverlauf
+
+| Version | Änderung |
+|---------|----------|
+| 1.8.0 | SQLite-Logging (Issue #2) |
+| 1.7.0 | Keepalive-Ping gegen Cloudflare-Timeout (Issue #1) |
+| 1.6.x | Lazy-Init, Bilder-Upload via OpenAI Files API |
+
+## ToDo / Roadmap (Branch feature/v2-issues-2-5)
+
+- [x] Issue #1: Keepalive-Ping (v1.7.0)
+- [x] Issue #2: SQLite-Logging (v1.8.0)
+- [ ] Issue #3: Thread-Persistenz + Reconnect
+- [ ] Issue #4: Rollenerkennung (Schüler/Lehrer)
+- [ ] Issue #5: Lehrer-Dashboard
