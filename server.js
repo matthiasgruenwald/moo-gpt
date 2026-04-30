@@ -1,4 +1,4 @@
-const VERSION = "1.7.0";
+const VERSION = "1.8.0";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -15,6 +15,7 @@ import { encode } from "querystring";
 import moment from "moment";
 import { log } from "console";
 import puppeteer from "puppeteer";
+import { initDb, saveThread, saveMessage } from "./db.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -155,6 +156,9 @@ const oai = new AsyncOpenAI({
   apiKey: process.env.APIKEY,
 });
 var assistant = await oai.beta.assistants.retrieve(process.env.AID);
+
+// SQLite-DB initialisieren
+initDb();
 
 async function fetchPage(url) {
   console.log("fetchPage:", url);
@@ -483,6 +487,14 @@ app.ws("/api/chat", (ws, req) => {
                 console.log("Settings received: " + JSON.stringify({...settings, images: settings.images ? `[${settings.images.length} Bild(er)]` : 'keine'}));
                 thread = await oai.beta.threads.create();
                 console.log("thread created:" + thread.id);
+                // Thread in SQLite speichern (Issue #2)
+                var threadDbId = saveThread({
+                  moodle_user_id:   settings.userId   || null,
+                  moodle_user_name: settings.userName || null,
+                  activity_id:      settings.activityId || null,
+                  openai_thread_id: thread.id,
+                });
+                console.log(`[DB] Thread gespeichert, db_id=${threadDbId}`);
 
                 // Bilder aus der Aufgabenstellung als Thread-Message hinzufügen
                 if (settings.images && settings.images.length > 0) {
@@ -572,13 +584,18 @@ app.ws("/api/chat", (ws, req) => {
                   ws.send(JSON.stringify(chatMsg));
                   return;
                 } else {
+                  // Usernachricht in DB spiegeln (Issue #2)
+                  if (threadDbId) {
+                    saveMessage({ thread_db_id: threadDbId, role: 'user', content: msgObj.data.message });
+                  }
                   handleMsg(
                     ws,
                     thread,
                     msgObj.data.message,
                     settings,
                     eventHandler,
-                    run
+                    run,
+                    threadDbId
                   );
                 }
                 break;
@@ -599,7 +616,7 @@ app.ws("/api/chat", (ws, req) => {
   });
 });
 
-async function handleMsg(ws, thread, userMessage, settings, eventHandler,run) {
+async function handleMsg(ws, thread, userMessage, settings, eventHandler, run, threadDbId = null) {
   console.log("handleMsg called " + thread.id);
 
   var citationindex = 1;
@@ -693,6 +710,10 @@ async function handleMsg(ws, thread, userMessage, settings, eventHandler,run) {
 
         if (!eventHandler.pendingFunctions) {
           console.log("Antwort: " + eventHandler.resContent);
+          // Assistenten-Antwort in DB spiegeln (Issue #2)
+          if (threadDbId) {
+            saveMessage({ thread_db_id: threadDbId, role: 'assistant', content: eventHandler.resContent });
+          }
           chatMsg.end = true;
           chatMsg.messages = eventHandler.resContent;
           ws.send(JSON.stringify(chatMsg));
