@@ -1,4 +1,4 @@
-const VERSION = "1.6.1";
+const VERSION = "1.6.2";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -483,37 +483,45 @@ app.ws("/api/chat", (ws, req) => {
                   for (const img of settings.images) {
                     try {
                       const imgClean = img && typeof img === 'string' ? img.trim() : img;
-                      // Prüfen, ob es bereits ein data-URL (Base64) ist
+                      let imageBuffer, mimeType;
+
                       if (imgClean && imgClean.startsWith('data:')) {
-                        // Direkt als data-URL verwenden (bereits Base64)
-                        imageItems.push({
-                          type: "image_url",
-                          image_url: { url: imgClean },
-                        });
-                        console.log(`Base64-Bild hinzugefügt (${imgClean.substring(0, 25)}...)`);
+                        // Base64 data-URL → Buffer extrahieren
+                        const mimeMatch = imgClean.match(/^data:([^;]+);base64,/);
+                        mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+                        const b64 = imgClean.replace(/^data:[^;]+;base64,/, '');
+                        imageBuffer = Buffer.from(b64, 'base64');
+                        console.log(`Base64-Bild empfangen (${mimeType}, ${imageBuffer.length} bytes)`);
                       } else {
                         // Normale URL - fetchen
-                        const parsed = new URL(img);
+                        const parsed = new URL(imgClean);
                         if (!['http:', 'https:'].includes(parsed.protocol)) {
-                          console.log(`Bild übersprungen (ungültiges Protokoll): ${img}`);
+                          console.log(`Bild übersprungen (ungültiges Protokoll): ${imgClean}`);
                           continue;
                         }
-                        const res = await fetch(img);
+                        const res = await fetch(imgClean);
                         if (!res.ok) {
-                          console.log(`Bild übersprungen (HTTP ${res.status}): ${img}`);
+                          console.log(`Bild übersprungen (HTTP ${res.status}): ${imgClean}`);
                           continue;
                         }
-                        const contentType = res.headers.get('content-type') || 'image/jpeg';
-                        const buf = await res.arrayBuffer();
-                        const b64 = Buffer.from(buf).toString('base64');
-                        imageItems.push({
-                          type: "image_url",
-                          image_url: { url: `data:${contentType};base64,${b64}` },
-                        });
-                        console.log(`URL-Bild hinzugefügt: ${img}`);
+                        mimeType = res.headers.get('content-type') || 'image/jpeg';
+                        imageBuffer = Buffer.from(await res.arrayBuffer());
+                        console.log(`URL-Bild geladen: ${imgClean} (${mimeType}, ${imageBuffer.length} bytes)`);
                       }
+
+                      // Bild bei OpenAI hochladen (Assistants API unterstützt keine base64 data-URLs)
+                      const ext = mimeType.split('/')[1]?.split('+')[0] || 'png';
+                      const uploadedFile = await oai.files.create({
+                        file: new File([imageBuffer], `image.${ext}`, { type: mimeType }),
+                        purpose: 'vision',
+                      });
+                      imageItems.push({
+                        type: "image_file",
+                        image_file: { file_id: uploadedFile.id },
+                      });
+                      console.log(`Bild hochgeladen: file_id=${uploadedFile.id}`);
                     } catch (e) {
-                      console.log(`Bild übersprungen (Fehler): ${img} - ${e.message}`);
+                      console.log(`Bild übersprungen (Fehler): ${e.message}`);
                     }
                   }
                   if (imageItems.length > 0) {
