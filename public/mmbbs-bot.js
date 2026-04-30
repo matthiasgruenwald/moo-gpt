@@ -370,7 +370,14 @@ export class MMBBSBOT {
   renderHistory(messages) {
     if (!messages || messages.length === 0) return;
     const chatWindow = document.getElementById("chat-window");
-    chatWindow.innerHTML = ''; // Opener entfernen
+    chatWindow.innerHTML = '';
+
+    // Opener-Nachricht wiederherstellen
+    const opener = this.settings.opener || "Hallo, wie kann ich dir helfen?";
+    const openerDiv = document.createElement("div");
+    openerDiv.className = "message received";
+    openerDiv.innerHTML = `<p>${opener}</p>`;
+    chatWindow.appendChild(openerDiv);
 
     // Separator mit Datum der ersten Nachricht
     const firstDate = new Date(messages[0].created_at.replace(' ', 'T') + 'Z');
