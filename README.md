@@ -82,6 +82,27 @@ docker run -d -p 3000:3000 -e APIKEY=sk-proj-geheim -e AID=asst_uen-geheim servi
 - `/usr/src/app/config` – `server.cert` / `server.key` für HTTPS/WSS
 - `/usr/src/app/chats.db` – SQLite-Datenbankdatei (neu ab v1.8.0)
 
+## Features
+
+### Bilderkennung
+
+Der Bot erkennt Bilder in der Aufgabenstellung automatisch und überträgt sie an OpenAI. Voraussetzungen:
+
+- **Modell:** zwingend `gpt-4o` – `gpt-4o-mini` unterstützt keine Bilderkennung in der Assistants API und halluziniert stattdessen
+- **Bilder müssen im Moodle-Medienpool liegen** (kein CORS-Problem); sehr große Bilder oder fotografierte Schulbuchseiten können fehlschlagen – SVG oder komprimierte PNGs bevorzugen
+- Diagnose: `journalctl -u mmbbs-gpt -f` – fehlendes „Füge X Bild(er) zum Thread hinzu" bedeutet, das Bild kam nicht an
+
+Das Modell wird im OpenAI-Dashboard unter platform.openai.com/assistants gesetzt, nicht im Code.
+
+### Einbindung per TinyMCE-Snippet
+
+Für die Einbindung in Moodle werden zwei TinyMCE-Snippets mitgeliefert. Einrichtung und Import: → [`snippets/SNIPPET-SETUP.md`](snippets/SNIPPET-SETUP.md)
+
+| Snippet | Datei | Verwendung |
+|---------|-------|------------|
+| `abgpt` | `snippets/abgpt.txt` | Moodle-Aufgaben – liest Aufgabentext und Bilder automatisch aus `.activity-description` |
+| `tegpt` | `snippets/tegpt.txt` | Quiz-/Testfragen – iframe-Variante, da Quiz-Fragen `<script>`-Tags blockieren |
+
 ## Einbinden in eine Moodle-Aufgabe (Snippet: abgpt)
 
 Der einfachste Weg ist das TinyMCE-Snippet `abgpt` (→ `snippets/abgpt.txt`). Es liest Aufgabentext und Bilder automatisch aus `.activity-description` und blendet die Konfiguration für Schüler aus.
