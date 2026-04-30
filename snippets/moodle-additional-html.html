@@ -1,0 +1,28 @@
+<!--
+  Einmalig eintragen unter:
+  Website-Administration → Erscheinungsbild → Zusätzliches HTML
+  → "Vor dem schließenden </body>-Tag"
+
+  Dieses Script empfängt postMessage von chat.html (Edit-Modus)
+  und aktualisiert die iframe-src im aktiven TinyMCE-Editor.
+-->
+<script>
+window.addEventListener('message', function(e) {
+  if (!e.data || e.data.type !== 'mmbbs-update') return;
+  var newSrc = e.data.src;
+  if (typeof tinyMCE === 'undefined') return;
+  var ed = tinyMCE.activeEditor;
+  if (!ed) return;
+  var iframes = ed.getBody().querySelectorAll('iframe');
+  for (var i = 0; i < iframes.length; i++) {
+    var src = iframes[i].getAttribute('src') || '';
+    if (src.indexOf('chat.html') !== -1) {
+      iframes[i].setAttribute('src', newSrc);
+      ed.fire('change');
+      // iframe neu laden damit Chat sichtbar wird
+      iframes[i].src = newSrc;
+      break;
+    }
+  }
+});
+</script>

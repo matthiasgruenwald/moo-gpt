@@ -1,4 +1,4 @@
-const VERSION = "1.11.0";
+const VERSION = "1.6.0";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -15,7 +15,6 @@ import { encode } from "querystring";
 import moment from "moment";
 import { log } from "console";
 import puppeteer from "puppeteer";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages } from "./db.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -156,9 +155,6 @@ const oai = new AsyncOpenAI({
   apiKey: process.env.APIKEY,
 });
 var assistant = await oai.beta.assistants.retrieve(process.env.AID);
-
-// SQLite-DB initialisieren
-initDb();
 
 async function fetchPage(url) {
   console.log("fetchPage:", url);
@@ -457,17 +453,8 @@ app.ws("/api/chat", (ws, req) => {
     var thread = undefined;
     var settings = undefined;
     var run = undefined;
-    var threadDbId = undefined;  // Issue #3: im äußeren Scope, damit chatmsg-Handler darauf zugreifen kann
 
     var eventHandler = undefined;
-
-    // Keepalive: alle 30 Sek. ping senden, damit Cloudflare die Verbindung nicht trennt
-    const keepalive = setInterval(() => {
-      if (ws.readyState === ws.OPEN) {
-        ws.ping();
-      }
-    }, 30000);
-    ws.on("close", () => clearInterval(keepalive));
 
     ws.on("message", (message) => {
       limitRequests(ws, req, message, () => {
@@ -486,115 +473,24 @@ app.ws("/api/chat", (ws, req) => {
               case "settings":
                 settings = msgObj.data;
                 console.log("Settings received: " + JSON.stringify({...settings, images: settings.images ? `[${settings.images.length} Bild(er)]` : 'keine'}));
+                thread = await oai.beta.threads.create();
+                console.log("thread created:" + thread.id);
 
-                // Rollenerkennung (Issue #4)
-                {
-                  const teacherIds = process.env.TEACHER_USER_IDS
-                    ? process.env.TEACHER_USER_IDS.split(',').map(s => s.trim())
-                    : [];
-                  const isTeacherByEnv = !!(settings.userId && teacherIds.includes(settings.userId));
-                  ws.isTeacher = settings.isTeacher === true || isTeacherByEnv;
-                  console.log(`[Auth] isTeacher=${ws.isTeacher} (client=${settings.isTeacher}, env=${isTeacherByEnv})`);
-                }
-
-                // Issue #3: Bestehenden Thread suchen oder neuen anlegen
-                let existingThreadRow = null;
-                if (settings.userId && settings.activityId) {
-                  existingThreadRow = findThread({ moodle_user_id: settings.userId, activity_id: settings.activityId });
-                }
-                if (existingThreadRow) {
-                  try {
-                    thread = await oai.beta.threads.retrieve(existingThreadRow.openai_thread_id);
-                    threadDbId = existingThreadRow.id;
-                    touchThread(threadDbId);
-                    console.log(`[DB] Bestehenden Thread wiederverwendet: ${thread.id} (db_id=${threadDbId})`);
-                  } catch (e) {
-                    console.warn(`[DB] Thread nicht mehr bei OpenAI (${existingThreadRow.openai_thread_id}), lege neuen an: ${e.message}`);
-                    existingThreadRow = null;
-                  }
-                }
-                if (!existingThreadRow) {
-                  thread = await oai.beta.threads.create();
-                  console.log("thread created: " + thread.id);
-                  threadDbId = saveThread({
-                    moodle_user_id:   settings.userId   || null,
-                    moodle_user_name: settings.userName || null,
-                    activity_id:      settings.activityId || null,
-                    openai_thread_id: thread.id,
-                  });
-                  console.log(`[DB] Neuer Thread gespeichert, db_id=${threadDbId}`);
-                }
-
-                // Bilder aus der Aufgabenstellung als Thread-Message hinzufügen (nur bei neuem Thread)
-                if (!existingThreadRow && settings.images && settings.images.length > 0) {
+                // Bilder aus der Aufgabenstellung als Thread-Message hinzufügen
+                if (settings.images && settings.images.length > 0) {
                   console.log(`Füge ${settings.images.length} Bild(er) zum Thread hinzu`);
-                  const imageItems = [];
-                  for (const img of settings.images) {
-                    try {
-                      const imgClean = img && typeof img === 'string' ? img.trim() : img;
-                      let imageBuffer, mimeType;
-
-                      if (imgClean && imgClean.startsWith('data:')) {
-                        // Base64 data-URL → Buffer extrahieren
-                        const mimeMatch = imgClean.match(/^data:([^;]+);base64,/);
-                        mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
-                        const b64 = imgClean.replace(/^data:[^;]+;base64,/, '');
-                        imageBuffer = Buffer.from(b64, 'base64');
-                        console.log(`Base64-Bild empfangen (${mimeType}, ${imageBuffer.length} bytes)`);
-                      } else {
-                        // Normale URL - fetchen
-                        const parsed = new URL(imgClean);
-                        if (!['http:', 'https:'].includes(parsed.protocol)) {
-                          console.log(`Bild übersprungen (ungültiges Protokoll): ${imgClean}`);
-                          continue;
-                        }
-                        const res = await fetch(imgClean);
-                        if (!res.ok) {
-                          console.log(`Bild übersprungen (HTTP ${res.status}): ${imgClean}`);
-                          continue;
-                        }
-                        mimeType = res.headers.get('content-type') || 'image/jpeg';
-                        imageBuffer = Buffer.from(await res.arrayBuffer());
-                        console.log(`URL-Bild geladen: ${imgClean} (${mimeType}, ${imageBuffer.length} bytes)`);
-                      }
-
-                      // Bild bei OpenAI hochladen (Assistants API unterstützt keine base64 data-URLs)
-                      const ext = mimeType.split('/')[1]?.split('+')[0] || 'png';
-                      const uploadedFile = await oai.files.create({
-                        file: new File([imageBuffer], `image.${ext}`, { type: mimeType }),
-                        purpose: 'vision',
-                      });
-                      imageItems.push({
-                        type: "image_file",
-                        image_file: { file_id: uploadedFile.id },
-                      });
-                      console.log(`Bild hochgeladen: file_id=${uploadedFile.id}`);
-                    } catch (e) {
-                      console.log(`Bild übersprungen (Fehler): ${e.message}`);
-                    }
-                  }
-                  if (imageItems.length > 0) {
-                    const imageContent = [
-                      { type: "text", text: "Aufgabenstellung (enthält Bilder):" },
-                      ...imageItems,
-                    ];
-                    await oai.beta.threads.messages.create(thread.id, {
-                      role: "user",
-                      content: imageContent,
-                    });
-                    console.log(`${imageItems.length} Bild(er) zum Thread hinzugefügt`);
-                  } else {
-                    console.log("Keine gültigen Bilder gefunden, übersprungen");
-                  }
-                }
-
-                // Chatverlauf an Client senden (nur bei bestehendem Thread)
-                if (existingThreadRow) {
-                  const history = getMessages(threadDbId);
-                  if (history.length > 0) {
-                    ws.send(JSON.stringify({ type: "history", messages: history }));
-                    console.log(`[DB] ${history.length} Nachrichten an Client gesendet`);
-                  }
+                  const imageContent = [
+                    { type: "text", text: "Aufgabenstellung (enthält Bilder):" },
+                    ...settings.images.map((img) => ({
+                      type: "image_url",
+                      image_url: { url: img },
+                    })),
+                  ];
+                  await oai.beta.threads.messages.create(thread.id, {
+                    role: "user",
+                    content: imageContent,
+                  });
+                  console.log("Bilder zum Thread hinzugefügt");
                 }
 
                 eventHandler = new EventHandler(oai, ws, citations, resContent);
@@ -622,18 +518,13 @@ app.ws("/api/chat", (ws, req) => {
                   ws.send(JSON.stringify(chatMsg));
                   return;
                 } else {
-                  // Usernachricht in DB spiegeln (Issue #2)
-                  if (threadDbId) {
-                    saveMessage({ thread_db_id: threadDbId, role: 'user', content: msgObj.data.message });
-                  }
                   handleMsg(
                     ws,
                     thread,
                     msgObj.data.message,
                     settings,
                     eventHandler,
-                    run,
-                    threadDbId
+                    run
                   );
                 }
                 break;
@@ -654,7 +545,7 @@ app.ws("/api/chat", (ws, req) => {
   });
 });
 
-async function handleMsg(ws, thread, userMessage, settings, eventHandler, run, threadDbId = null) {
+async function handleMsg(ws, thread, userMessage, settings, eventHandler,run) {
   console.log("handleMsg called " + thread.id);
 
   var citationindex = 1;
@@ -748,10 +639,6 @@ async function handleMsg(ws, thread, userMessage, settings, eventHandler, run, t
 
         if (!eventHandler.pendingFunctions) {
           console.log("Antwort: " + eventHandler.resContent);
-          // Assistenten-Antwort in DB spiegeln (Issue #2)
-          if (threadDbId) {
-            saveMessage({ thread_db_id: threadDbId, role: 'assistant', content: eventHandler.resContent });
-          }
           chatMsg.end = true;
           chatMsg.messages = eventHandler.resContent;
           ws.send(JSON.stringify(chatMsg));

@@ -187,6 +187,12 @@ export class MMBBSBOT {
       if (activityId) this.settings.activityId = activityId;
       console.log(`[Bot] userId=${userId}, activityId=${activityId}`);
 
+      // Rollenerkennung (Issue #4): Moodle Boost setzt role-editingteacher / role-teacher als Body-Klasse
+      const bodyClasses = document.body.className;
+      const isTeacher = bodyClasses.includes('role-editingteacher') || bodyClasses.includes('role-teacher');
+      if (isTeacher) this.settings.isTeacher = true;
+      console.log(`[Bot] isTeacher=${isTeacher}`);
+
       // Bilder aus der Aufgabenstellung extrahieren und als Base64 mitsenden
       const images = await this.extractImagesFromTask();
       if (images.length > 0) {
