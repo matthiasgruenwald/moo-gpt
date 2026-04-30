@@ -482,14 +482,15 @@ app.ws("/api/chat", (ws, req) => {
                   const imageItems = [];
                   for (const img of settings.images) {
                     try {
+                      const imgClean = img && typeof img === 'string' ? img.trim() : img;
                       // Prüfen, ob es bereits ein data-URL (Base64) ist
-                      if (img.startsWith('data:')) {
+                      if (imgClean && imgClean.startsWith('data:')) {
                         // Direkt als data-URL verwenden (bereits Base64)
                         imageItems.push({
                           type: "image_url",
-                          image_url: { url: img },
+                          image_url: { url: imgClean },
                         });
-                        console.log(`Base64-Bild hinzugefügt`);
+                        console.log(`Base64-Bild hinzugefügt (${imgClean.substring(0, 25)}...)`);
                       } else {
                         // Normale URL - fetchen
                         const parsed = new URL(img);
