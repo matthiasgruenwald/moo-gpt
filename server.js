@@ -15,7 +15,8 @@ import { encode } from "querystring";
 import moment from "moment";
 import { log } from "console";
 import puppeteer from "puppeteer";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getStudents, updateThreadName } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getStudents, updateThreadName, upsertActivity, getActivityName } from "./db.js";
+import crypto from "crypto";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -115,6 +116,35 @@ function isOriginAllowed(req) {
 
 /** Map activityId → Set<ws>  für Live-Updates im Lehrer-Dashboard. */
 const dashboardClients = new Map();
+
+/**
+ * Dashboard-Token-Verwaltung (Issue #5: Zugriffsschutz).
+ * Token wird beim Lehrer-Login per WS erzeugt und 8 h gecacht.
+ * Ohne gültigen Token → WS-Verbindung wird abgelehnt.
+ */
+const dashboardTokens = new Map(); // token → { activityId, userId, expires }
+
+function generateDashboardToken(activityId, userId) {
+  const token   = crypto.randomBytes(32).toString('hex');
+  const expires = Date.now() + 8 * 60 * 60 * 1000; // 8 Stunden
+  dashboardTokens.set(token, { activityId: String(activityId), userId, expires });
+  return token;
+}
+
+function validateDashboardToken(token, activityId) {
+  const entry = dashboardTokens.get(token);
+  if (!entry) return false;
+  if (Date.now() > entry.expires) { dashboardTokens.delete(token); return false; }
+  return entry.activityId === String(activityId);
+}
+
+// Abgelaufene Tokens stündlich aufräumen
+setInterval(() => {
+  const now = Date.now();
+  for (const [t, v] of dashboardTokens) {
+    if (now > v.expires) dashboardTokens.delete(t);
+  }
+}, 60 * 60 * 1000);
 
 /** Sendet ein Ereignis an alle verbundenen Lehrer-Dashboards einer Aktivität. */
 function notifyDashboard(activityId, payload) {
@@ -475,33 +505,33 @@ class EventHandler extends EventEmitter {
 
 // ── Issue #5: Teacher-Dashboard REST-Endpoints ──────────────────────────────
 
-/** GET /api/dashboard/students?activityId=…&isTeacher=true */
+/** GET /api/dashboard/students?activityId=…&token=… */
 app.get('/api/dashboard/students', (req, res) => {
   if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId, isTeacher } = req.query;
-  if (isTeacher !== 'true') return res.status(403).json({ error: 'Forbidden' });
-  if (!activityId) return res.status(400).json({ error: 'activityId required' });
+  const { activityId, token } = req.query;
+  if (!activityId || !token || !validateDashboardToken(token, activityId))
+    return res.status(403).json({ error: 'Forbidden' });
   try {
-    const students = getStudents(activityId);
-    res.json(students);
+    const students     = getStudents(activityId);
+    const activityName = getActivityName(activityId);
+    res.json({ students, activityName });
   } catch (e) {
     console.error('[Dashboard] getStudents error:', e);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-/** GET /api/dashboard/messages/:threadDbId?activityId=…&isTeacher=true */
+/** GET /api/dashboard/messages/:threadDbId?activityId=…&token=… */
 app.get('/api/dashboard/messages/:threadDbId', (req, res) => {
   if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId, isTeacher } = req.query;
-  if (isTeacher !== 'true') return res.status(403).json({ error: 'Forbidden' });
-  if (!activityId) return res.status(400).json({ error: 'activityId required' });
+  const { activityId, token } = req.query;
+  if (!activityId || !token || !validateDashboardToken(token, activityId))
+    return res.status(403).json({ error: 'Forbidden' });
   const threadDbId = parseInt(req.params.threadDbId);
   if (isNaN(threadDbId)) return res.status(400).json({ error: 'Invalid threadDbId' });
   try {
-    // Sicherheits-Check: Thread muss zu dieser activityId gehören
     const students = getStudents(activityId);
-    const student = students.find(s => s.thread_db_id === threadDbId);
+    const student  = students.find(s => s.thread_db_id === threadDbId);
     if (!student) return res.status(403).json({ error: 'Forbidden' });
     const messages = getMessages(threadDbId);
     res.json({ student, messages });
@@ -524,12 +554,15 @@ app.ws('/api/dashboard-ws', (ws, req) => {
     }
   }
 
-  const params = new URLSearchParams((req.url || '').split('?')[1] || '');
+  const params     = new URLSearchParams((req.url || '').split('?')[1] || '');
   const activityId = params.get('activityId');
-  const isTeacher  = params.get('isTeacher') === 'true';
+  const token      = params.get('token');
 
-  if (!activityId || !isTeacher) {
-    ws.close(1008, 'Invalid params');
+  // Token-Validierung (Issue #5: Zugriffsschutz)
+  if (!activityId || !token || !validateDashboardToken(token, activityId)) {
+    ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized' }));
+    ws.close(1008, 'Unauthorized');
+    console.log(`[Dashboard] Ungültiger Token für activityId=${activityId}`);
     return;
   }
 
@@ -538,10 +571,11 @@ app.ws('/api/dashboard-ws', (ws, req) => {
   dashboardClients.get(activityId).add(ws);
   console.log(`[Dashboard] Lehrer verbunden, activityId=${activityId}`);
 
-  // Initialliste senden
+  // Initialliste + Aufgabentitel senden
   try {
-    const students = getStudents(activityId);
-    ws.send(JSON.stringify({ type: 'students', data: students }));
+    const students     = getStudents(activityId);
+    const activityName = getActivityName(activityId);
+    ws.send(JSON.stringify({ type: 'students', data: students, activityName }));
   } catch (e) {
     console.error('[Dashboard] Initial-students error:', e);
   }
@@ -622,6 +656,18 @@ app.ws("/api/chat", (ws, req) => {
                   // Client-Erkennung (editmode-Formular) ist primär; TEACHER_USER_IDS als optionaler Override
                   ws.isTeacher = settings.isTeacher === true || isTeacherByEnv;
                   console.log(`[Auth] isTeacher=${ws.isTeacher} (client=${settings.isTeacher}, env=${isTeacherByEnv})`);
+                }
+
+                // Issue #5: Aufgabentitel in DB speichern (kommt vom Lehrer oder Schüler)
+                if (settings.activityId && settings.activityName) {
+                  upsertActivity(settings.activityId, settings.activityName);
+                }
+
+                // Issue #5: Dashboard-Token für Lehrer erzeugen und zurückschicken
+                if (ws.isTeacher && settings.activityId) {
+                  const token = generateDashboardToken(settings.activityId, settings.userId);
+                  ws.send(JSON.stringify({ type: 'dashboardToken', token, activityId: settings.activityId }));
+                  console.log(`[Dashboard] Token für Lehrer ${settings.userId} / Aufgabe ${settings.activityId} erzeugt`);
                 }
 
                 // Issue #3: Bestehenden Thread suchen oder neuen anlegen

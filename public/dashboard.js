@@ -6,10 +6,9 @@
  */
 
 // ── URL-Parameter ────────────────────────────────────────────────────────────
-const params        = new URLSearchParams(window.location.search);
-const activityId    = params.get('activityId') || '';
-const userId        = params.get('userId')     || '';
-const activityTitle = params.get('title')      || '';
+const params     = new URLSearchParams(window.location.search);
+const activityId = params.get('activityId') || '';
+const token      = params.get('token')      || '';
 
 // ── State ────────────────────────────────────────────────────────────────────
 let students          = [];          // aktuelle Schülerliste (sortiert)
@@ -32,12 +31,9 @@ const backBtn      = document.getElementById('back-btn');
 const sortSelect   = document.getElementById('sort-select');
 
 // ── Initialisierung ───────────────────────────────────────────────────────────
-if (!activityId) {
-  studentList.innerHTML = '<div class="empty-list">Fehler: activityId fehlt in der URL.</div>';
+if (!activityId || !token) {
+  studentList.innerHTML = '<div class="empty-list">Fehler: Kein gültiger Zugangslink. Bitte Dashboard über den Chat-Button öffnen.</div>';
 } else {
-  pageTitle.textContent = activityTitle
-    ? `Schüler-Dashboard – ${activityTitle}`
-    : `Schüler-Dashboard – Aufgabe ${activityId}`;
   connectWebSocket();
 }
 
@@ -56,7 +52,7 @@ backBtn.addEventListener('click', () => {
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 function connectWebSocket() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const url   = `${proto}://${location.host}/api/dashboard-ws?activityId=${encodeURIComponent(activityId)}&isTeacher=true&userId=${encodeURIComponent(userId)}`;
+  const url   = `${proto}://${location.host}/api/dashboard-ws?activityId=${encodeURIComponent(activityId)}&token=${encodeURIComponent(token)}`;
 
   ws = new WebSocket(url);
 
@@ -89,6 +85,11 @@ function handleServerMessage(msg) {
   switch (msg.type) {
     case 'students':
       students = msg.data;
+      if (msg.activityName) {
+        pageTitle.textContent = `Schüler-Dashboard – ${msg.activityName}`;
+      } else {
+        pageTitle.textContent = `Schüler-Dashboard – Aufgabe ${activityId}`;
+      }
       renderStudentList();
       break;
 
@@ -166,7 +167,7 @@ function renderStudentList() {
     item.innerHTML = `
       <div class="student-name">
         ${isLive ? '<span class="badge-new"></span>' : ''}
-        ${escHtml(s.moodle_user_name || '–')}
+        ${escHtml(s.moodle_user_name || `Schüler (ID ${s.moodle_user_id})`)}
         <span class="msg-count">${s.message_count}</span>
       </div>
       <div class="student-meta">

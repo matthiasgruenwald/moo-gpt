@@ -32,6 +32,12 @@ export function initDb() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (thread_id) REFERENCES threads(id)
     );
+
+    CREATE TABLE IF NOT EXISTS activities (
+      activity_id   TEXT PRIMARY KEY,
+      activity_name TEXT,
+      updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
@@ -124,6 +130,26 @@ export function updateThreadName(thread_db_id, moodle_user_name) {
     SET moodle_user_name = ?
     WHERE id = ? AND (moodle_user_name IS NULL OR moodle_user_name = '')
   `).run(moodle_user_name, thread_db_id);
+}
+
+/**
+ * Speichert oder aktualisiert den Aufgabentitel (Issue #5).
+ */
+export function upsertActivity(activity_id, activity_name) {
+  if (!activity_id || !activity_name) return;
+  db.prepare(`
+    INSERT INTO activities (activity_id, activity_name, updated_at)
+    VALUES (?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(activity_id) DO UPDATE SET
+      activity_name = excluded.activity_name,
+      updated_at    = CURRENT_TIMESTAMP
+  `).run(activity_id, activity_name);
+}
+
+/** Gibt den gespeicherten Aufgabentitel zurück (oder null). */
+export function getActivityName(activity_id) {
+  const row = db.prepare('SELECT activity_name FROM activities WHERE activity_id = ?').get(activity_id);
+  return row ? row.activity_name : null;
 }
 
 /**

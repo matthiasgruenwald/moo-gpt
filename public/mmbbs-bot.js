@@ -14,6 +14,8 @@ export class MMBBSBOT {
     this.msgCount = 0;
     this.ws = null;
     this.wsInitialized = false;
+    this.dashboardToken = null;       // Issue #5: vom Server zugewiesen
+    this.pendingDashboardOpen = false; // Issue #5: Dashboard-Tab nach Token-Empfang öffnen
     this.marked = marked;
     this.katex = katex;
     this.renderMathInElement = renderMathInElement;
@@ -124,20 +126,47 @@ export class MMBBSBOT {
     window.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
-  /** Issue #5: Öffnet das Lehrer-Dashboard in einem neuen Tab. */
+  /** Issue #5: Öffnet das Lehrer-Dashboard (mit Token-Auth). */
   openDashboard() {
-    const activityId = new URLSearchParams(window.location.search).get('id') || '';
-    const userId     = window.M?.cfg?.userId?.toString() || '';
-    // Aufgabentitel aus Moodle-DOM extrahieren (verschiedene Theme-Varianten)
-    const activityTitle =
-      document.querySelector('.page-header-headings h1')?.textContent?.trim()
-      || document.querySelector('#region-main h1')?.textContent?.trim()
-      || document.querySelector('.activity-title')?.textContent?.trim()
-      || document.querySelector('h1.h2')?.textContent?.trim()
-      || document.title?.split('|')[0]?.trim()
+    const activityId = this.settings.activityId
+      || new URLSearchParams(window.location.search).get('id')
       || '';
+
+    if (this.dashboardToken) {
+      // Token schon vorhanden → sofort öffnen
+      this._openDashboardTab(this.dashboardToken, activityId);
+    } else {
+      // Token noch nicht da → WS initialisieren, Tab wird nach Token-Empfang geöffnet
+      this.pendingDashboardOpen = true;
+      if (!this.wsInitialized) {
+        this.setupWebSocket();
+        this.wsInitialized = true;
+      }
+    }
+  }
+
+  /**
+   * Ruft den Anzeigenamen des aktuellen Nutzers von der Moodle-Profilseite ab.
+   * Jeder eingeloggte Nutzer kann seine eigene Profil-Seite sehen – daher kein
+   * extra Capability nötig. Der Seitentitel hat die Form "Name | Kurs | Site".
+   */
+  async _fetchMoodleUserName(userId, wwwroot) {
+    try {
+      const resp = await fetch(`${wwwroot}/user/profile.php?id=${userId}`, { credentials: 'include' });
+      if (!resp.ok) return null;
+      const text = await resp.text();
+      const match = text.match(/<title>\s*([^|<\n]+)/);
+      return match ? match[1].trim() : null;
+    } catch (e) {
+      console.warn('[Bot] Profil-Seiten-Abruf fehlgeschlagen:', e);
+      return null;
+    }
+  }
+
+  /** Öffnet den Dashboard-Tab mit Token. */
+  _openDashboardTab(token, activityId) {
     const base = `${this.settings.protocol}://${this.settings.host}:${this.settings.port}`;
-    const url  = `${base}/dashboard.html?activityId=${encodeURIComponent(activityId)}&userId=${encodeURIComponent(userId)}&title=${encodeURIComponent(activityTitle)}`;
+    const url  = `${base}/dashboard.html?activityId=${encodeURIComponent(activityId)}&token=${encodeURIComponent(token)}`;
     window.open(url, '_blank');
   }
 
@@ -219,17 +248,31 @@ export class MMBBSBOT {
 
       // Moodle-User-Kontext auslesen (Issue #3: Thread-Persistenz)
       const userId = window.M?.cfg?.userId?.toString() || null;
-      // M.cfg.fullname existiert in manchen Moodle-Versionen nicht → DOM-Fallbacks
-      const userName = window.M?.cfg?.fullname
+      // Zuverlässige Namensermittlung: mehrere Stufen
+      let userName = window.M?.cfg?.fullname
         || document.querySelector('.usermenu .usertext')?.textContent?.trim()
         || document.querySelector('span.usertext')?.textContent?.trim()
         || document.querySelector('[data-key="myprofile"] .menu-action-text')?.textContent?.trim()
         || null;
+      // Letzter Fallback: eigene Moodle-Profilseite abrufen (funktioniert für alle Rollen)
+      if (!userName && userId && window.M?.cfg?.wwwroot) {
+        userName = await this._fetchMoodleUserName(userId, window.M.cfg.wwwroot);
+        if (userName) console.log(`[Bot] Name via Profil-Seite: ${userName}`);
+      }
       const activityId = new URLSearchParams(window.location.search).get('id') || null;
-      if (userId) this.settings.userId = userId;
-      if (userName) this.settings.userName = userName;
-      if (activityId) this.settings.activityId = activityId;
-      console.log(`[Bot] userId=${userId}, userName=${userName}, activityId=${activityId}`);
+      // Aufgabentitel aus Moodle-DOM (Issue #5: in DB speichern, nicht per URL-Param)
+      const activityName =
+        document.querySelector('.page-header-headings h1')?.textContent?.trim()
+        || document.querySelector('#region-main h1')?.textContent?.trim()
+        || document.querySelector('.activity-title')?.textContent?.trim()
+        || document.querySelector('h1.h2')?.textContent?.trim()
+        || document.title?.split('|')[0]?.trim()
+        || null;
+      if (userId)        this.settings.userId       = userId;
+      if (userName)      this.settings.userName     = userName;
+      if (activityId)    this.settings.activityId   = activityId;
+      if (activityName)  this.settings.activityName = activityName;
+      console.log(`[Bot] userId=${userId}, userName=${userName}, activityId=${activityId}, activityName=${activityName}`);
 
       // Rollenerkennung (Issue #4):
       // form[action*="editmode.php"] ist auf allen Moodle-Seiten für Trainer sichtbar, für Schüler nicht.
@@ -278,6 +321,17 @@ export class MMBBSBOT {
         // Chatverlauf beim Reconnect anzeigen (Issue #3)
         if (messageObj.type === "history") {
           this.renderHistory(messageObj.messages);
+          return;
+        }
+
+        // Issue #5: Dashboard-Token vom Server empfangen
+        if (messageObj.type === "dashboardToken") {
+          this.dashboardToken = messageObj.token;
+          console.log(`[Bot] Dashboard-Token empfangen für activityId=${messageObj.activityId}`);
+          if (this.pendingDashboardOpen) {
+            this.pendingDashboardOpen = false;
+            this._openDashboardTab(messageObj.token, messageObj.activityId);
+          }
           return;
         }
 
