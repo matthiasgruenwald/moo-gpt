@@ -1,4 +1,4 @@
-const VERSION = "1.11.0";
+const VERSION = "2.0.0";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -15,7 +15,7 @@ import { encode } from "querystring";
 import moment from "moment";
 import { log } from "console";
 import puppeteer from "puppeteer";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getStudents } from "./db.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -102,6 +102,31 @@ function checkOrigin(ws, req, next) {
   }
   next();
 }
+
+// Issue #5: Teacher-Dashboard -----------------------------------------------
+
+/** Prüft ALLOWED_ORIGIN für REST-Endpoints (analog zu checkOrigin für WS). */
+function isOriginAllowed(req) {
+  if (!process.env.ALLOWED_ORIGIN) return true;
+  const origin = req.headers.origin || req.headers.referer || '';
+  const allowedOrigins = process.env.ALLOWED_ORIGIN.split(',').map(o => o.trim());
+  return allowedOrigins.some(o => origin.startsWith(o));
+}
+
+/** Map activityId → Set<ws>  für Live-Updates im Lehrer-Dashboard. */
+const dashboardClients = new Map();
+
+/** Sendet ein Ereignis an alle verbundenen Lehrer-Dashboards einer Aktivität. */
+function notifyDashboard(activityId, payload) {
+  const clients = dashboardClients.get(String(activityId));
+  if (!clients || clients.size === 0) return;
+  const msg = JSON.stringify(payload);
+  for (const ws of clients) {
+    if (ws.readyState === ws.OPEN) ws.send(msg);
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 function checkFormat(ws, msgObj, next) {
   if (!msgObj.hasOwnProperty("type")) {
@@ -448,6 +473,107 @@ class EventHandler extends EventEmitter {
   }
 }
 
+// ── Issue #5: Teacher-Dashboard REST-Endpoints ──────────────────────────────
+
+/** GET /api/dashboard/students?activityId=…&isTeacher=true */
+app.get('/api/dashboard/students', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId, isTeacher } = req.query;
+  if (isTeacher !== 'true') return res.status(403).json({ error: 'Forbidden' });
+  if (!activityId) return res.status(400).json({ error: 'activityId required' });
+  try {
+    const students = getStudents(activityId);
+    res.json(students);
+  } catch (e) {
+    console.error('[Dashboard] getStudents error:', e);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+/** GET /api/dashboard/messages/:threadDbId?activityId=…&isTeacher=true */
+app.get('/api/dashboard/messages/:threadDbId', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId, isTeacher } = req.query;
+  if (isTeacher !== 'true') return res.status(403).json({ error: 'Forbidden' });
+  if (!activityId) return res.status(400).json({ error: 'activityId required' });
+  const threadDbId = parseInt(req.params.threadDbId);
+  if (isNaN(threadDbId)) return res.status(400).json({ error: 'Invalid threadDbId' });
+  try {
+    // Sicherheits-Check: Thread muss zu dieser activityId gehören
+    const students = getStudents(activityId);
+    const student = students.find(s => s.thread_db_id === threadDbId);
+    if (!student) return res.status(403).json({ error: 'Forbidden' });
+    const messages = getMessages(threadDbId);
+    res.json({ student, messages });
+  } catch (e) {
+    console.error('[Dashboard] getMessages error:', e);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// ── Issue #5: Teacher-Dashboard WebSocket (Live-Updates) ────────────────────
+
+app.ws('/api/dashboard-ws', (ws, req) => {
+  // Origin-Check
+  const origin = req.headers.origin || '';
+  if (process.env.ALLOWED_ORIGIN) {
+    const allowed = process.env.ALLOWED_ORIGIN.split(',').map(o => o.trim()).some(o => origin.startsWith(o));
+    if (!allowed) {
+      ws.close(1008, 'Origin not allowed');
+      return;
+    }
+  }
+
+  const params = new URLSearchParams((req.url || '').split('?')[1] || '');
+  const activityId = params.get('activityId');
+  const isTeacher  = params.get('isTeacher') === 'true';
+
+  if (!activityId || !isTeacher) {
+    ws.close(1008, 'Invalid params');
+    return;
+  }
+
+  // Registrieren
+  if (!dashboardClients.has(activityId)) dashboardClients.set(activityId, new Set());
+  dashboardClients.get(activityId).add(ws);
+  console.log(`[Dashboard] Lehrer verbunden, activityId=${activityId}`);
+
+  // Initialliste senden
+  try {
+    const students = getStudents(activityId);
+    ws.send(JSON.stringify({ type: 'students', data: students }));
+  } catch (e) {
+    console.error('[Dashboard] Initial-students error:', e);
+  }
+
+  // Nachrichten-Anfrage vom Dashboard-Client
+  ws.on('message', (msg) => {
+    try {
+      const obj = JSON.parse(msg);
+      if (obj.type === 'getMessages' && obj.threadDbId) {
+        const threadDbId = parseInt(obj.threadDbId);
+        const students = getStudents(activityId);
+        const student = students.find(s => s.thread_db_id === threadDbId);
+        if (!student) {
+          ws.send(JSON.stringify({ type: 'error', message: 'Forbidden' }));
+          return;
+        }
+        const messages = getMessages(threadDbId);
+        ws.send(JSON.stringify({ type: 'messages', threadDbId, student, data: messages }));
+      }
+    } catch (e) {
+      console.error('[Dashboard] WS message error:', e);
+    }
+  });
+
+  ws.on('close', () => {
+    dashboardClients.get(activityId)?.delete(ws);
+    console.log(`[Dashboard] Lehrer getrennt, activityId=${activityId}`);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+
 app.ws("/api/chat", (ws, req) => {
   checkOrigin(ws, req, () => {
     settings = {
@@ -626,6 +752,18 @@ app.ws("/api/chat", (ws, req) => {
                   // Usernachricht in DB spiegeln (Issue #2)
                   if (threadDbId) {
                     saveMessage({ thread_db_id: threadDbId, role: 'user', content: msgObj.data.message });
+                    // Issue #5: Lehrer-Dashboard live benachrichtigen
+                    if (settings.activityId) {
+                      notifyDashboard(settings.activityId, {
+                        type:        'newMessage',
+                        threadDbId,
+                        userId:      settings.userId   || null,
+                        userName:    settings.userName || null,
+                        role:        'user',
+                        content:     msgObj.data.message,
+                        createdAt:   new Date().toISOString(),
+                      });
+                    }
                   }
                   handleMsg(
                     ws,
@@ -752,6 +890,18 @@ async function handleMsg(ws, thread, userMessage, settings, eventHandler, run, t
           // Assistenten-Antwort in DB spiegeln (Issue #2)
           if (threadDbId) {
             saveMessage({ thread_db_id: threadDbId, role: 'assistant', content: eventHandler.resContent });
+            // Issue #5: Lehrer-Dashboard live benachrichtigen
+            if (settings.activityId) {
+              notifyDashboard(settings.activityId, {
+                type:      'newMessage',
+                threadDbId,
+                userId:    settings.userId   || null,
+                userName:  settings.userName || null,
+                role:      'assistant',
+                content:   eventHandler.resContent,
+                createdAt: new Date().toISOString(),
+              });
+            }
           }
           chatMsg.end = true;
           chatMsg.messages = eventHandler.resContent;

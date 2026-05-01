@@ -41,6 +41,12 @@ export class MMBBSBOT {
     css.rel = "stylesheet";
     head.appendChild(css);
 
+    // Issue #4 / #5: Rollenerkennung früh (sync) – wird in setupWebSocket bestätigt
+    const hasEditMode = document.querySelector('form[action*="editmode.php"]') !== null;
+    const isSwitchedRole = document.body.className.includes('userswitchedrole');
+    const isTeacher = hasEditMode && !isSwitchedRole;
+    this.settings.isTeacher = isTeacher;
+
     // Create chat icon
     const chatIcon = document.createElement("div");
     const icon =
@@ -93,6 +99,22 @@ export class MMBBSBOT {
     // Check if main-inner exists
     const mainInner = document.querySelector(".main-inner");
 
+    // Issue #5: Dashboard-Button für Lehrer (erscheint über dem Chat-Button)
+    if (isTeacher) {
+      const dashBtn = document.createElement("div");
+      dashBtn.id = "dashboard-icon";
+      dashBtn.className = "dashboard-icon";
+      dashBtn.title = "Schüler-Dashboard öffnen";
+      dashBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="28" height="28">
+        <rect x="3" y="3" width="8" height="8" rx="1.5"/>
+        <rect x="13" y="3" width="8" height="8" rx="1.5"/>
+        <rect x="3" y="13" width="8" height="8" rx="1.5"/>
+        <rect x="13" y="13" width="8" height="8" rx="1.5"/>
+      </svg>`;
+      dashBtn.onclick = () => this.openDashboard();
+      document.body.appendChild(dashBtn);
+    }
+
     document.body.appendChild(chatIcon);
     document.body.appendChild(chatContainer);
 
@@ -100,6 +122,14 @@ export class MMBBSBOT {
     window.toggleChat = this.toggleChat.bind(this);
     window.sendMessage = this.sendMessage.bind(this);
     window.handleKeyDown = this.handleKeyDown.bind(this);
+  }
+
+  /** Issue #5: Öffnet das Lehrer-Dashboard in einem neuen Tab. */
+  openDashboard() {
+    const activityId = new URLSearchParams(window.location.search).get('id') || '';
+    const userId     = window.M?.cfg?.userId?.toString() || '';
+    const base       = `${this.settings.protocol}://${this.settings.host}:${this.settings.port}`;
+    window.open(`${base}/dashboard.html?activityId=${encodeURIComponent(activityId)}&userId=${encodeURIComponent(userId)}`, '_blank');
   }
 
   loadExternalLibraries() {

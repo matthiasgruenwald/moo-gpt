@@ -112,3 +112,22 @@ export function saveMessage({ thread_db_id, role, content }) {
   touchThread(thread_db_id);
   return result.lastInsertRowid;
 }
+
+/**
+ * Gibt alle Schüler einer Aktivität zurück (Issue #5: Teacher-Dashboard).
+ * Enthält Name, User-ID, letzte Aktivität, Nachrichtenanzahl.
+ */
+export function getStudents(activity_id) {
+  return db.prepare(`
+    SELECT t.id              AS thread_db_id,
+           t.moodle_user_id,
+           t.moodle_user_name,
+           t.updated_at,
+           COUNT(m.id)       AS message_count
+    FROM threads t
+    LEFT JOIN messages m ON m.thread_id = t.id
+    WHERE t.activity_id = ?
+    GROUP BY t.id
+    ORDER BY t.updated_at DESC
+  `).all(activity_id);
+}
