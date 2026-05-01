@@ -187,11 +187,14 @@ export class MMBBSBOT {
       if (activityId) this.settings.activityId = activityId;
       console.log(`[Bot] userId=${userId}, activityId=${activityId}`);
 
-      // Rollenerkennung (Issue #4): Moodle Boost setzt role-editingteacher / role-teacher als Body-Klasse
-      const bodyClasses = document.body.className;
-      const isTeacher = bodyClasses.includes('role-editingteacher') || bodyClasses.includes('role-teacher');
-      if (isTeacher) this.settings.isTeacher = true;
-      console.log(`[Bot] isTeacher=${isTeacher}`);
+      // Rollenerkennung (Issue #4):
+      // form[action*="editmode.php"] ist auf allen Moodle-Seiten für Trainer sichtbar, für Schüler nicht.
+      // userswitchedrole als Fallback wenn Trainer "Als Teilnehmer ansehen" aktiv hat.
+      const hasEditMode = document.querySelector('form[action*="editmode.php"]') !== null;
+      const isSwitchedRole = document.body.className.includes('userswitchedrole');
+      const isTeacher = hasEditMode && !isSwitchedRole;
+      this.settings.isTeacher = isTeacher;
+      console.log(`[Bot] isTeacher=${isTeacher} (editmode=${hasEditMode}, switched=${isSwitchedRole})`);
 
       // Bilder aus der Aufgabenstellung extrahieren und als Base64 mitsenden
       const images = await this.extractImagesFromTask();

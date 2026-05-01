@@ -493,6 +493,7 @@ app.ws("/api/chat", (ws, req) => {
                     ? process.env.TEACHER_USER_IDS.split(',').map(s => s.trim())
                     : [];
                   const isTeacherByEnv = !!(settings.userId && teacherIds.includes(settings.userId));
+                  // Client-Erkennung (editmode-Formular) ist primär; TEACHER_USER_IDS als optionaler Override
                   ws.isTeacher = settings.isTeacher === true || isTeacherByEnv;
                   console.log(`[Auth] isTeacher=${ws.isTeacher} (client=${settings.isTeacher}, env=${isTeacherByEnv})`);
                 }
