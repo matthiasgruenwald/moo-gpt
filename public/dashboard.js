@@ -6,9 +6,10 @@
  */
 
 // ── URL-Parameter ────────────────────────────────────────────────────────────
-const params     = new URLSearchParams(window.location.search);
-const activityId = params.get('activityId') || '';
-const userId     = params.get('userId')     || '';
+const params        = new URLSearchParams(window.location.search);
+const activityId    = params.get('activityId') || '';
+const userId        = params.get('userId')     || '';
+const activityTitle = params.get('title')      || '';
 
 // ── State ────────────────────────────────────────────────────────────────────
 let students          = [];          // aktuelle Schülerliste (sortiert)
@@ -34,7 +35,9 @@ const sortSelect   = document.getElementById('sort-select');
 if (!activityId) {
   studentList.innerHTML = '<div class="empty-list">Fehler: activityId fehlt in der URL.</div>';
 } else {
-  pageTitle.textContent = `Schüler-Dashboard – Aufgabe ${activityId}`;
+  pageTitle.textContent = activityTitle
+    ? `Schüler-Dashboard – ${activityTitle}`
+    : `Schüler-Dashboard – Aufgabe ${activityId}`;
   connectWebSocket();
 }
 

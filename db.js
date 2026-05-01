@@ -114,6 +114,19 @@ export function saveMessage({ thread_db_id, role, content }) {
 }
 
 /**
+ * Füllt einen fehlenden Namen in einem bestehenden Thread nach (Issue #5).
+ * Überschreibt nur, wenn moodle_user_name noch NULL oder leer ist.
+ */
+export function updateThreadName(thread_db_id, moodle_user_name) {
+  if (!thread_db_id || !moodle_user_name) return;
+  db.prepare(`
+    UPDATE threads
+    SET moodle_user_name = ?
+    WHERE id = ? AND (moodle_user_name IS NULL OR moodle_user_name = '')
+  `).run(moodle_user_name, thread_db_id);
+}
+
+/**
  * Gibt alle Schüler einer Aktivität zurück (Issue #5: Teacher-Dashboard).
  * Enthält Name, User-ID, letzte Aktivität, Nachrichtenanzahl.
  */

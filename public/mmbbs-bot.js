@@ -128,8 +128,17 @@ export class MMBBSBOT {
   openDashboard() {
     const activityId = new URLSearchParams(window.location.search).get('id') || '';
     const userId     = window.M?.cfg?.userId?.toString() || '';
-    const base       = `${this.settings.protocol}://${this.settings.host}:${this.settings.port}`;
-    window.open(`${base}/dashboard.html?activityId=${encodeURIComponent(activityId)}&userId=${encodeURIComponent(userId)}`, '_blank');
+    // Aufgabentitel aus Moodle-DOM extrahieren (verschiedene Theme-Varianten)
+    const activityTitle =
+      document.querySelector('.page-header-headings h1')?.textContent?.trim()
+      || document.querySelector('#region-main h1')?.textContent?.trim()
+      || document.querySelector('.activity-title')?.textContent?.trim()
+      || document.querySelector('h1.h2')?.textContent?.trim()
+      || document.title?.split('|')[0]?.trim()
+      || '';
+    const base = `${this.settings.protocol}://${this.settings.host}:${this.settings.port}`;
+    const url  = `${base}/dashboard.html?activityId=${encodeURIComponent(activityId)}&userId=${encodeURIComponent(userId)}&title=${encodeURIComponent(activityTitle)}`;
+    window.open(url, '_blank');
   }
 
   loadExternalLibraries() {
@@ -210,12 +219,17 @@ export class MMBBSBOT {
 
       // Moodle-User-Kontext auslesen (Issue #3: Thread-Persistenz)
       const userId = window.M?.cfg?.userId?.toString() || null;
-      const userName = window.M?.cfg?.fullname || null;
+      // M.cfg.fullname existiert in manchen Moodle-Versionen nicht → DOM-Fallbacks
+      const userName = window.M?.cfg?.fullname
+        || document.querySelector('.usermenu .usertext')?.textContent?.trim()
+        || document.querySelector('span.usertext')?.textContent?.trim()
+        || document.querySelector('[data-key="myprofile"] .menu-action-text')?.textContent?.trim()
+        || null;
       const activityId = new URLSearchParams(window.location.search).get('id') || null;
       if (userId) this.settings.userId = userId;
       if (userName) this.settings.userName = userName;
       if (activityId) this.settings.activityId = activityId;
-      console.log(`[Bot] userId=${userId}, activityId=${activityId}`);
+      console.log(`[Bot] userId=${userId}, userName=${userName}, activityId=${activityId}`);
 
       // Rollenerkennung (Issue #4):
       // form[action*="editmode.php"] ist auf allen Moodle-Seiten für Trainer sichtbar, für Schüler nicht.

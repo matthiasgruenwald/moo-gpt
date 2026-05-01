@@ -15,7 +15,7 @@ import { encode } from "querystring";
 import moment from "moment";
 import { log } from "console";
 import puppeteer from "puppeteer";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getStudents } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getStudents, updateThreadName } from "./db.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -634,6 +634,11 @@ app.ws("/api/chat", (ws, req) => {
                     thread = await oai.beta.threads.retrieve(existingThreadRow.openai_thread_id);
                     threadDbId = existingThreadRow.id;
                     touchThread(threadDbId);
+                    // Issue #5: Namen nachfüllen, falls er beim ersten Anlegen fehlte
+                    if (!existingThreadRow.moodle_user_name && settings.userName) {
+                      updateThreadName(threadDbId, settings.userName);
+                      console.log(`[DB] Namen nachgefüllt: ${settings.userName} (db_id=${threadDbId})`);
+                    }
                     console.log(`[DB] Bestehenden Thread wiederverwendet: ${thread.id} (db_id=${threadDbId})`);
                   } catch (e) {
                     console.warn(`[DB] Thread nicht mehr bei OpenAI (${existingThreadRow.openai_thread_id}), lege neuen an: ${e.message}`);
