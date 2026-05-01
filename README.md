@@ -129,6 +129,22 @@ Manuell:
 
 Quiz-Fragen blockieren `<script>`-Tags → iframe-Variante via `tegpt`-Snippet (→ `snippets/tegpt.txt`). Aufgabentext und Hinweise werden als URL-Parameter übergeben.
 
+### Rollenerkennung (ab v1.11.0)
+
+`mmbbs-bot.js` erkennt automatisch, ob der aktuelle Nutzer Trainer oder Teilnehmer ist, und sendet ein `isTeacher`-Flag mit dem Settings-Handshake an den Server. Dort steht es als `ws.isTeacher` bereit (Basis für Issue #5: Lehrer-Dashboard).
+
+**Erkennungslogik:**
+
+- **Trainer:** Das Formular `form[action*="editmode.php"]` (Bearbeiten-Button oben rechts) ist in Moodle für alle Trainer auf allen Seiten sichtbar, für Teilnehmer nie.
+- **„Als Teilnehmer ansehen":** Wenn ein Trainer per Rollenwechsel in die Teilnehmeransicht wechselt, setzt Moodle die Body-Klasse `userswitchedrole`. In diesem Fall wird `isTeacher=false` gesendet, auch wenn der Nutzer eigentlich Trainer ist.
+- Kombiniert: `isTeacher = form[action*="editmode.php"] vorhanden UND NICHT userswitchedrole`
+
+**Optionaler Server-Override:** Die Env-Variable `TEACHER_USER_IDS` (kommagetrennte Moodle-UserIds) markiert Nutzer serverseitig als Trainer – unabhängig vom Client-Flag. Nützlich, falls die DOM-Erkennung in einem anderen Theme nicht funktioniert.
+
+> ⚠️ **Abhängigkeit vom Theme:** Der Erkennungsmechanismus basiert auf dem DOM-Element `form[action*="editmode.php"]`, das im Boost-Theme vorhanden ist. Bei anderen Themes oder nach Moodle-Updates prüfen, ob dieses Element noch existiert. Testen: In der Browser-Konsole `document.querySelector('form[action*="editmode.php"]') !== null` ausführen – muss für Trainer `true` und für Teilnehmer `false` ergeben. Als Fallback `TEACHER_USER_IDS` in der `.env` setzen.
+
+**Bekannte Lücke:** `tegpt` (iframe-Einbindung für Quiz-Fragen) hat keinen Zugriff auf das Parent-DOM und kann die Rolle nicht erkennen – separates Issue geplant.
+
 ### Thread-Persistenz + Chatverlauf (ab v1.9.0 / v1.10.0)
 
 Schüler führen ihren Chat nach einem Seitenreload oder Reconnect nahtlos weiter – der vollständige Gesprächsverlauf wird beim Öffnen des Chat-Widgets wiederhergestellt.
@@ -150,6 +166,7 @@ Schüler führen ihren Chat nach einem Seitenreload oder Reconnect nahtlos weite
 
 | Version | Änderung |
 |---------|----------|
+| 1.11.0 | Rollenerkennung Trainer/Teilnehmer via DOM + userswitchedrole (Issue #4) |
 | 1.10.0 | Chatverlauf beim Öffnen anzeigen, Zeitstempel auf allen Nachrichten |
 | 1.9.0 | Thread-Persistenz + Reconnect (Issue #3) |
 | 1.8.0 | SQLite-Logging (Issue #2) |
@@ -161,5 +178,5 @@ Schüler führen ihren Chat nach einem Seitenreload oder Reconnect nahtlos weite
 - [x] Issue #1: Keepalive-Ping (v1.7.0)
 - [x] Issue #2: SQLite-Logging (v1.8.0)
 - [x] Issue #3: Thread-Persistenz + Reconnect + Chatverlauf (v1.9.0 / v1.10.0)
-- [ ] Issue #4: Rollenerkennung (Schüler/Lehrer)
+- [x] Issue #4: Rollenerkennung (v1.11.0)
 - [ ] Issue #5: Lehrer-Dashboard
