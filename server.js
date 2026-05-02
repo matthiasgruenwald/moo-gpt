@@ -1,4 +1,4 @@
-const VERSION = "2.2.0";
+const VERSION = "2.3.0";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -15,7 +15,7 @@ import { encode } from "querystring";
 import moment from "moment";
 import { log } from "console";
 import puppeteer from "puppeteer";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getStudents, updateThreadName, upsertActivity, getActivity, getActivityName, saveTokenUsage } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getStudents, updateThreadName, upsertActivity, getActivity, getActivityName, saveTokenUsage, getThreadCostTokens, getActivityCostTokens } from "./db.js";
 import crypto from "crypto";
 
 const app = express();
@@ -240,8 +240,81 @@ async function fetchPricing() {
   return PRICING;
 }
 
-// Beim Serverstart sofort laden (für Issue #12 – Kosten-Übersicht)
+// Beim Serverstart sofort laden
 fetchPricing();
+
+// Issue #12: USD→EUR Wechselkurs (ECB via frankfurter.app), 1h Cache
+let EUR_RATE = null;
+let eurRateFetchedAt = 0;
+
+async function fetchEurRate() {
+  const now = Date.now();
+  if (EUR_RATE && (now - eurRateFetchedAt) < 60 * 60 * 1000) return EUR_RATE;
+  try {
+    const res  = await fetch('https://api.frankfurter.app/latest?from=USD&to=EUR');
+    const data = await res.json();
+    EUR_RATE = data.rates?.EUR ?? null;
+    eurRateFetchedAt = now;
+    console.log(`[Pricing] EUR/USD: ${EUR_RATE}`);
+  } catch (e) {
+    console.warn('[Pricing] EUR-Rate Fehler:', e.message);
+  }
+  return EUR_RATE;
+}
+
+fetchEurRate();
+setInterval(fetchEurRate, 60 * 60 * 1000);
+
+/**
+ * Berechnet die Kosten eines Runs in EUR.
+ * Rückgabe: { inputEur, outputEur, totalEur } oder null wenn kein Pricing vorhanden.
+ */
+function computeRunCost(promptTokens, completionTokens) {
+  if (!PRICING || !EUR_RATE) return null;
+  const inputUsd  = (promptTokens     || 0) * PRICING.input_cost_per_token;
+  const outputUsd = (completionTokens || 0) * PRICING.output_cost_per_token;
+  return {
+    inputEur:  inputUsd  * EUR_RATE,
+    outputEur: outputUsd * EUR_RATE,
+    totalEur:  (inputUsd + outputUsd) * EUR_RATE,
+  };
+}
+
+/** Gesamtkosten eines Threads aus token_log. */
+function computeThreadCost(threadDbId) {
+  const t = getThreadCostTokens(threadDbId);
+  return computeRunCost(t.prompt_tokens, t.completion_tokens);
+}
+
+/** Gesamtkosten einer Aktivität aus token_log. */
+function computeActivityCost(actId) {
+  const t = getActivityCostTokens(actId);
+  return computeRunCost(t.prompt_tokens, t.completion_tokens);
+}
+
+/**
+ * Reichert eine Nachrichten-Liste mit Kosten-Feldern an (Issue #12).
+ * Assistenten-Nachrichten mit cost_prompt erhalten ein runCost-Objekt.
+ */
+function enrichMessagesWithCost(messages) {
+  return messages.map(m => {
+    if (m.role === 'assistant' && m.cost_prompt != null) {
+      const cost = computeRunCost(m.cost_prompt, m.cost_completion);
+      return { ...m, runCost: cost };
+    }
+    return m;
+  });
+}
+
+/**
+ * Reichert eine Schülerliste mit Kosten-Feldern an (Issue #12).
+ */
+function enrichStudentsWithCost(students) {
+  return students.map(s => ({
+    ...s,
+    threadCost: computeRunCost(s.cost_prompt || 0, s.cost_completion || 0),
+  }));
+}
 
 // SQLite-DB initialisieren
 initDb();
@@ -564,8 +637,9 @@ app.get('/api/dashboard/messages/:threadDbId', (req, res) => {
     const students = getStudents(activityId);
     const student  = students.find(s => s.thread_db_id === threadDbId);
     if (!student) return res.status(403).json({ error: 'Forbidden' });
-    const messages = getMessages(threadDbId);
-    res.json({ student, messages });
+    const messages   = enrichMessagesWithCost(getMessages(threadDbId));
+    const threadCost = computeThreadCost(threadDbId);
+    res.json({ student, messages, threadCost });
   } catch (e) {
     console.error('[Dashboard] getMessages error:', e);
     res.status(500).json({ error: 'Internal Server Error' });
@@ -602,11 +676,18 @@ app.ws('/api/dashboard-ws', (ws, req) => {
   dashboardClients.get(activityId).add(ws);
   console.log(`[Dashboard] Lehrer verbunden, activityId=${activityId}`);
 
-  // Initialliste + Aufgabentitel senden
+  // Initialliste + Aufgabentitel + Kosten senden (Issue #12)
   try {
-    const students = getStudents(activityId);
-    const act      = getActivity(activityId);
-    ws.send(JSON.stringify({ type: 'students', data: students, activityName: act?.activity_name, opener: act?.opener }));
+    const students     = enrichStudentsWithCost(getStudents(activityId));
+    const act          = getActivity(activityId);
+    const activityCost = computeActivityCost(activityId);
+    ws.send(JSON.stringify({
+      type: 'students',
+      data: students,
+      activityName: act?.activity_name,
+      opener:       act?.opener,
+      activityCost,
+    }));
   } catch (e) {
     console.error('[Dashboard] Initial-students error:', e);
   }
@@ -623,8 +704,9 @@ app.ws('/api/dashboard-ws', (ws, req) => {
           ws.send(JSON.stringify({ type: 'error', message: 'Forbidden' }));
           return;
         }
-        const messages = getMessages(threadDbId);
-        ws.send(JSON.stringify({ type: 'messages', threadDbId, student, data: messages }));
+        const messages = enrichMessagesWithCost(getMessages(threadDbId));
+        const threadCost = computeThreadCost(threadDbId);
+        ws.send(JSON.stringify({ type: 'messages', threadDbId, student, data: messages, threadCost }));
       }
     } catch (e) {
       console.error('[Dashboard] WS message error:', e);
@@ -1036,32 +1118,47 @@ async function streamRun(ws, thread, settings, eventHandler, run, threadDbId = n
 
         if (!eventHandler.pendingFunctions) {
           console.log("Antwort: " + eventHandler.resContent);
+
           // Assistenten-Antwort in DB spiegeln (Issue #2)
+          // msgId für token_log-Verknüpfung (Issue #12)
+          let msgId = null;
           if (threadDbId) {
-            saveMessage({ thread_db_id: threadDbId, role: 'assistant', content: eventHandler.resContent });
-            // Issue #5: Lehrer-Dashboard live benachrichtigen
-            if (settings.activityId) {
-              notifyDashboard(settings.activityId, {
-                type:      'newMessage',
-                threadDbId,
-                userId:    settings.userId   || null,
-                userName:  settings.userName || null,
-                role:      'assistant',
-                content:   eventHandler.resContent,
-                createdAt: new Date().toISOString(),
-              });
-            }
+            msgId = saveMessage({ thread_db_id: threadDbId, role: 'assistant', content: eventHandler.resContent });
           }
-          // Issue #11: Token-Verbrauch in DB speichern
+
+          // Issue #11/#12: Token-Verbrauch in DB speichern + Kosten berechnen
+          let runCost     = null;
+          let threadCost  = null;
+          let activityCost = null;
           try {
             const finalRun = run.currentRun();
             if (finalRun?.usage && threadDbId) {
-              saveTokenUsage(threadDbId, settings?.activityId || null, MODEL_NAME, finalRun.usage);
+              saveTokenUsage(threadDbId, settings?.activityId || null, MODEL_NAME, finalRun.usage, msgId);
               console.log(`[Token] ${MODEL_NAME} – prompt=${finalRun.usage.prompt_tokens} completion=${finalRun.usage.completion_tokens} total=${finalRun.usage.total_tokens}`);
+              runCost      = computeRunCost(finalRun.usage.prompt_tokens, finalRun.usage.completion_tokens);
+              threadCost   = computeThreadCost(threadDbId);
+              activityCost = computeActivityCost(settings?.activityId || null);
             }
           } catch (e) {
             console.warn('[Token] Fehler beim Speichern:', e.message);
           }
+
+          // Issue #5: Lehrer-Dashboard live benachrichtigen (mit Kosten aus Issue #12)
+          if (threadDbId && settings.activityId) {
+            notifyDashboard(settings.activityId, {
+              type:         'newMessage',
+              threadDbId,
+              userId:       settings.userId   || null,
+              userName:     settings.userName || null,
+              role:         'assistant',
+              content:      eventHandler.resContent,
+              createdAt:    new Date().toISOString(),
+              runCost,
+              threadCost,
+              activityCost,
+            });
+          }
+
           chatMsg.end = true;
           chatMsg.messages = eventHandler.resContent;
           ws.send(JSON.stringify(chatMsg));

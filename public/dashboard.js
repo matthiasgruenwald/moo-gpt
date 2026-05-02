@@ -3,6 +3,7 @@
  *
  * Lädt die Schülerliste via WebSocket, zeigt Chat-Verläufe und
  * empfängt Live-Updates wenn Schüler neue Nachrichten senden.
+ * Issue #12: Kostenanzeige (pro Nachrichtenrunde, pro Chat, Aktivitäts-Gesamt)
  */
 
 // ── URL-Parameter ────────────────────────────────────────────────────────────
@@ -19,6 +20,8 @@ const liveSince             = new Map();   // threadDbId → timestamp letzter L
 let activityOpener          = '';          // Opener-Text der Aufgabe
 let hasConnectedSuccessfully = false;      // war schon mal gültig verbunden?
 let fatalError              = false;       // kein Reconnect mehr
+let activityCost            = null;        // Issue #12: Aktivitäts-Gesamtkosten
+let currentThreadCost       = null;        // Issue #12: Kosten des aktuell geöffneten Chats
 
 // ── DOM-Referenzen ───────────────────────────────────────────────────────────
 const statusDot      = document.getElementById('status-dot');
@@ -29,15 +32,19 @@ const studentCount   = document.getElementById('student-count');
 const chatPanel      = document.getElementById('chat-panel');
 const listPanel      = document.getElementById('list-panel');
 const chatTitle      = document.getElementById('chat-title');
+const chatCost       = document.getElementById('chat-cost');
 const chatMessages   = document.getElementById('chat-messages');
 const backBtn        = document.getElementById('back-btn');
 const sortSelect     = document.getElementById('sort-select');
 const initialError   = document.getElementById('initial-error');
 const expiredOverlay = document.getElementById('expired-overlay');
+const costBar        = document.getElementById('cost-bar');
+const costBarInput   = document.getElementById('cost-bar-input');
+const costBarOutput  = document.getElementById('cost-bar-output');
+const costBarTotal   = document.getElementById('cost-bar-total');
 
 // ── Initialisierung ───────────────────────────────────────────────────────────
 if (!activityId || !token) {
-  // Kein Token in URL → saubere Fehlerseite, keine Dashboard-Struktur
   initialError.classList.add('visible');
 } else {
   connectWebSocket();
@@ -51,9 +58,49 @@ sortSelect.addEventListener('change', () => {
 backBtn.addEventListener('click', () => {
   chatPanel.classList.remove('mobile-visible');
   listPanel.classList.remove('hidden');
-  selectedThreadId = null;
+  selectedThreadId  = null;
+  currentThreadCost = null;
   document.querySelectorAll('.student-item').forEach(el => el.classList.remove('active'));
+  renderChatCost(null);
 });
+
+// ── Kosten-Formatierung (Issue #12) ──────────────────────────────────────────
+
+/**
+ * Formatiert einen EUR-Betrag als Cent-Angabe.
+ * Schwelle: 0,0001 € (= 0,01 Cent). Darunter: "<0,01 Ct"
+ */
+function formatCost(eur) {
+  if (eur == null || isNaN(eur)) return '–';
+  const ct = eur * 100; // Umrechnung in Cent
+  if (ct < 0.01) return '<0,01 Ct';
+  // Bis 9,99 Ct: 2 Nachkommastellen; darüber: 1
+  const decimals = ct < 10 ? 2 : 1;
+  return ct.toFixed(decimals).replace('.', ',') + ' Ct';
+}
+
+/** Rendert die Aktivitäts-Gesamtkosten in der cost-bar. */
+function renderActivityCost(cost) {
+  if (!cost) {
+    costBar.classList.remove('visible');
+    return;
+  }
+  costBarInput.textContent  = `↑ ${formatCost(cost.inputEur)}`;
+  costBarOutput.textContent = `↓ ${formatCost(cost.outputEur)}`;
+  costBarTotal.textContent  = `= ${formatCost(cost.totalEur)}`;
+  costBar.classList.add('visible');
+}
+
+/** Rendert die Thread-Kosten im Chat-Header. */
+function renderChatCost(cost) {
+  if (!cost) {
+    chatCost.textContent = '';
+    chatCost.classList.remove('visible');
+    return;
+  }
+  chatCost.textContent = `↑${formatCost(cost.inputEur)} ↓${formatCost(cost.outputEur)} = ${formatCost(cost.totalEur)}`;
+  chatCost.classList.add('visible');
+}
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 function connectWebSocket() {
@@ -72,7 +119,7 @@ function connectWebSocket() {
   ws.onclose = () => {
     statusDot.classList.remove('connected');
     liveBadge.classList.remove('visible');
-    if (fatalError) return;   // Token abgelaufen – kein Reconnect
+    if (fatalError) return;
     console.log('[Dashboard] WS getrennt, Reconnect in 5 s…');
     setTimeout(connectWebSocket, 5000);
   };
@@ -99,11 +146,16 @@ function handleServerMessage(msg) {
         pageTitle.textContent = `Schüler-Dashboard – Aufgabe ${activityId}`;
       }
       if (msg.opener) activityOpener = msg.opener;
+      // Issue #12: Aktivitäts-Kosten
+      activityCost = msg.activityCost || null;
+      renderActivityCost(activityCost);
       renderStudentList();
       break;
 
     case 'messages':
-      // Antwort auf getMessages-Anfrage
+      // Antwort auf getMessages-Anfrage (mit threadCost aus Issue #12)
+      currentThreadCost = msg.threadCost || null;
+      renderChatCost(currentThreadCost);
       renderChatView(msg.student, msg.data);
       break;
 
@@ -116,10 +168,8 @@ function handleServerMessage(msg) {
       if (msg.message === 'Unauthorized') {
         fatalError = true;
         if (!hasConnectedSuccessfully) {
-          // Noch nie verbunden gewesen → saubere Fehlerseite
           initialError.classList.add('visible');
         } else {
-          // War verbunden, Token abgelaufen → Overlay über bestehendem Dashboard
           expiredOverlay.classList.add('visible');
         }
       }
@@ -129,30 +179,46 @@ function handleServerMessage(msg) {
 
 // ── Neue Live-Nachricht ───────────────────────────────────────────────────────
 function handleNewMessage(msg) {
-  const { threadDbId, userId: uid, userName, role, content, contentType, createdAt } = msg;
+  const { threadDbId, userId: uid, userName, role, content, contentType, createdAt,
+          runCost, threadCost, activityCost: newActivityCost } = msg;
 
-  // Schülerliste aktualisieren (Zähler + Zeitstempel)
+  // Schülerliste aktualisieren (Zähler + Zeitstempel + Kosten)
   const student = students.find(s => s.thread_db_id === threadDbId);
   if (student) {
     if (role === 'user') student.message_count++;
     student.updated_at = createdAt;
+    // Issue #12: Thread-Kosten im Student-Objekt aktualisieren
+    if (threadCost) student.threadCost = threadCost;
     liveSince.set(threadDbId, Date.now());
   } else {
-    // Neuer Schüler – Initialliste neu anfordern
     students.push({
       thread_db_id:    threadDbId,
       moodle_user_id:  uid,
       moodle_user_name: userName || '–',
       updated_at:      createdAt,
       message_count:   role === 'user' ? 1 : 0,
+      threadCost:      threadCost || null,
     });
     liveSince.set(threadDbId, Date.now());
   }
+
+  // Issue #12: Aktivitäts-Kosten aktualisieren
+  if (newActivityCost) {
+    activityCost = newActivityCost;
+    renderActivityCost(activityCost);
+  }
+
   renderStudentList();
 
-  // Wenn dieser Schüler gerade offen ist → Nachricht direkt anhängen
+  // Wenn dieser Chat gerade geöffnet ist
   if (selectedThreadId === threadDbId) {
-    appendMessage({ role, content, content_type: contentType || 'text', created_at: createdAt });
+    // Thread-Kosten im Header aktualisieren
+    if (threadCost) {
+      currentThreadCost = threadCost;
+      renderChatCost(currentThreadCost);
+    }
+    // Nachricht anhängen (mit runCost für Assistenten-Antwort)
+    appendMessage({ role, content, content_type: contentType || 'text', created_at: createdAt, runCost });
     scrollToBottom();
   }
 }
@@ -163,7 +229,6 @@ function renderStudentList() {
     if (sortMode === 'name') {
       return (a.moodle_user_name || '').localeCompare(b.moodle_user_name || '', 'de');
     }
-    // Letzte Aktivität (neueste oben)
     return new Date(b.updated_at) - new Date(a.updated_at);
   });
 
@@ -183,6 +248,12 @@ function renderStudentList() {
     const isLive = liveSince.has(s.thread_db_id) &&
                    (Date.now() - liveSince.get(s.thread_db_id)) < 120_000;
 
+    // Issue #12: Kosten pro Chat in der Sidebar
+    const tc = s.threadCost;
+    const costHtml = tc
+      ? `<span class="student-cost" title="Eingabe / Ausgabe">↑${formatCost(tc.inputEur)} ↓${formatCost(tc.outputEur)}</span>`
+      : '';
+
     item.innerHTML = `
       <div class="student-name">
         ${isLive ? '<span class="badge-new"></span>' : ''}
@@ -191,6 +262,7 @@ function renderStudentList() {
       </div>
       <div class="student-meta">
         <span>🕐 ${relTime(s.updated_at)}</span>
+        ${costHtml}
       </div>`;
 
     item.addEventListener('click', () => selectStudent(s));
@@ -200,26 +272,24 @@ function renderStudentList() {
 
 // ── Schüler auswählen ─────────────────────────────────────────────────────────
 function selectStudent(student) {
-  selectedThreadId = student.thread_db_id;
+  selectedThreadId  = student.thread_db_id;
+  currentThreadCost = null;
 
-  // Live-Badge zurücksetzen
   liveSince.delete(student.thread_db_id);
 
-  // Aktiv-Klasse setzen
   document.querySelectorAll('.student-item').forEach(el => {
     el.classList.toggle('active', Number(el.dataset.threadId) === student.thread_db_id);
   });
 
-  // Mobile: Panel wechseln
   if (window.innerWidth < 768) {
     listPanel.classList.add('hidden');
     chatPanel.classList.add('mobile-visible');
   }
 
   chatTitle.textContent = student.moodle_user_name || '–';
+  renderChatCost(null);  // zurücksetzen bis Daten geladen
   chatMessages.innerHTML = '<div class="loading">Lade Nachrichten…</div>';
 
-  // Nachrichten über WS anfordern
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'getMessages', threadDbId: student.thread_db_id }));
   }
@@ -233,10 +303,6 @@ function parseUTC(str) {
   return new Date(str.includes('T') ? str : str.replace(' ', 'T') + 'Z');
 }
 
-/**
- * Teilt eine Nachrichtenliste in Sessions auf.
- * Eine neue Session beginnt, wenn die Pause zum vorherigen Eintrag > gapMs ist.
- */
 function splitIntoSessions(messages, gapMs = 30 * 60 * 1000) {
   const sessions = [];
   let current = [];
@@ -252,7 +318,6 @@ function splitIntoSessions(messages, gapMs = 30 * 60 * 1000) {
   return sessions;
 }
 
-/** Erzeugt den Session-Header-Text (Lehrer-Ansicht mit Dauer + Anzahl). */
 function sessionHeaderText(session) {
   const first = parseUTC(session[0].created_at);
   const last  = parseUTC(session[session.length - 1].created_at);
@@ -291,7 +356,6 @@ function renderChatView(student, messages) {
   chatTitle.textContent = student.moodle_user_name || '–';
   chatMessages.innerHTML = '';
 
-  // Opener anzeigen
   if (activityOpener) {
     const od = document.createElement('div');
     od.className = 'opener-message';
@@ -308,7 +372,6 @@ function renderChatView(student, messages) {
     return;
   }
 
-  // Nachrichten in Sessions gruppieren und mit Header ausgeben
   const sessions = splitIntoSessions(messages);
   for (const sess of sessions) {
     appendSessionHeader(sess);
@@ -333,7 +396,11 @@ function renderMsgContent(role, content, contentType) {
   return simpleMarkdown(content);
 }
 
-function appendMessage({ role, content, content_type, created_at }) {
+/**
+ * Hängt eine Nachricht an #chat-messages an.
+ * runCost (Issue #12): { inputEur, outputEur } – nur bei Assistenten-Nachrichten mit Kosten
+ */
+function appendMessage({ role, content, content_type, created_at, runCost }) {
   const wrap = document.createElement('div');
   wrap.style.display = 'flex';
   wrap.style.flexDirection = 'column';
@@ -349,6 +416,16 @@ function appendMessage({ role, content, content_type, created_at }) {
 
   wrap.appendChild(bubble);
   wrap.appendChild(time);
+
+  // Issue #12: Kosten pro Nachrichtenrunde (nur Assistenten-Antworten)
+  if (role === 'assistant' && runCost) {
+    const costDiv = document.createElement('div');
+    costDiv.className = 'msg-cost';
+    costDiv.title = 'Kosten dieser Antwort (Eingabe / Ausgabe)';
+    costDiv.textContent = `↑ ${formatCost(runCost.inputEur)}  ↓ ${formatCost(runCost.outputEur)}`;
+    wrap.appendChild(costDiv);
+  }
+
   chatMessages.appendChild(wrap);
 }
 
@@ -364,19 +441,11 @@ function escHtml(str) {
     .replace(/>/g, '&gt;');
 }
 
-/**
- * Minimales Markdown: Code-Blöcke, Fettschrift, Zeilenumbrüche.
- * (Kein vollständiges Markdown – reicht für Chat-Anzeige.)
- */
 function simpleMarkdown(text) {
   let html = escHtml(text);
-  // Fenced code blocks
   html = html.replace(/```[\s\S]*?```/g, m => `<pre>${m.slice(3, -3).trim()}</pre>`);
-  // Inline code
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-  // Fettschrift
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  // Zeilenumbrüche
   html = html.replace(/\n/g, '<br>');
   return html;
 }

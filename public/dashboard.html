@@ -220,6 +220,51 @@
     }
     .msg-bubble.assistant .msg-time { text-align: left; }
 
+    /* ── Kosten-Anzeige (Issue #12) ─────────────────────────────────────── */
+    /* Activity-Kosten-Band unter der Toolbar */
+    #cost-bar {
+      background: #002a55;
+      color: rgba(255,255,255,0.82);
+      padding: 5px 20px;
+      font-size: 12px;
+      display: none;
+      gap: 16px;
+      align-items: center;
+      flex-shrink: 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    #cost-bar.visible { display: flex; }
+    #cost-bar .cost-label { opacity: 0.65; }
+    #cost-bar .cost-value { font-family: monospace; letter-spacing: 0.02em; }
+    #cost-bar .cost-total { color: rgba(255,255,255,0.95); font-weight: 600; }
+
+    /* Kosten in Schüler-Sidebar */
+    .student-cost {
+      font-size: 11px;
+      color: #888;
+      font-family: monospace;
+      white-space: nowrap;
+    }
+
+    /* Kosten unter Assistenten-Nachrichten im Chat */
+    .msg-cost {
+      font-size: 10px;
+      color: #aaa;
+      margin-top: 2px;
+      font-family: monospace;
+      letter-spacing: 0.01em;
+    }
+
+    /* Kosten-Zeile im Chat-Header (Thread-Gesamtkosten) */
+    #chat-cost {
+      font-size: 11px;
+      color: rgba(255,255,255,0.7);
+      font-family: monospace;
+      white-space: nowrap;
+      display: none;
+    }
+    #chat-cost.visible { display: block; }
+
     /* ── Opener & Session-Header ─────────────────────────────────────────── */
     .opener-message {
       align-self: flex-start;
@@ -360,6 +405,14 @@
   <span id="student-count"></span>
 </div>
 
+<!-- Aktivitäts-Gesamtkosten (Issue #12) -->
+<div id="cost-bar">
+  <span class="cost-label">Aufgabe gesamt:</span>
+  <span class="cost-value" id="cost-bar-input" title="Eingabe-Kosten">↑ –</span>
+  <span class="cost-value" id="cost-bar-output" title="Ausgabe-Kosten">↓ –</span>
+  <span class="cost-value cost-total" id="cost-bar-total" title="Gesamtkosten">=  –</span>
+</div>
+
 <div id="main">
   <!-- Schülerliste -->
   <div id="list-panel">
@@ -373,6 +426,7 @@
     <div id="chat-header">
       <button id="back-btn" title="Zurück zur Liste">&#8592;</button>
       <span id="chat-title">Schüler auswählen</span>
+      <span id="chat-cost"></span>
     </div>
     <div id="chat-messages">
       <div class="chat-placeholder">← Schüler in der Liste auswählen</div>

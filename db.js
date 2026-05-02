@@ -56,7 +56,8 @@ export function initDb() {
   try { db.exec(`ALTER TABLE activities ADD COLUMN opener TEXT`); } catch (_) {}
   try { db.exec(`ALTER TABLE activities ADD COLUMN upload_mode TEXT DEFAULT 'off'`); } catch (_) {}
   try { db.exec(`ALTER TABLE messages ADD COLUMN content_type TEXT DEFAULT 'text'`); } catch (_) {}
-  // Issue #11: token_log wird über CREATE TABLE IF NOT EXISTS angelegt – keine Migration nötig
+  // Issue #12: message_id in token_log für Kostenanzeige pro Nachrichtenrunde
+  try { db.exec(`ALTER TABLE token_log ADD COLUMN message_id INTEGER`); } catch (_) {}
 
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;
@@ -115,12 +116,17 @@ export function findThread({ moodle_user_id, activity_id }) {
  * Gibt alle Nachrichten eines Threads zurück (chronologisch).
  * Maximal 100 Einträge, um das Chat-Fenster nicht zu überfluten.
  * Issue #3: Chatverlauf beim Reconnect
+ * Issue #12: Kosten-Spalten (cost_prompt, cost_completion) via JOIN mit token_log
  */
 export function getMessages(thread_db_id) {
   return db.prepare(`
-    SELECT role, content, content_type, created_at FROM messages
-    WHERE thread_id = ?
-    ORDER BY created_at ASC
+    SELECT m.role, m.content, m.content_type, m.created_at,
+           tl.prompt_tokens     AS cost_prompt,
+           tl.completion_tokens AS cost_completion
+    FROM messages m
+    LEFT JOIN token_log tl ON tl.message_id = m.id
+    WHERE m.thread_id = ?
+    ORDER BY m.created_at ASC
     LIMIT 100
   `).all(thread_db_id);
 }
@@ -182,25 +188,51 @@ export function getActivityName(activity_id) {
 /**
  * Speichert Token-Verbrauch nach einem Run (Issue #11).
  * usage: { prompt_tokens, completion_tokens, total_tokens } aus OpenAI-Response
+ * messageId: DB-ID der zugehörigen Assistenten-Nachricht (Issue #12, für Kostenanzeige)
  */
-export function saveTokenUsage(threadId, activityId, model, usage) {
+export function saveTokenUsage(threadId, activityId, model, usage, messageId = null) {
   if (!usage) return;
   db.prepare(`
-    INSERT INTO token_log (thread_id, activity_id, model, prompt_tokens, completion_tokens, total_tokens)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO token_log (thread_id, activity_id, model, prompt_tokens, completion_tokens, total_tokens, message_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(
     threadId       || null,
     activityId     || null,
     model          || null,
     usage.prompt_tokens      ?? null,
     usage.completion_tokens  ?? null,
-    usage.total_tokens       ?? null
+    usage.total_tokens       ?? null,
+    messageId      || null
   );
 }
 
 /**
+ * Aggregierte Token-Summen für einen Thread (Issue #12).
+ * Rückgabe: { prompt_tokens, completion_tokens }
+ */
+export function getThreadCostTokens(threadDbId) {
+  return db.prepare(`
+    SELECT COALESCE(SUM(prompt_tokens), 0)     AS prompt_tokens,
+           COALESCE(SUM(completion_tokens), 0) AS completion_tokens
+    FROM token_log WHERE thread_id = ?
+  `).get(threadDbId) || { prompt_tokens: 0, completion_tokens: 0 };
+}
+
+/**
+ * Aggregierte Token-Summen für eine Aktivität (Issue #12).
+ * Rückgabe: { prompt_tokens, completion_tokens }
+ */
+export function getActivityCostTokens(activityId) {
+  return db.prepare(`
+    SELECT COALESCE(SUM(prompt_tokens), 0)     AS prompt_tokens,
+           COALESCE(SUM(completion_tokens), 0) AS completion_tokens
+    FROM token_log WHERE activity_id = ?
+  `).get(activityId) || { prompt_tokens: 0, completion_tokens: 0 };
+}
+
+/**
  * Gibt alle Schüler einer Aktivität zurück (Issue #5: Teacher-Dashboard).
- * Enthält Name, User-ID, letzte Aktivität, Nachrichtenanzahl.
+ * Enthält Name, User-ID, letzte Aktivität, Nachrichtenanzahl + Kosten-Tokens (Issue #12).
  */
 export function getStudents(activity_id) {
   return db.prepare(`
@@ -208,9 +240,12 @@ export function getStudents(activity_id) {
            t.moodle_user_id,
            t.moodle_user_name,
            t.updated_at,
-           COUNT(m.id)       AS message_count
+           COUNT(DISTINCT m.id)                    AS message_count,
+           COALESCE(SUM(tl.prompt_tokens), 0)      AS cost_prompt,
+           COALESCE(SUM(tl.completion_tokens), 0)  AS cost_completion
     FROM threads t
-    LEFT JOIN messages m ON m.thread_id = t.id
+    LEFT JOIN messages m  ON m.thread_id  = t.id
+    LEFT JOIN token_log tl ON tl.thread_id = t.id
     WHERE t.activity_id = ?
     GROUP BY t.id
     ORDER BY t.updated_at DESC
