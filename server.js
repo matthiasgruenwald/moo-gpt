@@ -15,7 +15,7 @@ import { encode } from "querystring";
 import moment from "moment";
 import { log } from "console";
 import puppeteer from "puppeteer";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getStudents, updateThreadName, upsertActivity, getActivityName } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getStudents, updateThreadName, upsertActivity, getActivity, getActivityName } from "./db.js";
 import crypto from "crypto";
 
 const app = express();
@@ -512,9 +512,9 @@ app.get('/api/dashboard/students', (req, res) => {
   if (!activityId || !token || !validateDashboardToken(token, activityId))
     return res.status(403).json({ error: 'Forbidden' });
   try {
-    const students     = getStudents(activityId);
-    const activityName = getActivityName(activityId);
-    res.json({ students, activityName });
+    const students = getStudents(activityId);
+    const act      = getActivity(activityId);
+    res.json({ students, activityName: act?.activity_name, opener: act?.opener });
   } catch (e) {
     console.error('[Dashboard] getStudents error:', e);
     res.status(500).json({ error: 'Internal Server Error' });
@@ -573,9 +573,9 @@ app.ws('/api/dashboard-ws', (ws, req) => {
 
   // Initialliste + Aufgabentitel senden
   try {
-    const students     = getStudents(activityId);
-    const activityName = getActivityName(activityId);
-    ws.send(JSON.stringify({ type: 'students', data: students, activityName }));
+    const students = getStudents(activityId);
+    const act      = getActivity(activityId);
+    ws.send(JSON.stringify({ type: 'students', data: students, activityName: act?.activity_name, opener: act?.opener }));
   } catch (e) {
     console.error('[Dashboard] Initial-students error:', e);
   }
@@ -660,7 +660,7 @@ app.ws("/api/chat", (ws, req) => {
 
                 // Issue #5: Aufgabentitel in DB speichern (kommt vom Lehrer oder Schüler)
                 if (settings.activityId && settings.activityName) {
-                  upsertActivity(settings.activityId, settings.activityName);
+                  upsertActivity(settings.activityId, settings.activityName, settings.opener || null);
                 }
 
                 // Issue #5: Dashboard-Token für Lehrer erzeugen und zurückschicken

@@ -36,9 +36,13 @@ export function initDb() {
     CREATE TABLE IF NOT EXISTS activities (
       activity_id   TEXT PRIMARY KEY,
       activity_name TEXT,
+      opener        TEXT,
       updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // Migration: opener-Spalte für bestehende DBs
+  try { db.exec(`ALTER TABLE activities ADD COLUMN opener TEXT`); } catch (_) {}
 
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;
@@ -133,22 +137,28 @@ export function updateThreadName(thread_db_id, moodle_user_name) {
 }
 
 /**
- * Speichert oder aktualisiert den Aufgabentitel (Issue #5).
+ * Speichert oder aktualisiert Aufgabentitel und Opener (Issue #5).
  */
-export function upsertActivity(activity_id, activity_name) {
+export function upsertActivity(activity_id, activity_name, opener) {
   if (!activity_id || !activity_name) return;
   db.prepare(`
-    INSERT INTO activities (activity_id, activity_name, updated_at)
-    VALUES (?, ?, CURRENT_TIMESTAMP)
+    INSERT INTO activities (activity_id, activity_name, opener, updated_at)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(activity_id) DO UPDATE SET
       activity_name = excluded.activity_name,
+      opener        = COALESCE(excluded.opener, activities.opener),
       updated_at    = CURRENT_TIMESTAMP
-  `).run(activity_id, activity_name);
+  `).run(activity_id, activity_name, opener || null);
 }
 
-/** Gibt den gespeicherten Aufgabentitel zurück (oder null). */
+/** Gibt activity_name und opener zurück (oder null). */
+export function getActivity(activity_id) {
+  return db.prepare('SELECT activity_name, opener FROM activities WHERE activity_id = ?').get(activity_id) || null;
+}
+
+/** Abwärtskompatibilität */
 export function getActivityName(activity_id) {
-  const row = db.prepare('SELECT activity_name FROM activities WHERE activity_id = ?').get(activity_id);
+  const row = getActivity(activity_id);
   return row ? row.activity_name : null;
 }
 

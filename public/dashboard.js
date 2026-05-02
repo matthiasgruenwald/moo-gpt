@@ -16,6 +16,7 @@ let selectedThreadId  = null;        // aktuell angezeigter Thread
 let ws                = null;
 let sortMode          = 'activity';  // 'activity' | 'name'
 const liveSince       = new Map();   // threadDbId → timestamp letzter Live-Nachricht
+let activityOpener    = '';          // Opener-Text der Aufgabe
 
 // ── DOM-Referenzen ───────────────────────────────────────────────────────────
 const statusDot    = document.getElementById('status-dot');
@@ -90,6 +91,7 @@ function handleServerMessage(msg) {
       } else {
         pageTitle.textContent = `Schüler-Dashboard – Aufgabe ${activityId}`;
       }
+      if (msg.opener) activityOpener = msg.opener;
       renderStudentList();
       break;
 
@@ -206,21 +208,94 @@ function selectStudent(student) {
   }
 }
 
+// ── Session-Hilfsfunktionen ───────────────────────────────────────────────────
+
+/** Parst ein SQLite-Datetime-String ("2026-05-01 10:13:45") als UTC-Date. */
+function parseUTC(str) {
+  if (!str) return new Date(0);
+  return new Date(str.includes('T') ? str : str.replace(' ', 'T') + 'Z');
+}
+
+/**
+ * Teilt eine Nachrichtenliste in Sessions auf.
+ * Eine neue Session beginnt, wenn die Pause zum vorherigen Eintrag > gapMs ist.
+ */
+function splitIntoSessions(messages, gapMs = 30 * 60 * 1000) {
+  const sessions = [];
+  let current = [];
+  for (const msg of messages) {
+    if (current.length > 0) {
+      const prev = parseUTC(current[current.length - 1].created_at);
+      const curr = parseUTC(msg.created_at);
+      if (curr - prev > gapMs) { sessions.push(current); current = []; }
+    }
+    current.push(msg);
+  }
+  if (current.length > 0) sessions.push(current);
+  return sessions;
+}
+
+/** Erzeugt den Session-Header-Text (Lehrer-Ansicht mit Dauer + Anzahl). */
+function sessionHeaderText(session) {
+  const first = parseUTC(session[0].created_at);
+  const last  = parseUTC(session[session.length - 1].created_at);
+  const diffMin = Math.round((last - first) / 60000);
+
+  const now = new Date();
+  const sameDay = first.toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' }) ===
+                  now.toLocaleDateString('de-DE',  { timeZone: 'Europe/Berlin' });
+
+  const dayStr = sameDay
+    ? 'Heute'
+    : first.toLocaleDateString('de-DE', {
+        timeZone: 'Europe/Berlin', weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit'
+      });
+
+  const t1 = first.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+  const t2 = last.toLocaleTimeString('de-DE',  { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+  const durStr = diffMin > 0 ? `${diffMin} Min` : '< 1 Min';
+  const cnt = session.filter(m => m.role === 'user').length;
+  const cntStr = `${cnt} Nachricht${cnt !== 1 ? 'en' : ''}`;
+
+  return `${dayStr}  ${t1}–${t2}  (${durStr}, ${cntStr})`;
+}
+
+function appendSessionHeader(session) {
+  const div = document.createElement('div');
+  div.className = 'session-header';
+  div.textContent = sessionHeaderText(session);
+  chatMessages.appendChild(div);
+}
+
 // ── Chat-Ansicht rendern ──────────────────────────────────────────────────────
 function renderChatView(student, messages) {
-  // Sicherstellen, dass noch derselbe Schüler gewählt ist
   if (student.thread_db_id !== selectedThreadId) return;
 
   chatTitle.textContent = student.moodle_user_name || '–';
   chatMessages.innerHTML = '';
 
+  // Opener anzeigen
+  if (activityOpener) {
+    const od = document.createElement('div');
+    od.className = 'opener-message';
+    od.textContent = activityOpener;
+    chatMessages.appendChild(od);
+  }
+
   if (messages.length === 0) {
-    chatMessages.innerHTML = '<div class="chat-placeholder">Noch keine Nachrichten.</div>';
+    const ph = document.createElement('div');
+    ph.className = 'chat-placeholder';
+    ph.textContent = 'Noch keine Nachrichten.';
+    chatMessages.appendChild(ph);
+    scrollToBottom();
     return;
   }
 
-  for (const m of messages) {
-    appendMessage(m);
+  // Nachrichten in Sessions gruppieren und mit Header ausgeben
+  const sessions = splitIntoSessions(messages);
+  for (const sess of sessions) {
+    appendSessionHeader(sess);
+    for (const m of sess) appendMessage(m);
   }
   scrollToBottom();
 }
@@ -233,7 +308,6 @@ function appendMessage({ role, content, created_at }) {
 
   const bubble = document.createElement('div');
   bubble.className = `msg-bubble ${role}`;
-  // Einfaches Markdown-ähnliches Rendering: Zeilenumbrüche + Code
   bubble.innerHTML = simpleMarkdown(content);
 
   const time = document.createElement('div');
@@ -291,8 +365,7 @@ function relTime(isoStr) {
 function formatTime(isoStr) {
   if (!isoStr) return '';
   try {
-    const d = new Date(isoStr);
-    return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    return parseUTC(isoStr).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
   } catch { return isoStr; }
 }
 

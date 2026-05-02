@@ -420,7 +420,7 @@ export class MMBBSBOT {
 
         if (messageObj.end === true) {
           // Zeitstempel zur fertigen Antwort hinzufügen
-          const nowStr = new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+          const nowStr = new Date().toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
           const lastMsg = chatWindow.querySelector(".message.received:last-child");
           if (lastMsg && !lastMsg.querySelector(".msg-time")) {
             const timeSpan = document.createElement("span");
@@ -446,7 +446,7 @@ export class MMBBSBOT {
     const sendButton = document.getElementById("send-button");
 
     if (messageText.trim() !== "") {
-      const nowStr = new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+      const nowStr = new Date().toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
       const message = document.createElement("div");
       message.className = "message sent";
       message.innerHTML = `<p>${messageText}</p><span class="msg-time">${nowStr}</span>`;
@@ -511,34 +511,34 @@ export class MMBBSBOT {
     openerDiv.innerHTML = `<p>${opener}</p>`;
     chatWindow.appendChild(openerDiv);
 
-    // Separator mit Datum der ersten Nachricht
-    const firstDate = new Date(messages[0].created_at.replace(' ', 'T') + 'Z');
-    const dateStr = firstDate.toLocaleDateString('de-DE', {
-      timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric'
-    });
-    const sep = document.createElement("div");
-    sep.className = "history-separator";
-    sep.textContent = `Früheres Gespräch vom ${dateStr}`;
-    chatWindow.appendChild(sep);
+    // Nachrichten in Sessions aufteilen (Pause > 30 Min = neue Session)
+    const sessions = this._splitHistorySessions(messages);
 
-    for (const msg of messages) {
-      const time = new Date(msg.created_at.replace(' ', 'T') + 'Z')
-        .toLocaleString('de-DE', {
-          timeZone: 'Europe/Berlin',
-          hour: '2-digit', minute: '2-digit',
-          day: '2-digit', month: '2-digit'
-        });
+    for (const sess of sessions) {
+      const firstDate = new Date(sess[0].created_at.replace(' ', 'T') + 'Z');
+      const dayStr = firstDate.toLocaleDateString('de-DE', {
+        timeZone: 'Europe/Berlin', weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit'
+      });
+      const sep = document.createElement("div");
+      sep.className = "history-separator";
+      sep.textContent = `Gespräch vom ${dayStr}`;
+      chatWindow.appendChild(sep);
 
-      const div = document.createElement("div");
-      if (msg.role === 'user') {
-        div.className = "message sent";
-        div.innerHTML = `<p>${msg.content}</p><span class="msg-time">${time}</span>`;
-      } else {
-        div.className = "message received";
-        const htmlContent = this.marked.parse(msg.content);
-        div.innerHTML = `${htmlContent}<span class="msg-time">${time}</span>`;
+      for (const msg of sess) {
+        const time = new Date(msg.created_at.replace(' ', 'T') + 'Z')
+          .toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+
+        const div = document.createElement("div");
+        if (msg.role === 'user') {
+          div.className = "message sent";
+          div.innerHTML = `<p>${msg.content}</p><span class="msg-time">${time}</span>`;
+        } else {
+          div.className = "message received";
+          const htmlContent = this.marked.parse(msg.content);
+          div.innerHTML = `${htmlContent}<span class="msg-time">${time}</span>`;
+        }
+        chatWindow.appendChild(div);
       }
-      chatWindow.appendChild(div);
     }
 
     // Mathe-Rendering für History
@@ -550,6 +550,22 @@ export class MMBBSBOT {
     });
 
     chatWindow.scrollTop = chatWindow.scrollHeight;
+  }
+
+  /** Teilt Nachrichten in Sessions auf (Pause > 30 Min = neue Session). */
+  _splitHistorySessions(messages, gapMs = 30 * 60 * 1000) {
+    const sessions = [];
+    let current = [];
+    for (const msg of messages) {
+      if (current.length > 0) {
+        const prev = new Date(current[current.length - 1].created_at.replace(' ', 'T') + 'Z');
+        const curr = new Date(msg.created_at.replace(' ', 'T') + 'Z');
+        if (curr - prev > gapMs) { sessions.push(current); current = []; }
+      }
+      current.push(msg);
+    }
+    if (current.length > 0) sessions.push(current);
+    return sessions;
   }
 
   /** Stellt den Eingabe-Bereich nach einem Reconnect wieder her. */
