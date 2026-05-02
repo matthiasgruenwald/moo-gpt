@@ -11,29 +11,34 @@ const activityId = params.get('activityId') || '';
 const token      = params.get('token')      || '';
 
 // ── State ────────────────────────────────────────────────────────────────────
-let students          = [];          // aktuelle Schülerliste (sortiert)
-let selectedThreadId  = null;        // aktuell angezeigter Thread
-let ws                = null;
-let sortMode          = 'activity';  // 'activity' | 'name'
-const liveSince       = new Map();   // threadDbId → timestamp letzter Live-Nachricht
-let activityOpener    = '';          // Opener-Text der Aufgabe
+let students                = [];          // aktuelle Schülerliste (sortiert)
+let selectedThreadId        = null;        // aktuell angezeigter Thread
+let ws                      = null;
+let sortMode                = 'activity';  // 'activity' | 'name'
+const liveSince             = new Map();   // threadDbId → timestamp letzter Live-Nachricht
+let activityOpener          = '';          // Opener-Text der Aufgabe
+let hasConnectedSuccessfully = false;      // war schon mal gültig verbunden?
+let fatalError              = false;       // kein Reconnect mehr
 
 // ── DOM-Referenzen ───────────────────────────────────────────────────────────
-const statusDot    = document.getElementById('status-dot');
-const liveBadge    = document.getElementById('live-badge');
-const pageTitle    = document.getElementById('page-title');
-const studentList  = document.getElementById('student-list');
-const studentCount = document.getElementById('student-count');
-const chatPanel    = document.getElementById('chat-panel');
-const listPanel    = document.getElementById('list-panel');
-const chatTitle    = document.getElementById('chat-title');
-const chatMessages = document.getElementById('chat-messages');
-const backBtn      = document.getElementById('back-btn');
-const sortSelect   = document.getElementById('sort-select');
+const statusDot      = document.getElementById('status-dot');
+const liveBadge      = document.getElementById('live-badge');
+const pageTitle      = document.getElementById('page-title');
+const studentList    = document.getElementById('student-list');
+const studentCount   = document.getElementById('student-count');
+const chatPanel      = document.getElementById('chat-panel');
+const listPanel      = document.getElementById('list-panel');
+const chatTitle      = document.getElementById('chat-title');
+const chatMessages   = document.getElementById('chat-messages');
+const backBtn        = document.getElementById('back-btn');
+const sortSelect     = document.getElementById('sort-select');
+const initialError   = document.getElementById('initial-error');
+const expiredOverlay = document.getElementById('expired-overlay');
 
 // ── Initialisierung ───────────────────────────────────────────────────────────
 if (!activityId || !token) {
-  studentList.innerHTML = '<div class="empty-list">Fehler: Kein gültiger Zugangslink. Bitte Dashboard über den Chat-Button öffnen.</div>';
+  // Kein Token in URL → saubere Fehlerseite, keine Dashboard-Struktur
+  initialError.classList.add('visible');
 } else {
   connectWebSocket();
 }
@@ -58,6 +63,7 @@ function connectWebSocket() {
   ws = new WebSocket(url);
 
   ws.onopen = () => {
+    hasConnectedSuccessfully = true;
     statusDot.classList.add('connected');
     liveBadge.classList.add('visible');
     console.log('[Dashboard] WS verbunden');
@@ -66,6 +72,7 @@ function connectWebSocket() {
   ws.onclose = () => {
     statusDot.classList.remove('connected');
     liveBadge.classList.remove('visible');
+    if (fatalError) return;   // Token abgelaufen – kein Reconnect
     console.log('[Dashboard] WS getrennt, Reconnect in 5 s…');
     setTimeout(connectWebSocket, 5000);
   };
@@ -106,6 +113,16 @@ function handleServerMessage(msg) {
 
     case 'error':
       console.warn('[Dashboard] Server-Fehler:', msg.message);
+      if (msg.message === 'Unauthorized') {
+        fatalError = true;
+        if (!hasConnectedSuccessfully) {
+          // Noch nie verbunden gewesen → saubere Fehlerseite
+          initialError.classList.add('visible');
+        } else {
+          // War verbunden, Token abgelaufen → Overlay über bestehendem Dashboard
+          expiredOverlay.classList.add('visible');
+        }
+      }
       break;
   }
 }
