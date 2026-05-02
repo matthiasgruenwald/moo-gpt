@@ -14,8 +14,9 @@ export class MMBBSBOT {
     this.msgCount = 0;
     this.ws = null;
     this.wsInitialized = false;
-    this.dashboardToken = null;       // Issue #5: vom Server zugewiesen
-    this.pendingDashboardOpen = false; // Issue #5: Dashboard-Tab nach Token-Empfang öffnen
+    this.dashboardToken          = null;  // Issue #5: vom Server zugewiesen
+    this.pendingDashboardOpen    = false; // Issue #5: Dashboard-Tab nach Token-Empfang öffnen
+    this.pendingDashboardWindow  = null;  // Issue #5: vorab geöffnetes about:blank-Fenster
     this.marked = marked;
     this.katex = katex;
     this.renderMathInElement = renderMathInElement;
@@ -133,11 +134,13 @@ export class MMBBSBOT {
       || '';
 
     if (this.dashboardToken) {
-      // Token schon vorhanden → sofort öffnen
+      // Token schon vorhanden → sofort öffnen (User-Gesture-Kontext ✓)
       this._openDashboardTab(this.dashboardToken, activityId);
     } else {
-      // Token noch nicht da → WS initialisieren, Tab wird nach Token-Empfang geöffnet
-      this.pendingDashboardOpen = true;
+      // Token noch nicht da: Fenster SOFORT öffnen (Browser erlaubt window.open nur
+      // direkt aus User-Gesture), danach nach Token-Empfang dorthin navigieren.
+      this.pendingDashboardWindow = window.open('about:blank', '_blank');
+      this.pendingDashboardOpen   = true;
       if (!this.wsInitialized) {
         this.setupWebSocket();
         this.wsInitialized = true;
@@ -146,28 +149,56 @@ export class MMBBSBOT {
   }
 
   /**
-   * Ruft den Anzeigenamen des aktuellen Nutzers von der Moodle-Profilseite ab.
-   * Jeder eingeloggte Nutzer kann seine eigene Profil-Seite sehen – daher kein
-   * extra Capability nötig. Der Seitentitel hat die Form "Name | Kurs | Site".
+   * Ruft den vollständigen Namen ab: zuerst über Moodles AJAX-Endpoint,
+   * als Fallback über die Profilseite (Titel-Parsing).
    */
-  async _fetchMoodleUserName(userId, wwwroot) {
+  async _fetchMoodleUserName(userId, wwwroot, sesskey) {
+    // Versuch 1: AJAX-Endpoint (gibt sauberes fullname zurück)
+    try {
+      const body = JSON.stringify([{
+        index: 0,
+        methodname: 'core_user_get_users_by_field',
+        args: { field: 'id', values: [String(userId)] }
+      }]);
+      const resp = await fetch(
+        `${wwwroot}/lib/ajax/service.php?sesskey=${encodeURIComponent(sesskey)}&info=core_user_get_users_by_field`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body }
+      );
+      if (resp.ok) {
+        const data = await resp.json();
+        const fullname = data?.[0]?.data?.[0]?.fullname;
+        if (fullname) { console.log(`[Bot] Name via AJAX: ${fullname}`); return fullname; }
+      }
+    } catch (e) { /* weiter mit Fallback */ }
+
+    // Versuch 2: Profilseite – Titel hat die Form "Name: Öffentliches Profil | Site"
+    // oder "Name | Profil | Site" → wir nehmen nur den Teil vor dem ersten " | " oder ": "
     try {
       const resp = await fetch(`${wwwroot}/user/profile.php?id=${userId}`, { credentials: 'include' });
-      if (!resp.ok) return null;
-      const text = await resp.text();
-      const match = text.match(/<title>\s*([^|<\n]+)/);
-      return match ? match[1].trim() : null;
-    } catch (e) {
-      console.warn('[Bot] Profil-Seiten-Abruf fehlgeschlagen:', e);
-      return null;
-    }
+      if (resp.ok) {
+        const text  = await resp.text();
+        const match = text.match(/<title>\s*([^|<\n]+)/);
+        if (match) {
+          // ": Öffentliches Profil" und Varianten abschneiden
+          const name = match[1].replace(/:\s*(Öffentliches Profil|Profil|Profile).*/i, '').trim();
+          if (name) { console.log(`[Bot] Name via Profilseite: ${name}`); return name; }
+        }
+      }
+    } catch (e) { console.warn('[Bot] Profilseiten-Abruf fehlgeschlagen:', e); }
+
+    return null;
   }
 
-  /** Öffnet den Dashboard-Tab mit Token. */
+  /** Öffnet den Dashboard-Tab mit Token (oder navigiert ein pending-Fenster). */
   _openDashboardTab(token, activityId) {
     const base = `${this.settings.protocol}://${this.settings.host}:${this.settings.port}`;
     const url  = `${base}/dashboard.html?activityId=${encodeURIComponent(activityId)}&token=${encodeURIComponent(token)}`;
-    window.open(url, '_blank');
+    if (this.pendingDashboardWindow && !this.pendingDashboardWindow.closed) {
+      this.pendingDashboardWindow.location.href = url;
+      this.pendingDashboardWindow = null;
+    } else {
+      window.open(url, '_blank');
+    }
   }
 
   loadExternalLibraries() {
@@ -248,16 +279,16 @@ export class MMBBSBOT {
 
       // Moodle-User-Kontext auslesen (Issue #3: Thread-Persistenz)
       const userId = window.M?.cfg?.userId?.toString() || null;
-      // Zuverlässige Namensermittlung: mehrere Stufen
+      // DOM-Selektoren (leerer String zählt als falsy und wird übersprungen)
       let userName = window.M?.cfg?.fullname
+        || document.querySelector('img.userpicture')?.getAttribute('alt')?.trim()
         || document.querySelector('.usermenu .usertext')?.textContent?.trim()
         || document.querySelector('span.usertext')?.textContent?.trim()
         || document.querySelector('[data-key="myprofile"] .menu-action-text')?.textContent?.trim()
         || null;
-      // Letzter Fallback: eigene Moodle-Profilseite abrufen (funktioniert für alle Rollen)
-      if (!userName && userId && window.M?.cfg?.wwwroot) {
-        userName = await this._fetchMoodleUserName(userId, window.M.cfg.wwwroot);
-        if (userName) console.log(`[Bot] Name via Profil-Seite: ${userName}`);
+      // Zuverlässiger Fallback: Moodles internes AJAX-Endpoint (same-origin, sesskey-Auth)
+      if (!userName && userId && window.M?.cfg?.wwwroot && window.M?.cfg?.sesskey) {
+        userName = await this._fetchMoodleUserName(userId, window.M.cfg.wwwroot, window.M.cfg.sesskey);
       }
       const activityId = new URLSearchParams(window.location.search).get('id') || null;
       // Aufgabentitel aus Moodle-DOM (Issue #5: in DB speichern, nicht per URL-Param)

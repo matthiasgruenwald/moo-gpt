@@ -68,6 +68,14 @@ Ab v1.8.0 werden alle Chats lokal in einer SQLite-Datenbank gespeichert (`chats.
 | `content` | TEXT | Nachrichtentext |
 | `created_at` | DATETIME | Timestamp |
 
+`activities` – Aufgabentitel je Aktivitäts-ID (ab v2.0.0):
+
+| Spalte | Typ | Beschreibung |
+|--------|-----|--------------|
+| `activity_id` | TEXT PK | Moodle-Aktivitäts-ID |
+| `activity_name` | TEXT | Aufgabentitel (aus Moodle-DOM) |
+| `updated_at` | DATETIME | Letztes Update |
+
 Die DB-Datei wird beim ersten Start automatisch angelegt. Pfad per `DB_PATH`-Env-Variable überschreibbar.
 
 ## Docker Container
@@ -145,6 +153,29 @@ Quiz-Fragen blockieren `<script>`-Tags → iframe-Variante via `tegpt`-Snippet (
 
 **Bekannte Lücke:** `tegpt` (iframe-Einbindung für Quiz-Fragen) hat keinen Zugriff auf das Parent-DOM und kann die Rolle nicht erkennen – separates Issue geplant.
 
+### Lehrer-Dashboard (ab v2.0.0, Issue #5)
+
+Trainer sehen einen zusätzlichen Dashboard-Button (blaues Viereck-Icon) über dem Chat-Button. Ein Klick öffnet `dashboard.html` in einem neuen Tab.
+
+**Zugang:** Nur mit serverseitig generiertem Token möglich. Der Token wird beim Öffnen des Chats als Trainer automatisch per WebSocket zugeschickt und in der Dashboard-URL übergeben. Direktaufrufe ohne Token werden abgelehnt.
+
+**Funktionen:**
+- Schülerliste mit Name, letzter Aktivität (relativ), Nachrichtenanzahl
+- Sortierung nach Name oder letzter Aktivität
+- Klick auf einen Schüler zeigt den vollständigen Chatverlauf (read-only)
+- Live-Updates: neue Nachrichten erscheinen sofort in der Liste und im offenen Chat (WebSocket Fan-out)
+- Pulsierender grüner Punkt bei Aktivität in den letzten 2 Minuten
+
+**Layout:** Split-Panel ab 768 px (Liste links, Chat rechts); Liste→Detail darunter mit Zurück-Button.
+
+**Schülernamen:** Werden beim ersten Chat-Öffnen aus dem Moodle-DOM ermittelt und in SQLite gespeichert. Bekannte Einschränkung: In der moodle-nds.de-Installation liefert weder `M.cfg.fullname` noch `img.userpicture[alt]` den Namen (beide leer). Fallback: `Schüler (ID 14)`. Namen können nachgefüllt werden, sobald eine zuverlässige API-Quelle gefunden ist.
+
+**Aufgabentitel:** Wird beim ersten Chat (Lehrer oder Schüler) aus dem Moodle-DOM gelesen und in der `activities`-Tabelle gespeichert. Das Dashboard liest den Titel direkt aus der DB.
+
+**Token-Gültigkeit:** 8 Stunden. Nach Ablauf muss der Lehrer den Chat-Button einmal klicken, um einen neuen Token zu erhalten.
+
+**Bekannte Sicherheitslücke:** `isTeacher`-Flag wird client-seitig gesetzt (DOM-Check) und ist fälschbar. Separates Issue geplant.
+
 ### Thread-Persistenz + Chatverlauf (ab v1.9.0 / v1.10.0)
 
 Schüler führen ihren Chat nach einem Seitenreload oder Reconnect nahtlos weiter – der vollständige Gesprächsverlauf wird beim Öffnen des Chat-Widgets wiederhergestellt.
@@ -166,6 +197,7 @@ Schüler führen ihren Chat nach einem Seitenreload oder Reconnect nahtlos weite
 
 | Version | Änderung |
 |---------|----------|
+| 2.0.0 | Lehrer-Dashboard (Issue #5): dashboard.html/js, Token-Auth, Fan-out, activities-Tabelle |
 | 1.11.0 | Rollenerkennung Trainer/Teilnehmer via DOM + userswitchedrole (Issue #4) |
 | 1.10.0 | Chatverlauf beim Öffnen anzeigen, Zeitstempel auf allen Nachrichten |
 | 1.9.0 | Thread-Persistenz + Reconnect (Issue #3) |
@@ -173,10 +205,13 @@ Schüler führen ihren Chat nach einem Seitenreload oder Reconnect nahtlos weite
 | 1.7.0 | Keepalive-Ping gegen Cloudflare-Timeout (Issue #1) |
 | 1.6.x | Lazy-Init, Bilder-Upload via OpenAI Files API |
 
-## ToDo / Roadmap (Branch feature/v2-issues-2-5)
+## ToDo / Roadmap
 
 - [x] Issue #1: Keepalive-Ping (v1.7.0)
 - [x] Issue #2: SQLite-Logging (v1.8.0)
 - [x] Issue #3: Thread-Persistenz + Reconnect + Chatverlauf (v1.9.0 / v1.10.0)
 - [x] Issue #4: Rollenerkennung (v1.11.0)
-- [ ] Issue #5: Lehrer-Dashboard
+- [x] Issue #5: Lehrer-Dashboard (v2.0.0)
+- [ ] Issue #6: Rollenerkennung für tegpt (iframe)
+- [ ] Schülernamen in moodle-nds.de zuverlässig ermitteln (M.cfg.fullname fehlt, img[alt] leer, AJAX-Endpoint durch CSP blockiert)
+- [ ] isTeacher server-seitig absichern (aktuell client-seitiger DOM-Check, fälschbar)
