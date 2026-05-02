@@ -1,4 +1,4 @@
-const VERSION = "2.0.0";
+const VERSION = "2.1.0";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -794,7 +794,7 @@ app.ws("/api/chat", (ws, req) => {
                   var resContent =
                     "**Version " +
                     VERSION +
-                    "**\r\n\r\n 2024 by Dr. Jörg Tuttas.";
+                    "**\r\n\r\n© 2024 Dr. Jörg Tuttas · Erweitert 2026 von Matthias Grünwald";
                   chatMsg.messages = resContent;
                   chatMsg.end = true;
                   ws.send(JSON.stringify(chatMsg));
