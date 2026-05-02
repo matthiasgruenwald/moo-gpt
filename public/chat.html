@@ -89,6 +89,14 @@
       font-size: 14px;
     }
     #send-button:disabled { background: #aaa; cursor: not-allowed; }
+    #privacy-notice {
+      text-align: center;
+      font-size: 11px;
+      color: #999;
+      padding: 2px 8px 6px;
+      background: white;
+      flex-shrink: 0;
+    }
     .connection-lost {
       color: #c00;
       text-align: center;
@@ -115,6 +123,7 @@
   <input type="text" id="chat-input" placeholder="Nachricht eingeben...">
   <button id="send-button">Senden</button>
 </div>
+<div id="privacy-notice">🔒 Chats können von Lehrkräften eingesehen werden.</div>
 
 <script>
   const params = new URLSearchParams(window.location.search);

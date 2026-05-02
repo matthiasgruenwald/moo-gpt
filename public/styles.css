@@ -168,6 +168,14 @@ input[type="text"] {
     width: 100%;
 }
 
+.privacy-notice {
+    text-align: center;
+    font-size: 11px;
+    color: #999;
+    padding: 2px 8px 6px;
+    background: white;
+}
+
 .msg-time {
     font-size: 0.7em;
     opacity: 0.6;

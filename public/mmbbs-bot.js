@@ -99,6 +99,12 @@ export class MMBBSBOT {
         <button id="send-button" onclick="sendMessage()">Senden</button>`;
     chatContainer.appendChild(inputContainer);
 
+    // Privacy notice
+    const privacyNotice = document.createElement("div");
+    privacyNotice.className = "privacy-notice";
+    privacyNotice.textContent = "🔒 Chats können von Lehrkräften eingesehen werden.";
+    chatContainer.appendChild(privacyNotice);
+
     // Check if main-inner exists
     const mainInner = document.querySelector(".main-inner");
 
