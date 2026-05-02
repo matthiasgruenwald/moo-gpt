@@ -39,12 +39,24 @@ export function initDb() {
       opener        TEXT,
       updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS token_log (
+      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+      thread_id          INTEGER,
+      activity_id        TEXT,
+      model              TEXT,
+      prompt_tokens      INTEGER,
+      completion_tokens  INTEGER,
+      total_tokens       INTEGER,
+      created_at         DATETIME DEFAULT (datetime('now'))
+    );
   `);
 
   // Migrationen für bestehende DBs
   try { db.exec(`ALTER TABLE activities ADD COLUMN opener TEXT`); } catch (_) {}
   try { db.exec(`ALTER TABLE activities ADD COLUMN upload_mode TEXT DEFAULT 'off'`); } catch (_) {}
   try { db.exec(`ALTER TABLE messages ADD COLUMN content_type TEXT DEFAULT 'text'`); } catch (_) {}
+  // Issue #11: token_log wird über CREATE TABLE IF NOT EXISTS angelegt – keine Migration nötig
 
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;
@@ -165,6 +177,25 @@ export function getActivity(activity_id) {
 export function getActivityName(activity_id) {
   const row = getActivity(activity_id);
   return row ? row.activity_name : null;
+}
+
+/**
+ * Speichert Token-Verbrauch nach einem Run (Issue #11).
+ * usage: { prompt_tokens, completion_tokens, total_tokens } aus OpenAI-Response
+ */
+export function saveTokenUsage(threadId, activityId, model, usage) {
+  if (!usage) return;
+  db.prepare(`
+    INSERT INTO token_log (thread_id, activity_id, model, prompt_tokens, completion_tokens, total_tokens)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(
+    threadId       || null,
+    activityId     || null,
+    model          || null,
+    usage.prompt_tokens      ?? null,
+    usage.completion_tokens  ?? null,
+    usage.total_tokens       ?? null
+  );
 }
 
 /**

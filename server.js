@@ -1,4 +1,4 @@
-const VERSION = "2.1.0";
+const VERSION = "2.2.0";
 
 import axios from "axios";
 import cheerio from "cheerio";
@@ -15,7 +15,7 @@ import { encode } from "querystring";
 import moment from "moment";
 import { log } from "console";
 import puppeteer from "puppeteer";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getStudents, updateThreadName, upsertActivity, getActivity, getActivityName } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getStudents, updateThreadName, upsertActivity, getActivity, getActivityName, saveTokenUsage } from "./db.js";
 import crypto from "crypto";
 
 const app = express();
@@ -211,6 +211,37 @@ const oai = new AsyncOpenAI({
   apiKey: process.env.APIKEY,
 });
 var assistant = await oai.beta.assistants.retrieve(process.env.AID);
+
+// Issue #11: Modellname aus Assistant-Objekt
+const MODEL_NAME = assistant.model;
+console.log(`[Pricing] Modell: ${MODEL_NAME}`);
+
+// Issue #11: LiteLLM-Preise laden und 24 h cachen
+let PRICING = null;
+let pricingFetchedAt = 0;
+
+async function fetchPricing() {
+  const now = Date.now();
+  if (PRICING && (now - pricingFetchedAt) < 24 * 60 * 60 * 1000) return PRICING;
+  try {
+    const res  = await fetch('https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json');
+    const data = await res.json();
+    // LiteLLM-Keys: z.B. "gpt-4o" oder "openai/gpt-4o"
+    const entry = data[MODEL_NAME] || data[`openai/${MODEL_NAME}`] || null;
+    PRICING = entry ? {
+      input_cost_per_token:  entry.input_cost_per_token  || 0,
+      output_cost_per_token: entry.output_cost_per_token || 0,
+    } : null;
+    pricingFetchedAt = now;
+    console.log(`[Pricing] Preise geladen für ${MODEL_NAME}:`, PRICING);
+  } catch (e) {
+    console.warn('[Pricing] Fehler beim Laden der Preise:', e.message);
+  }
+  return PRICING;
+}
+
+// Beim Serverstart sofort laden (für Issue #12 – Kosten-Übersicht)
+fetchPricing();
 
 // SQLite-DB initialisieren
 initDb();
@@ -1020,6 +1051,16 @@ async function streamRun(ws, thread, settings, eventHandler, run, threadDbId = n
                 createdAt: new Date().toISOString(),
               });
             }
+          }
+          // Issue #11: Token-Verbrauch in DB speichern
+          try {
+            const finalRun = run.currentRun();
+            if (finalRun?.usage && threadDbId) {
+              saveTokenUsage(threadDbId, settings?.activityId || null, MODEL_NAME, finalRun.usage);
+              console.log(`[Token] ${MODEL_NAME} – prompt=${finalRun.usage.prompt_tokens} completion=${finalRun.usage.completion_tokens} total=${finalRun.usage.total_tokens}`);
+            }
+          } catch (e) {
+            console.warn('[Token] Fehler beim Speichern:', e.message);
           }
           chatMsg.end = true;
           chatMsg.messages = eventHandler.resContent;
