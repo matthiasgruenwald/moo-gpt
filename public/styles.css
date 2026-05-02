@@ -220,3 +220,29 @@ button:hover {
 .main-inner {
     position: relative;
 }
+
+/* Issue #10: Dateiupload */
+.chat-container.drag-over {
+    outline: 3px dashed #4F46E5;
+    outline-offset: -4px;
+}
+
+#upload-button {
+    background: none;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 6px 8px;
+    cursor: pointer;
+    font-size: 16px;
+    flex-shrink: 0;
+    color: #444;
+}
+
+#upload-button:hover {
+    background-color: #f0f0f0;
+}
+
+#upload-button:disabled {
+    opacity: 0.4;
+    cursor: default;
+}

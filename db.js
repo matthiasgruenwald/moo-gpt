@@ -41,8 +41,10 @@ export function initDb() {
     );
   `);
 
-  // Migration: opener-Spalte für bestehende DBs
+  // Migrationen für bestehende DBs
   try { db.exec(`ALTER TABLE activities ADD COLUMN opener TEXT`); } catch (_) {}
+  try { db.exec(`ALTER TABLE activities ADD COLUMN upload_mode TEXT DEFAULT 'off'`); } catch (_) {}
+  try { db.exec(`ALTER TABLE messages ADD COLUMN content_type TEXT DEFAULT 'text'`); } catch (_) {}
 
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;
@@ -104,7 +106,7 @@ export function findThread({ moodle_user_id, activity_id }) {
  */
 export function getMessages(thread_db_id) {
   return db.prepare(`
-    SELECT role, content, created_at FROM messages
+    SELECT role, content, content_type, created_at FROM messages
     WHERE thread_id = ?
     ORDER BY created_at ASC
     LIMIT 100
@@ -113,12 +115,13 @@ export function getMessages(thread_db_id) {
 
 /**
  * Speichert eine Nachricht (role: 'user' | 'assistant').
+ * content_type: 'text' | 'image' | 'pdf'
  */
-export function saveMessage({ thread_db_id, role, content }) {
+export function saveMessage({ thread_db_id, role, content, content_type = 'text' }) {
   const stmt = db.prepare(`
-    INSERT INTO messages (thread_id, role, content) VALUES (?, ?, ?)
+    INSERT INTO messages (thread_id, role, content, content_type) VALUES (?, ?, ?, ?)
   `);
-  const result = stmt.run(thread_db_id, role, content);
+  const result = stmt.run(thread_db_id, role, content, content_type);
   touchThread(thread_db_id);
   return result.lastInsertRowid;
 }
@@ -137,23 +140,25 @@ export function updateThreadName(thread_db_id, moodle_user_name) {
 }
 
 /**
- * Speichert oder aktualisiert Aufgabentitel und Opener (Issue #5).
+ * Speichert oder aktualisiert Aufgabentitel, Opener und Upload-Modus (Issue #5/#10).
+ * upload_mode: 'off' | 'images' | 'files'
  */
-export function upsertActivity(activity_id, activity_name, opener) {
+export function upsertActivity(activity_id, activity_name, opener, upload_mode) {
   if (!activity_id || !activity_name) return;
   db.prepare(`
-    INSERT INTO activities (activity_id, activity_name, opener, updated_at)
-    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    INSERT INTO activities (activity_id, activity_name, opener, upload_mode, updated_at)
+    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(activity_id) DO UPDATE SET
       activity_name = excluded.activity_name,
       opener        = COALESCE(excluded.opener, activities.opener),
+      upload_mode   = COALESCE(excluded.upload_mode, activities.upload_mode, 'off'),
       updated_at    = CURRENT_TIMESTAMP
-  `).run(activity_id, activity_name, opener || null);
+  `).run(activity_id, activity_name, opener || null, upload_mode || 'off');
 }
 
-/** Gibt activity_name und opener zurück (oder null). */
+/** Gibt activity_name, opener und upload_mode zurück (oder null). */
 export function getActivity(activity_id) {
-  return db.prepare('SELECT activity_name, opener FROM activities WHERE activity_id = ?').get(activity_id) || null;
+  return db.prepare('SELECT activity_name, opener, upload_mode FROM activities WHERE activity_id = ?').get(activity_id) || null;
 }
 
 /** Abwärtskompatibilität */

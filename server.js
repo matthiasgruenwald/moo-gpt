@@ -658,9 +658,9 @@ app.ws("/api/chat", (ws, req) => {
                   console.log(`[Auth] isTeacher=${ws.isTeacher} (client=${settings.isTeacher}, env=${isTeacherByEnv})`);
                 }
 
-                // Issue #5: Aufgabentitel in DB speichern (kommt vom Lehrer oder Schüler)
+                // Issue #5/#10: Aufgabentitel + upload_mode in DB speichern
                 if (settings.activityId && settings.activityName) {
-                  upsertActivity(settings.activityId, settings.activityName, settings.opener || null);
+                  upsertActivity(settings.activityId, settings.activityName, settings.opener || null, settings.uploadMode || null);
                 }
 
                 // Issue #5: Dashboard-Token für Lehrer erzeugen und zurückschicken
@@ -827,6 +827,84 @@ app.ws("/api/chat", (ws, req) => {
                   );
                 }
                 break;
+              case "filemsg": {
+                // Issue #10: Dateiupload (Bilder & PDF)
+                const uploadMode = settings?.uploadMode || 'off';
+                if (uploadMode === 'off') {
+                  ws.send(JSON.stringify({ end: true, messages: '⚠️ Upload ist für diese Aufgabe nicht aktiviert.' }));
+                  return;
+                }
+                const { file, originalType } = msgObj.data;
+                // Videos grundsätzlich ablehnen
+                if (originalType === 'video') {
+                  ws.send(JSON.stringify({ end: true, messages: '⚠️ Videos werden nicht unterstützt.' }));
+                  return;
+                }
+                // PDF nur bei mode 'files'
+                if (originalType === 'pdf' && uploadMode !== 'files') {
+                  ws.send(JSON.stringify({ end: true, messages: '⚠️ PDF-Upload ist für diese Aufgabe nicht aktiviert (nur Bilder erlaubt).' }));
+                  return;
+                }
+                if (!thread) {
+                  ws.send(JSON.stringify({ end: true, messages: '⏳ Verbindung wird aufgebaut, bitte nochmal senden...' }));
+                  return;
+                }
+                try {
+                  // base64 data-URL → Buffer
+                  const mimeMatch = file.match(/^data:([^;]+);base64,/);
+                  const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+                  const b64 = file.replace(/^data:[^;]+;base64,/, '');
+                  const imageBuffer = Buffer.from(b64, 'base64');
+                  console.log(`[Upload] originalType=${originalType}, mimeType=${mimeType}, size=${imageBuffer.length}`);
+
+                  // Nochmal Video-Check auf mimeType-Ebene (client-seitige Validierung bereits erfolgt)
+                  if (mimeType.startsWith('video/')) {
+                    ws.send(JSON.stringify({ end: true, messages: '⚠️ Videos werden nicht unterstützt.' }));
+                    return;
+                  }
+
+                  // Bei OpenAI hochladen (purpose: vision)
+                  const ext = mimeType.split('/')[1]?.split('+')[0] || 'jpeg';
+                  const uploadedFile = await oai.files.create({
+                    file: new File([imageBuffer], `upload.${ext}`, { type: mimeType }),
+                    purpose: 'vision',
+                  });
+                  console.log(`[Upload] file_id=${uploadedFile.id}`);
+
+                  // DB-Inhalt: base64 wenn <2 MB, sonst Marker mit file_id
+                  const TWO_MB = 2 * 1024 * 1024;
+                  const dbContent = imageBuffer.length < TWO_MB
+                    ? file
+                    : `[${originalType}:${uploadedFile.id}]`;
+                  const contentType = originalType === 'pdf' ? 'pdf' : 'image';
+
+                  // Thread-Message mit Bild anlegen
+                  await oai.beta.threads.messages.create(thread.id, {
+                    role: 'user',
+                    content: [{ type: 'image_file', image_file: { file_id: uploadedFile.id } }],
+                  });
+
+                  // In DB spiegeln + Dashboard live benachrichtigen
+                  if (threadDbId) {
+                    saveMessage({ thread_db_id: threadDbId, role: 'user', content: dbContent, content_type: contentType });
+                    if (settings.activityId) {
+                      notifyDashboard(settings.activityId, {
+                        type: 'newMessage', threadDbId,
+                        userId: settings.userId || null, userName: settings.userName || null,
+                        role: 'user', content: dbContent, contentType,
+                        createdAt: new Date().toISOString(),
+                      });
+                    }
+                  }
+
+                  // Assistenten-Antwort streamen (Thread-Message bereits angelegt)
+                  streamRun(ws, thread, settings, eventHandler, run, threadDbId);
+                } catch (err) {
+                  console.error('[Upload] Fehler:', err);
+                  ws.send(JSON.stringify({ end: true, messages: `⚠️ Upload fehlgeschlagen: ${err.message}` }));
+                }
+                break;
+              }
               default:
                 // Handle unknown message type
                 break;
@@ -847,44 +925,42 @@ app.ws("/api/chat", (ws, req) => {
 async function handleMsg(ws, thread, userMessage, settings, eventHandler, run, threadDbId = null) {
   console.log("handleMsg called " + thread.id);
 
-  var citationindex = 1;
-  eventHandler.resContent = "";
-  eventHandler.citations = [];
-
-  console.log("Message received:", userMessage);
-
+  // Thread-Message mit Text anlegen
   const msg = oai.beta.threads.messages.create(thread.id, {
     role: "user",
     content: userMessage,
   });
 
-  var chatMsg = {
-    end: false,
-    messages: userMessage,
-  };
+  console.log("Message received:", userMessage);
+  streamRun(ws, thread, settings, eventHandler, run, threadDbId);
+}
+
+/**
+ * Startet den Assistenten-Run und streamt die Antwort.
+ * Wird von handleMsg (Text) und dem filemsg-Handler (Bild/PDF) verwendet.
+ * Thread-Message muss BEREITS angelegt sein, bevor diese Funktion aufgerufen wird.
+ */
+async function streamRun(ws, thread, settings, eventHandler, run, threadDbId = null) {
+  var citationindex = 1;
+  eventHandler.resContent = "";
+  eventHandler.citations = [];
+
+  var chatMsg = { end: false, messages: "" };
 
   moment.locale("de");
-
   const now = moment();
   const dayName = now.format("dddd");
   const date = now.format("DD.MM.YYYY");
   const time = now.format("HH:mm");
-
   console.log(`Heute ist ${dayName}, der ${date} um ${time}`);
-  //console.log("task=" + settings.task);
 
-  if (run!=undefined) {
+  if (run != undefined) {
     console.log("run is defined");
     run.cancel();
-
   }
 
-  const runs = await oai.beta.threads.runs.list(
-    thread.id,
-  );
-
-  console.log("RUNS:"+JSON.stringify(runs));
-
+  const runs = await oai.beta.threads.runs.list(thread.id);
+  console.log("RUNS:" + JSON.stringify(runs));
 
   try {
     run = oai.beta.threads.runs
@@ -918,23 +994,14 @@ async function handleMsg(ws, thread, userMessage, settings, eventHandler, run, t
         } else {
           eventHandler.resContent += textDelta.value;
         }
-        eventHandler.resContent = eventHandler.resContent.replace(
-          "\r\n\r\n",
-          "\r\n"
-        );
+        eventHandler.resContent = eventHandler.resContent.replace("\r\n\r\n", "\r\n");
         chatMsg.messages = eventHandler.resContent;
         ws.send(JSON.stringify(chatMsg));
       })
       .on("end", async () => {
-        console.log("End event called: pendingFuntions=" + eventHandler.pendingFunctions);
-        eventHandler.resContent = eventHandler.resContent.replace(
-          "sandbox:/mnt/data/",
-          "storage/"
-        );
-        eventHandler.resContent = eventHandler.resContent.replace(
-          "\r\n\r\n",
-          "\r\n"
-        );
+        console.log("End event called: pendingFunctions=" + eventHandler.pendingFunctions);
+        eventHandler.resContent = eventHandler.resContent.replace("sandbox:/mnt/data/", "storage/");
+        eventHandler.resContent = eventHandler.resContent.replace("\r\n\r\n", "\r\n");
 
         if (!eventHandler.pendingFunctions) {
           console.log("Antwort: " + eventHandler.resContent);

@@ -92,12 +92,48 @@ export class MMBBSBOT {
     chatContainer.appendChild(chatWindow);
 
     // Create input container
+    const uploadMode = this.settings.uploadMode || 'off';
     const inputContainer = document.createElement("div");
     inputContainer.className = "input-container";
-    inputContainer.innerHTML = `
-        <input type="text" id="chat-input" placeholder="Geben Sie eine Nachricht ein..." onkeydown="handleKeyDown(event)">
-        <button id="send-button" onclick="sendMessage()">Senden</button>`;
+    inputContainer.innerHTML = this._buildInputHTML(uploadMode);
     chatContainer.appendChild(inputContainer);
+
+    // Upload-Logik anhängen (nach DOM-Einfügen)
+    if (uploadMode !== 'off') {
+      // Upload-Button → File-Input öffnen
+      inputContainer.querySelector('#upload-button')?.addEventListener('click', () => {
+        inputContainer.querySelector('#file-input')?.click();
+      });
+      // File-Input versteckt
+      const fileInput = inputContainer.querySelector('#file-input');
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) this.handleFileUpload(file);
+        e.target.value = '';
+      });
+      // Drag & Drop auf Chat-Container
+      chatContainer.addEventListener('dragover', (e) => { e.preventDefault(); chatContainer.classList.add('drag-over'); });
+      chatContainer.addEventListener('dragleave', () => chatContainer.classList.remove('drag-over'));
+      chatContainer.addEventListener('drop', (e) => {
+        e.preventDefault();
+        chatContainer.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file) this.handleFileUpload(file);
+      });
+      // Paste
+      document.addEventListener('paste', (e) => {
+        if (document.getElementById('chat-container')?.style.display === 'flex') {
+          const items = e.clipboardData?.items;
+          if (!items) return;
+          for (const item of items) {
+            if (item.kind === 'file') {
+              const file = item.getAsFile();
+              if (file) { this.handleFileUpload(file); e.preventDefault(); break; }
+            }
+          }
+        }
+      });
+    }
 
     // Privacy notice
     const privacyNotice = document.createElement("div");
@@ -434,9 +470,7 @@ export class MMBBSBOT {
             timeSpan.textContent = nowStr;
             lastMsg.appendChild(timeSpan);
           }
-          chatInput.disabled = false;
-          chatInput.focus();
-          document.getElementById("send-button").disabled = false;
+          this._enableInput();
         }
         chatWindow.scrollTop = chatWindow.scrollHeight;
       } catch (error) {
@@ -470,8 +504,7 @@ export class MMBBSBOT {
       chatWindow.scrollTop = chatWindow.scrollHeight;
       this.msgCount = 0;
 
-      chatInput.disabled = true;
-      sendButton.disabled = true;
+      this._disableInput();
     }
   }
 
@@ -537,7 +570,7 @@ export class MMBBSBOT {
         const div = document.createElement("div");
         if (msg.role === 'user') {
           div.className = "message sent";
-          div.innerHTML = `<p>${msg.content}</p><span class="msg-time">${time}</span>`;
+          div.innerHTML = this._renderUserContent(msg.content, msg.content_type) + `<span class="msg-time">${time}</span>`;
         } else {
           div.className = "message received";
           const htmlContent = this.marked.parse(msg.content);
@@ -578,10 +611,214 @@ export class MMBBSBOT {
   restoreInputContainer() {
     const inputContainer = document.querySelector(".input-container");
     if (inputContainer && !document.getElementById("chat-input")) {
-      inputContainer.innerHTML = `
-        <input type="text" id="chat-input" placeholder="Geben Sie eine Nachricht ein..." onkeydown="handleKeyDown(event)">
+      const uploadMode = this.settings.uploadMode || 'off';
+      inputContainer.innerHTML = this._buildInputHTML(uploadMode);
+      if (uploadMode !== 'off') {
+        const fileInput = inputContainer.querySelector('#file-input');
+        fileInput?.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (file) this.handleFileUpload(file);
+          e.target.value = '';
+        });
+      }
+    }
+  }
+
+  /** Erzeugt das HTML für den Input-Bereich (mit oder ohne Upload-Button). */
+  _buildInputHTML(uploadMode) {
+    if (uploadMode === 'off') {
+      return `<input type="text" id="chat-input" placeholder="Geben Sie eine Nachricht ein..." onkeydown="handleKeyDown(event)">
         <button id="send-button" onclick="sendMessage()">Senden</button>`;
     }
+    const accept = uploadMode === 'files' ? 'image/*,application/pdf' : 'image/*';
+    return `<input type="file" id="file-input" accept="${accept}" style="display:none">
+      <button id="upload-button" title="Bild${uploadMode === 'files' ? ' oder PDF' : ''} hochladen">📎</button>
+      <input type="text" id="chat-input" placeholder="Geben Sie eine Nachricht ein..." onkeydown="handleKeyDown(event)">
+      <button id="send-button" onclick="sendMessage()">Senden</button>`;
+  }
+
+  // ── Issue #10: Dateiupload ────────────────────────────────────────────────
+
+  /** Einstiegspunkt für alle Upload-Wege (Button, Paste, Drag&Drop). */
+  async handleFileUpload(file) {
+    // Video ablehnen
+    if (file.type.startsWith('video/')) {
+      this._showChatError('⚠️ Videos werden nicht unterstützt.');
+      return;
+    }
+    const isPdf = file.type === 'application/pdf';
+    const isImage = file.type.startsWith('image/');
+    const uploadMode = this.settings.uploadMode || 'off';
+    if (!isPdf && !isImage) {
+      this._showChatError('⚠️ Nur Bilder und PDFs sind erlaubt.');
+      return;
+    }
+    if (isPdf && uploadMode !== 'files') {
+      this._showChatError('⚠️ PDF-Upload ist für diese Aufgabe nicht aktiviert.');
+      return;
+    }
+    if (!this.wsInitialized || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      this._showChatError('⚠️ Noch nicht verbunden. Chat kurz öffnen und erneut versuchen.');
+      return;
+    }
+
+    this._disableInput();
+
+    try {
+      let jpegBlob;
+      if (isPdf) {
+        jpegBlob = await this._pdfToJpeg(file);
+        if (!jpegBlob) return; // Fehler wurde bereits im Chat angezeigt
+      } else {
+        jpegBlob = await this._compressImage(file);
+      }
+
+      const base64 = await this._blobToDataURL(jpegBlob);
+      const originalType = isPdf ? 'pdf' : 'image';
+
+      // Vorschau im Chat anzeigen
+      this._appendUploadPreview(base64, originalType);
+
+      // Loading anzeigen
+      const chatWindow = document.getElementById("chat-window");
+      const loading = document.createElement("div");
+      loading.className = "message_loading";
+      loading.id = "loading";
+      loading.innerHTML = `<img src="${this.settings.protocol}://${this.settings.host}:${this.settings.port}/loading.gif" alt="Loading...">`;
+      chatWindow.appendChild(loading);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+      this.msgCount = 0;
+
+      document.getElementById("send-button").disabled = true;
+
+      this.ws.send(JSON.stringify({ type: "filemsg", data: { file: base64, originalType } }));
+    } catch (err) {
+      console.error('[Upload] Fehler:', err);
+      this._showChatError('⚠️ Fehler beim Verarbeiten der Datei: ' + err.message);
+      this._enableInput();
+    }
+  }
+
+  /** PDF: Seite 1 via PDF.js auf Canvas rendern → JPEG Blob. */
+  async _pdfToJpeg(file) {
+    let pdfjsLib;
+    try {
+      pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.9.155/build/pdf.mjs');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.9.155/build/pdf.worker.mjs';
+    } catch (e) {
+      this._showChatError('⚠️ PDF-Bibliothek konnte nicht geladen werden.');
+      this._enableInput();
+      return null;
+    }
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    if (pdf.numPages > 1) {
+      this._showChatError(`⚠️ Das PDF hat ${pdf.numPages} Seiten. Nur einseitige PDFs sind erlaubt.`);
+      this._enableInput();
+      return null;
+    }
+    const page = await pdf.getPage(1);
+    const MAX_PX = 1920;
+    let vp = page.getViewport({ scale: 1.0 });
+    const scale = Math.min(MAX_PX / vp.width, MAX_PX / vp.height, 1.0);
+    vp = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width  = Math.round(vp.width);
+    canvas.height = Math.round(vp.height);
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+    return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+  }
+
+  /** Bild auf max. 1920px skalieren und als JPEG 85% komprimieren. */
+  _compressImage(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX_PX = 1920;
+        let w = img.naturalWidth, h = img.naturalHeight;
+        if (w > MAX_PX || h > MAX_PX) {
+          if (w >= h) { h = Math.round(h * MAX_PX / w); w = MAX_PX; }
+          else        { w = Math.round(w * MAX_PX / h); h = MAX_PX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(resolve, 'image/jpeg', 0.85);
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  }
+
+  /** Blob → base64 data-URL. */
+  _blobToDataURL(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror   = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  /** Zeigt eine Vorschau der hochgeladenen Datei als gesendete Nachricht. */
+  _appendUploadPreview(base64, originalType) {
+    const chatWindow = document.getElementById("chat-window");
+    const nowStr = new Date().toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+    const div = document.createElement("div");
+    div.className = "message sent";
+    if (originalType === 'pdf') {
+      div.innerHTML = `<p>📄 <em>PDF-Upload (1 Seite)</em></p><span class="msg-time">${nowStr}</span>`;
+    } else {
+      div.innerHTML = `<img src="${base64}" style="max-width:220px;border-radius:6px;display:block;margin-bottom:4px;"><span class="msg-time">${nowStr}</span>`;
+    }
+    chatWindow.appendChild(div);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  }
+
+  /** Rendert den Inhalt einer Nutzernachricht (Text, Bild, PDF) als HTML-String. */
+  _renderUserContent(content, contentType) {
+    if (contentType === 'image') {
+      if (content && content.startsWith('data:')) {
+        return `<img src="${content}" style="max-width:220px;border-radius:6px;display:block;margin-bottom:4px;">`;
+      }
+      return `<p>📷 <em>Bild (extern gespeichert)</em></p>`;
+    }
+    if (contentType === 'pdf') {
+      return `<p>📄 <em>PDF-Upload (1 Seite)</em></p>`;
+    }
+    return `<p>${content}</p>`;
+  }
+
+  /** Zeigt Fehlermeldung als System-Nachricht im Chat. */
+  _showChatError(msg) {
+    const chatWindow = document.getElementById("chat-window");
+    if (!chatWindow) return;
+    const div = document.createElement("div");
+    div.className = "message received";
+    div.style.color = '#c00';
+    div.innerHTML = `<p>${msg}</p>`;
+    chatWindow.appendChild(div);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  }
+
+  _disableInput() {
+    const inp = document.getElementById("chat-input");
+    const btn = document.getElementById("send-button");
+    const upBtn = document.getElementById("upload-button");
+    if (inp)  inp.disabled = true;
+    if (btn)  btn.disabled = true;
+    if (upBtn) upBtn.disabled = true;
+  }
+
+  _enableInput() {
+    const inp = document.getElementById("chat-input");
+    const btn = document.getElementById("send-button");
+    const upBtn = document.getElementById("upload-button");
+    if (inp)  { inp.disabled = false; inp.focus(); }
+    if (btn)  btn.disabled = false;
+    if (upBtn) upBtn.disabled = false;
   }
 
   showConnectionLostMessage() {

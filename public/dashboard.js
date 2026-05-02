@@ -129,7 +129,7 @@ function handleServerMessage(msg) {
 
 // ── Neue Live-Nachricht ───────────────────────────────────────────────────────
 function handleNewMessage(msg) {
-  const { threadDbId, userId: uid, userName, role, content, createdAt } = msg;
+  const { threadDbId, userId: uid, userName, role, content, contentType, createdAt } = msg;
 
   // Schülerliste aktualisieren (Zähler + Zeitstempel)
   const student = students.find(s => s.thread_db_id === threadDbId);
@@ -152,7 +152,7 @@ function handleNewMessage(msg) {
 
   // Wenn dieser Schüler gerade offen ist → Nachricht direkt anhängen
   if (selectedThreadId === threadDbId) {
-    appendMessage({ role, content, created_at: createdAt });
+    appendMessage({ role, content, content_type: contentType || 'text', created_at: createdAt });
     scrollToBottom();
   }
 }
@@ -317,7 +317,23 @@ function renderChatView(student, messages) {
   scrollToBottom();
 }
 
-function appendMessage({ role, content, created_at }) {
+function renderMsgContent(role, content, contentType) {
+  if (role === 'user') {
+    if (contentType === 'image') {
+      if (content && content.startsWith('data:')) {
+        return `<img src="${content}" style="max-width:200px;border-radius:6px;display:block;">`;
+      }
+      return '📷 <em>Bild (extern gespeichert, ~30 Tage)</em>';
+    }
+    if (contentType === 'pdf') {
+      return '📄 <em>PDF-Upload (1 Seite)</em>';
+    }
+    return simpleMarkdown(content);
+  }
+  return simpleMarkdown(content);
+}
+
+function appendMessage({ role, content, content_type, created_at }) {
   const wrap = document.createElement('div');
   wrap.style.display = 'flex';
   wrap.style.flexDirection = 'column';
@@ -325,7 +341,7 @@ function appendMessage({ role, content, created_at }) {
 
   const bubble = document.createElement('div');
   bubble.className = `msg-bubble ${role}`;
-  bubble.innerHTML = simpleMarkdown(content);
+  bubble.innerHTML = renderMsgContent(role, content, content_type);
 
   const time = document.createElement('div');
   time.className = 'msg-time';
