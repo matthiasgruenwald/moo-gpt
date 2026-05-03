@@ -403,14 +403,15 @@ function renderChatView(student, messages) {
 
 function renderMsgContent(role, content, contentType) {
   if (role === 'user') {
-    if (contentType === 'image') {
+    if (contentType === 'image' || contentType === 'pdf') {
       if (content && content.startsWith('data:')) {
-        return `<img src="${content}" style="max-width:200px;border-radius:6px;display:block;">`;
+        const label = contentType === 'pdf'
+          ? '<div style="font-size:11px;opacity:0.6;margin-top:2px">📄 PDF-Seite</div>' : '';
+        return `<img src="${content}" style="max-width:200px;border-radius:6px;display:block;" class="dash-lb-trigger" onclick="openLightbox(this.src)">${label}`;
       }
-      return '📷 <em>Bild (extern gespeichert, ~30 Tage)</em>';
-    }
-    if (contentType === 'pdf') {
-      return '📄 <em>PDF-Upload (1 Seite)</em>';
+      return contentType === 'pdf'
+        ? '📄 <em>PDF-Upload (1 Seite)</em>'
+        : '📷 <em>Bild (extern gespeichert, ~30 Tage)</em>';
     }
     return simpleMarkdown(content);
   }
@@ -491,3 +492,65 @@ function formatTime(isoStr) {
 
 // Live-Badges alle 30 s neu rendern (relTime aktualisieren)
 setInterval(renderStudentList, 30_000);
+
+// ── Lightbox (Issue #15) ──────────────────────────────────────────────────────
+function initLightbox() {
+  const lb  = document.getElementById('dash-lightbox');
+  const img = document.getElementById('dash-lb-img');
+  if (!lb || !img) return;
+
+  const state = { scale: 1 };
+  lb._lbState = state;
+
+  lb.addEventListener('click', (e) => { if (e.target === lb) closeLightbox(); });
+  document.getElementById('dash-lb-close').addEventListener('click', closeLightbox);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
+
+  // Maus-Zoom
+  img.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    state.scale = Math.min(5, Math.max(0.5, state.scale - e.deltaY * 0.001));
+    img.style.transform = `scale(${state.scale})`;
+  }, { passive: false });
+
+  // Pinch-to-Zoom (iPad)
+  let initDist = null, initScale = 1;
+  lb.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      initDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      initScale = state.scale;
+    }
+  }, { passive: true });
+  lb.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2 && initDist) {
+      e.preventDefault();
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      state.scale = Math.min(5, Math.max(0.5, initScale * dist / initDist));
+      img.style.transform = `scale(${state.scale})`;
+    }
+  }, { passive: false });
+  lb.addEventListener('touchend', () => { initDist = null; });
+}
+
+function openLightbox(src) {
+  const lb  = document.getElementById('dash-lightbox');
+  const img = document.getElementById('dash-lb-img');
+  if (!lb || !img) return;
+  img.src = src;
+  img.style.transform = 'scale(1)';
+  if (lb._lbState) lb._lbState.scale = 1;
+  lb.style.display = 'flex';
+}
+
+function closeLightbox() {
+  const lb = document.getElementById('dash-lightbox');
+  if (lb) lb.style.display = 'none';
+}
+
+initLightbox();

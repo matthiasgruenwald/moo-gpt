@@ -291,6 +291,40 @@
       letter-spacing: 0.02em;
     }
 
+    /* ── Lightbox (Issue #15) ────────────────────────────────────────────── */
+    #dash-lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: rgba(0,0,0,0.88);
+      align-items: center;
+      justify-content: center;
+    }
+    #dash-lb-close {
+      position: absolute;
+      top: 14px; right: 18px;
+      background: rgba(255,255,255,0.15);
+      border: none; color: white;
+      font-size: 22px; width: 38px; height: 38px;
+      border-radius: 50%; cursor: pointer;
+      z-index: 1; padding: 0; line-height: 1;
+    }
+    #dash-lb-close:hover { background: rgba(255,255,255,0.3); }
+    #dash-lb-inner {
+      display: flex; align-items: center; justify-content: center;
+      max-width: 90vw; max-height: 90vh; overflow: hidden;
+    }
+    #dash-lb-img {
+      max-width: 90vw; max-height: 90vh;
+      object-fit: contain; border-radius: 4px;
+      cursor: zoom-in;
+      transform-origin: center center;
+      transition: transform 0.08s;
+      user-select: none;
+    }
+    .dash-lb-trigger { cursor: zoom-in !important; }
+
     /* ── Mobile (<768px) ─────────────────────────────────────────────────── */
     @media (max-width: 767px) {
       #list-panel { width: 100%; border-right: none; }
@@ -374,6 +408,12 @@
   </style>
 </head>
 <body>
+
+<!-- Lightbox (Issue #15) -->
+<div id="dash-lightbox">
+  <button id="dash-lb-close" aria-label="Schließen">✕</button>
+  <div id="dash-lb-inner"><img id="dash-lb-img" src="" alt="Vorschau"></div>
+</div>
 
 <!-- Initialer Fehler: keine Dashboard-Struktur sichtbar -->
 <div id="initial-error">

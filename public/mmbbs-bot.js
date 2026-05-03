@@ -167,6 +167,9 @@ export class MMBBSBOT {
     window.toggleChat = this.toggleChat.bind(this);
     window.sendMessage = this.sendMessage.bind(this);
     window.handleKeyDown = this.handleKeyDown.bind(this);
+
+    // Issue #15: Lightbox initialisieren
+    this._initLightbox();
   }
 
   /** Issue #5: Öffnet das Lehrer-Dashboard (mit Token-Auth). */
@@ -768,25 +771,22 @@ export class MMBBSBOT {
     const nowStr = new Date().toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
     const div = document.createElement("div");
     div.className = "message sent";
-    if (originalType === 'pdf') {
-      div.innerHTML = `<p>📄 <em>PDF-Upload (1 Seite)</em></p><span class="msg-time">${nowStr}</span>`;
-    } else {
-      div.innerHTML = `<img src="${base64}" style="max-width:220px;border-radius:6px;display:block;margin-bottom:4px;"><span class="msg-time">${nowStr}</span>`;
-    }
+    const label = originalType === 'pdf' ? '<p style="margin:2px 0 0;font-size:11px;opacity:0.7">📄 PDF-Seite</p>' : '';
+    div.innerHTML = `<img src="${base64}" style="max-width:220px;border-radius:6px;display:block;margin-bottom:4px;" class="mmb-lb-trigger" onclick="window._mmbLightbox&&window._mmbLightbox(this.src)">${label}<span class="msg-time">${nowStr}</span>`;
     chatWindow.appendChild(div);
     chatWindow.scrollTop = chatWindow.scrollHeight;
   }
 
   /** Rendert den Inhalt einer Nutzernachricht (Text, Bild, PDF) als HTML-String. */
   _renderUserContent(content, contentType) {
-    if (contentType === 'image') {
+    if (contentType === 'image' || contentType === 'pdf') {
       if (content && content.startsWith('data:')) {
-        return `<img src="${content}" style="max-width:220px;border-radius:6px;display:block;margin-bottom:4px;">`;
+        const label = contentType === 'pdf' ? '<p style="margin:2px 0 0;font-size:11px;opacity:0.7">📄 PDF-Seite</p>' : '';
+        return `<img src="${content}" style="max-width:220px;border-radius:6px;display:block;margin-bottom:4px;" class="mmb-lb-trigger" onclick="window._mmbLightbox&&window._mmbLightbox(this.src)">${label}`;
       }
-      return `<p>📷 <em>Bild (extern gespeichert)</em></p>`;
-    }
-    if (contentType === 'pdf') {
-      return `<p>📄 <em>PDF-Upload (1 Seite)</em></p>`;
+      return contentType === 'pdf'
+        ? `<p>📄 <em>PDF-Upload (1 Seite)</em></p>`
+        : `<p>📷 <em>Bild (extern gespeichert)</em></p>`;
     }
     return `<p>${content}</p>`;
   }
@@ -825,5 +825,74 @@ export class MMBBSBOT {
     const inputContainer = document.querySelector(".input-container");
     inputContainer.innerHTML =
       '<div class="connection-lost">Verbindung unterbrochen – Chat schließen und neu öffnen zum Wiederverbinden.</div>';
+  }
+
+  // ── Issue #15: Lightbox ───────────────────────────────────────────────────
+
+  _initLightbox() {
+    if (document.getElementById('mmb-lightbox')) return;
+    const lb = document.createElement('div');
+    lb.id = 'mmb-lightbox';
+    lb.innerHTML = `
+      <button id="mmb-lb-close" aria-label="Schließen">✕</button>
+      <div id="mmb-lb-inner"><img id="mmb-lb-img" src="" alt="Vorschau"></div>`;
+    document.body.appendChild(lb);
+
+    const img = lb.querySelector('#mmb-lb-img');
+    const state = { scale: 1 };
+    this._lbState = state;
+
+    lb.addEventListener('click', (e) => { if (e.target === lb) this._closeLightbox(); });
+    lb.querySelector('#mmb-lb-close').addEventListener('click', () => this._closeLightbox());
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') this._closeLightbox(); });
+
+    // Maus-Zoom
+    img.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      state.scale = Math.min(5, Math.max(0.5, state.scale - e.deltaY * 0.001));
+      img.style.transform = `scale(${state.scale})`;
+    }, { passive: false });
+
+    // Pinch-to-Zoom (iPad)
+    let initDist = null, initScale = 1;
+    lb.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        initDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        initScale = state.scale;
+      }
+    }, { passive: true });
+    lb.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && initDist) {
+        e.preventDefault();
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        state.scale = Math.min(5, Math.max(0.5, initScale * dist / initDist));
+        img.style.transform = `scale(${state.scale})`;
+      }
+    }, { passive: false });
+    lb.addEventListener('touchend', () => { initDist = null; });
+
+    // Globale Funktion für onclick-Attribute
+    window._mmbLightbox = (src) => this._openLightbox(src);
+  }
+
+  _openLightbox(src) {
+    const lb = document.getElementById('mmb-lightbox');
+    const img = document.getElementById('mmb-lb-img');
+    if (!lb || !img) return;
+    img.src = src;
+    img.style.transform = 'scale(1)';
+    if (this._lbState) this._lbState.scale = 1;
+    lb.style.display = 'flex';
+  }
+
+  _closeLightbox() {
+    const lb = document.getElementById('mmb-lightbox');
+    if (lb) lb.style.display = 'none';
   }
 }

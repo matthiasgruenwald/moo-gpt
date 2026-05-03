@@ -246,3 +246,54 @@ button:hover {
     opacity: 0.4;
     cursor: default;
 }
+
+/* ── Lightbox (Issue #15) ────────────────────────────────────────────────── */
+#mmb-lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    background: rgba(0,0,0,0.88);
+    align-items: center;
+    justify-content: center;
+}
+#mmb-lb-close {
+    position: absolute;
+    top: 14px;
+    right: 18px;
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: white;
+    font-size: 22px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 1;
+    padding: 0;
+    line-height: 1;
+}
+#mmb-lb-close:hover { background: rgba(255,255,255,0.3); }
+#mmb-lb-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow: hidden;
+}
+#mmb-lb-img {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 4px;
+    cursor: zoom-in;
+    transform-origin: center center;
+    transition: transform 0.08s;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+}
+.mmb-lb-trigger {
+    cursor: zoom-in !important;
+}
