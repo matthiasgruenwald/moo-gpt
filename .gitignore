@@ -12,5 +12,8 @@ public/chat-icon.png
 *.db-shm
 *.db-wal
 
+# Claude Code
+CLAUDE.md
+
 # macOS
 .DS_Store
