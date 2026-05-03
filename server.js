@@ -196,7 +196,7 @@ if (!process.env.APIKEY) {
   process.exit(1);
 }
 if (!process.env.MODEL_NAME) {
-  console.error("MODEL_NAME ist nicht gesetzt (z.B. gpt-4o)");
+  console.error("MODEL_NAME ist nicht gesetzt (z.B. gpt-5)");
   process.exit(1);
 }
 
@@ -218,7 +218,7 @@ async function fetchPricing() {
   try {
     const res  = await fetch('https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json');
     const data = await res.json();
-    // LiteLLM-Keys: z.B. "gpt-4o" oder "openai/gpt-4o"
+    // LiteLLM-Keys: z.B. "gpt-5" oder "openai/gpt-5"
     const entry = data[MODEL_NAME] || data[`openai/${MODEL_NAME}`] || null;
     PRICING = entry ? {
       input_cost_per_token:  entry.input_cost_per_token  || 0,

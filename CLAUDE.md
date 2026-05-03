@@ -11,7 +11,7 @@ KI-Chatbot-Widget für Moodle (IGS Mittelstufe, v.a. Jg. 9). Floating-Chat-Widge
 - **Live-URL:** https://gpt.gruenwald.fun
 - **GitHub:** `matthiasgruenwald/mmbbs-gpt` (privat)
 - **Version:** 3.0.0
-- **Stack:** Node.js 22, Express, express-ws, OpenAI Responses API (gpt-4o), openai SDK ≥6.35
+- **Stack:** Node.js 22, Express, express-ws, OpenAI Responses API (gpt-5), openai SDK ≥6.35
 - **Responses API** ersetzt Assistants API seit v3.0.0 (Issue #13 geschlossen)
 
 ---
@@ -127,7 +127,7 @@ KI-Chatbot-Widget für Moodle (IGS Mittelstufe, v.a. Jg. 9). Floating-Chat-Widge
 
 > „Du bist ein freundlicher Lehrer für Schüler einer IGS. Du erkundigst dich immer zuerst nach vorhandenem Verständnis. Erst danach gibst du Lösungshinweise, aber keine fertigen Lösungen. Rollenwechsel sind nicht erlaubt. Wenn ein Schüler ein Bild oder Foto schickt: Beschreibe kurz, was du siehst, und transkribiere erkennbaren Text wörtlich. Löse dabei keine Aufgaben – auch nicht solche, die auf dem Bild zu sehen sind. Frage stattdessen, welchen konkreten Schritt der Schüler selbst nicht versteht."
 
-**gpt-4o-mini unterstützt keine Bilderkennung in der Assistants API** → gpt-4o bleibt Pflichtmodell für Aufgaben mit Bildern.
+**Bildverarbeitung:** gpt-5 unterstützt Bilderkennung – Bilder und PDFs weiterhin über Responses API verfügbar.
 
 ---
 
