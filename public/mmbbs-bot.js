@@ -850,17 +850,17 @@ export class MMBBSBOT {
     lb.querySelector('#mmb-lb-close').addEventListener('click', () => this._closeLightbox());
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') this._closeLightbox(); });
 
-    // Maus-Zoom: cursor-zentriert, analytische Scroll-Korrektur
+    // Maus-Zoom: cursor-zentriert, mit erzwungenem Reflow vor scrollLeft
     inner.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const factor = e.deltaY < 0 ? 1.08 : 0.93;
+      const factor = e.deltaY < 0 ? 1.05 : (1 / 1.05);
       const innerRect = inner.getBoundingClientRect();
 
-      // Cursor-Position im Scroll-Raum
+      // Cursor-Position im Scroll-Raum (vor Resize lesen)
       const cursorX = inner.scrollLeft + (e.clientX - innerRect.left);
       const cursorY = inner.scrollTop  + (e.clientY - innerRect.top);
 
-      // Aktuelle Bildposition im Canvas (flex-zentriert → analytisch berechnet)
+      // Aktuelle Bildposition im Canvas (flex-Zentrierung, analytisch)
       const curW = img.offsetWidth, curH = img.offsetHeight;
       const imgX = Math.max(0, (inner.clientWidth  - curW) / 2);
       const imgY = Math.max(0, (inner.clientHeight - curH) / 2);
@@ -869,18 +869,16 @@ export class MMBBSBOT {
       const rx = (cursorX - imgX) / curW;
       const ry = (cursorY - imgY) / curH;
 
-      // Neue Breite (max 600% der Originalgröße, min 100px)
       const natW = img.naturalWidth  || inner.clientWidth;
       const natH = img.naturalHeight || inner.clientHeight;
       const newW = Math.min(Math.max(curW * factor, 100), natW * 6);
       const newH = newW / natW * natH;
-      img.style.width = newW + 'px';
 
-      // Neue Bildposition im Canvas
+      img.style.width = newW + 'px';
+      void inner.scrollWidth; // ← synchroner Reflow: Canvas hat neue Größe bevor scrollLeft gesetzt wird
+
       const newImgX = Math.max(0, (inner.clientWidth  - newW) / 2);
       const newImgY = Math.max(0, (inner.clientHeight - newH) / 2);
-
-      // Scroll so korrigieren, dass Cursor auf dem selben Bildpunkt bleibt
       inner.scrollLeft = newImgX + rx * newW - (e.clientX - innerRect.left);
       inner.scrollTop  = newImgY + ry * newH - (e.clientY - innerRect.top);
     }, { passive: false });

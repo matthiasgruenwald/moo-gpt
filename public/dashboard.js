@@ -505,10 +505,10 @@ function initLightbox() {
   document.getElementById('dash-lb-close').addEventListener('click', closeLightbox);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
 
-  // Maus-Zoom: cursor-zentriert, analytische Scroll-Korrektur
+  // Maus-Zoom: cursor-zentriert, mit erzwungenem Reflow vor scrollLeft
   inner.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.08 : 0.93;
+    const factor = e.deltaY < 0 ? 1.05 : (1 / 1.05);
     const innerRect = inner.getBoundingClientRect();
 
     const cursorX = inner.scrollLeft + (e.clientX - innerRect.left);
@@ -524,7 +524,9 @@ function initLightbox() {
     const natH = img.naturalHeight || inner.clientHeight;
     const newW = Math.min(Math.max(curW * factor, 100), natW * 6);
     const newH = newW / natW * natH;
+
     img.style.width = newW + 'px';
+    void inner.scrollWidth; // ← synchroner Reflow
 
     const newImgX = Math.max(0, (inner.clientWidth  - newW) / 2);
     const newImgY = Math.max(0, (inner.clientHeight - newH) / 2);
