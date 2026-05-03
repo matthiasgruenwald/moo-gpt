@@ -275,25 +275,20 @@ button:hover {
 }
 #mmb-lb-close:hover { background: rgba(255,255,255,0.3); }
 #mmb-lb-inner {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    max-width: 90vw;
-    max-height: 90vh;
-    overflow: hidden;
+    width: 90vw;
+    height: 90vh;
+    overflow: auto;
+    border-radius: 4px;
 }
 #mmb-lb-img {
-    max-width: 90vw;
-    max-height: 90vh;
-    object-fit: contain;
+    display: block;
+    max-width: 100%;
+    height: auto;
     border-radius: 4px;
-    cursor: zoom-in;
-    transform-origin: center center;
-    transition: transform 0.08s;
+    cursor: grab;
     user-select: none;
     -webkit-user-select: none;
     -webkit-user-drag: none;
 }
-.mmb-lb-trigger {
-    cursor: zoom-in !important;
-}
+#mmb-lb-img.mmb-dragging { cursor: grabbing; }
+.mmb-lb-trigger { cursor: zoom-in !important; }
