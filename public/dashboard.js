@@ -433,19 +433,16 @@ function appendMessage({ role, content, content_type, created_at, runCost }) {
 
   const time = document.createElement('div');
   time.className = 'msg-time';
-  time.textContent = formatTime(created_at);
+  // Issue #12: Kosten in derselben Zeile wie Uhrzeit (nur Assistenten-Antworten)
+  if (role === 'assistant' && runCost) {
+    time.textContent = `${formatTime(created_at)}  ↑ ${formatCost(runCost.inputEur)} ↓ ${formatCost(runCost.outputEur)}`;
+    time.title = 'Uhrzeit  ·  Kosten: Eingabe / Ausgabe';
+  } else {
+    time.textContent = formatTime(created_at);
+  }
 
   wrap.appendChild(bubble);
   wrap.appendChild(time);
-
-  // Issue #12: Kosten pro Nachrichtenrunde (nur Assistenten-Antworten)
-  if (role === 'assistant' && runCost) {
-    const costDiv = document.createElement('div');
-    costDiv.className = 'msg-cost';
-    costDiv.title = 'Kosten dieser Antwort (Eingabe / Ausgabe)';
-    costDiv.textContent = `↑ ${formatCost(runCost.inputEur)}  ↓ ${formatCost(runCost.outputEur)}`;
-    wrap.appendChild(costDiv);
-  }
 
   chatMessages.appendChild(wrap);
 }
