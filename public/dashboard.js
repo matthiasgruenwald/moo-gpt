@@ -407,7 +407,7 @@ function renderMsgContent(role, content, contentType) {
       if (content && content.startsWith('data:')) {
         const label = contentType === 'pdf'
           ? '<div style="font-size:11px;opacity:0.6;margin-top:2px">📄 PDF-Seite</div>' : '';
-        return `<img src="${content}" style="max-width:200px;border-radius:6px;display:block;" class="dash-lb-trigger" onclick="openLightbox(this.src)">${label}`;
+        return `<img src="${content}" style="max-width:200px;border-radius:6px;display:block;" class="dash-lb-trigger">${label}`;
       }
       return contentType === 'pdf'
         ? '📄 <em>PDF-Upload (1 Seite)</em>'
@@ -504,6 +504,12 @@ function initLightbox() {
   lb.addEventListener('click', (e) => { if (e.target === lb) closeLightbox(); });
   document.getElementById('dash-lb-close').addEventListener('click', closeLightbox);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
+
+  // Lightbox öffnen per Delegation (onclick-Attribut geht nicht in type="module")
+  document.addEventListener('click', (e) => {
+    const trigger = e.target.closest('.dash-lb-trigger');
+    if (trigger) openLightbox(trigger.src || trigger.dataset.src);
+  });
 
   // Maus-Zoom: cursor-zentriert, mit erzwungenem Reflow vor scrollLeft
   inner.addEventListener('wheel', (e) => {
