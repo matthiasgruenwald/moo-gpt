@@ -240,12 +240,18 @@ export function getStudents(activity_id) {
            t.moodle_user_id,
            t.moodle_user_name,
            t.updated_at,
-           COUNT(DISTINCT m.id)                    AS message_count,
-           COALESCE(SUM(tl.prompt_tokens), 0)      AS cost_prompt,
-           COALESCE(SUM(tl.completion_tokens), 0)  AS cost_completion
+           COUNT(m.id)                             AS message_count,
+           COALESCE(tl_agg.cost_prompt, 0)         AS cost_prompt,
+           COALESCE(tl_agg.cost_completion, 0)     AS cost_completion
     FROM threads t
-    LEFT JOIN messages m  ON m.thread_id  = t.id
-    LEFT JOIN token_log tl ON tl.thread_id = t.id
+    LEFT JOIN messages m ON m.thread_id = t.id
+    LEFT JOIN (
+      SELECT thread_id,
+             SUM(prompt_tokens)     AS cost_prompt,
+             SUM(completion_tokens) AS cost_completion
+      FROM token_log
+      GROUP BY thread_id
+    ) tl_agg ON tl_agg.thread_id = t.id
     WHERE t.activity_id = ?
     GROUP BY t.id
     ORDER BY t.updated_at DESC

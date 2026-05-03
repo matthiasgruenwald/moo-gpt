@@ -69,14 +69,33 @@ backBtn.addEventListener('click', () => {
 /**
  * Formatiert einen EUR-Betrag als Cent-Angabe.
  * Schwelle: 0,0001 € (= 0,01 Cent). Darunter: "<0,01 Ct"
+ * Gibt { str, ct } zurück: str = Anzeigestring, ct = gerundeter Cent-Wert (für Summenbildung).
  */
+function formatCostFull(eur) {
+  if (eur == null || isNaN(eur)) return { str: '–', ct: 0 };
+  const raw = (eur || 0) * 100;
+  if (raw < 0.01) return { str: '<0,01 Ct', ct: 0 };
+  // Auf 2 Nachkommastellen runden (dann ist Summe der angezeigten Werte konsistent)
+  const ct = Math.round(raw * 100) / 100;
+  const str = ct.toFixed(2).replace('.', ',') + ' Ct';
+  return { str, ct };
+}
+
+/** Kurzform: nur String */
 function formatCost(eur) {
-  if (eur == null || isNaN(eur)) return '–';
-  const ct = eur * 100; // Umrechnung in Cent
-  if (ct < 0.01) return '<0,01 Ct';
-  // Bis 9,99 Ct: 2 Nachkommastellen; darüber: 1
-  const decimals = ct < 10 ? 2 : 1;
-  return ct.toFixed(decimals).replace('.', ',') + ' Ct';
+  return formatCostFull(eur).str;
+}
+
+/**
+ * Rendert drei Kosten-Werte so, dass total = input + output stimmt (kein Rundungswiderspruch).
+ * Gibt { inputStr, outputStr, totalStr } zurück.
+ */
+function formatCostTriple(inputEur, outputEur) {
+  const inp = formatCostFull(inputEur);
+  const out = formatCostFull(outputEur);
+  const totalCt  = inp.ct + out.ct;
+  const totalStr = totalCt < 0.01 ? '<0,01 Ct' : totalCt.toFixed(2).replace('.', ',') + ' Ct';
+  return { inputStr: inp.str, outputStr: out.str, totalStr };
 }
 
 /** Rendert die Aktivitäts-Gesamtkosten in der cost-bar. */
@@ -85,9 +104,10 @@ function renderActivityCost(cost) {
     costBar.classList.remove('visible');
     return;
   }
-  costBarInput.textContent  = `↑ ${formatCost(cost.inputEur)}`;
-  costBarOutput.textContent = `↓ ${formatCost(cost.outputEur)}`;
-  costBarTotal.textContent  = `= ${formatCost(cost.totalEur)}`;
+  const { inputStr, outputStr, totalStr } = formatCostTriple(cost.inputEur, cost.outputEur);
+  costBarInput.textContent  = `↑ ${inputStr}`;
+  costBarOutput.textContent = `↓ ${outputStr}`;
+  costBarTotal.textContent  = `= ${totalStr}`;
   costBar.classList.add('visible');
 }
 
@@ -98,7 +118,8 @@ function renderChatCost(cost) {
     chatCost.classList.remove('visible');
     return;
   }
-  chatCost.textContent = `↑${formatCost(cost.inputEur)} ↓${formatCost(cost.outputEur)} = ${formatCost(cost.totalEur)}`;
+  const { inputStr, outputStr, totalStr } = formatCostTriple(cost.inputEur, cost.outputEur);
+  chatCost.textContent = `↑${inputStr} ↓${outputStr} = ${totalStr}`;
   chatCost.classList.add('visible');
 }
 
@@ -452,7 +473,7 @@ function simpleMarkdown(text) {
 
 function relTime(isoStr) {
   if (!isoStr) return '–';
-  const diff = Date.now() - new Date(isoStr).getTime();
+  const diff = Date.now() - parseUTC(isoStr).getTime(); // parseUTC: SQLite-UTC korrekt parsen
   if (isNaN(diff)) return isoStr;
   const s = Math.floor(diff / 1000);
   if (s < 60)  return 'gerade eben';
