@@ -58,7 +58,7 @@
       font-size: 14px;
     }
     #toolbar label { font-size: 13px; }
-    #sort-select {
+    .sort-btn {
       background: #003366;
       color: white;
       border: 1px solid #5588bb;
@@ -66,6 +66,12 @@
       padding: 3px 8px;
       font-size: 13px;
       cursor: pointer;
+      opacity: 0.65;
+    }
+    .sort-btn.active {
+      opacity: 1;
+      border-color: #88bbee;
+      background: #004488;
     }
     #student-count { margin-left: auto; font-size: 13px; opacity: 0.85; }
 
@@ -439,11 +445,10 @@
 </div>
 
 <div id="toolbar">
-  <label for="sort-select">Sortierung:</label>
-  <select id="sort-select">
-    <option value="activity">Letzte Aktivität</option>
-    <option value="name">Name</option>
-  </select>
+  <span style="font-size:13px">Sortierung:</span>
+  <button class="sort-btn active" data-sort="activity">Aktivität ↓</button>
+  <button class="sort-btn" data-sort="name">Name ↑</button>
+  <button class="sort-btn" data-sort="cost">Verbrauch ↓</button>
   <span id="student-count"></span>
 </div>
 

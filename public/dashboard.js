@@ -15,7 +15,8 @@ const token      = params.get('token')      || '';
 let students                = [];          // aktuelle Schülerliste (sortiert)
 let selectedThreadId        = null;        // aktuell angezeigter Thread
 let ws                      = null;
-let sortMode                = 'activity';  // 'activity' | 'name'
+let sortKey                 = 'activity';  // 'activity' | 'name' | 'cost'
+let sortDir                 = 'desc';      // 'asc' | 'desc'
 const liveSince             = new Map();   // threadDbId → timestamp letzter Live-Nachricht
 let activityOpener          = '';          // Opener-Text der Aufgabe
 let hasConnectedSuccessfully = false;      // war schon mal gültig verbunden?
@@ -35,7 +36,7 @@ const chatTitle      = document.getElementById('chat-title');
 const chatCost       = document.getElementById('chat-cost');
 const chatMessages   = document.getElementById('chat-messages');
 const backBtn        = document.getElementById('back-btn');
-const sortSelect     = document.getElementById('sort-select');
+const sortBtns       = document.querySelectorAll('.sort-btn');
 const initialError   = document.getElementById('initial-error');
 const expiredOverlay = document.getElementById('expired-overlay');
 const costBar        = document.getElementById('cost-bar');
@@ -50,9 +51,33 @@ if (!activityId || !token) {
   connectWebSocket();
 }
 
-sortSelect.addEventListener('change', () => {
-  sortMode = sortSelect.value;
-  renderStudentList();
+// Standardrichtungen pro Schlüssel
+const defaultDir = { activity: 'desc', name: 'asc', cost: 'desc' };
+const dirArrow   = { asc: '↑', desc: '↓' };
+
+function updateSortButtons() {
+  sortBtns.forEach(btn => {
+    const key = btn.dataset.sort;
+    const isActive = key === sortKey;
+    btn.classList.toggle('active', isActive);
+    const labels = { activity: 'Aktivität', name: 'Name', cost: 'Verbrauch' };
+    const arrow = isActive ? dirArrow[sortDir] : dirArrow[defaultDir[key]];
+    btn.textContent = `${labels[key]} ${arrow}`;
+  });
+}
+
+sortBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const key = btn.dataset.sort;
+    if (key === sortKey) {
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortKey = key;
+      sortDir = defaultDir[key];
+    }
+    updateSortButtons();
+    renderStudentList();
+  });
 });
 
 backBtn.addEventListener('click', () => {
@@ -247,10 +272,17 @@ function handleNewMessage(msg) {
 // ── Schülerliste rendern ──────────────────────────────────────────────────────
 function renderStudentList() {
   const sorted = [...students].sort((a, b) => {
-    if (sortMode === 'name') {
-      return (a.moodle_user_name || '').localeCompare(b.moodle_user_name || '', 'de');
+    let cmp = 0;
+    if (sortKey === 'name') {
+      cmp = (a.moodle_user_name || '').localeCompare(b.moodle_user_name || '', 'de');
+    } else if (sortKey === 'cost') {
+      const ca = a.threadCost ? (a.threadCost.inputEur + a.threadCost.outputEur) : -1;
+      const cb = b.threadCost ? (b.threadCost.inputEur + b.threadCost.outputEur) : -1;
+      cmp = ca - cb;
+    } else {
+      cmp = new Date(a.updated_at) - new Date(b.updated_at);
     }
-    return new Date(b.updated_at) - new Date(a.updated_at);
+    return sortDir === 'asc' ? cmp : -cmp;
   });
 
   studentCount.textContent = `${sorted.length} Schüler`;
