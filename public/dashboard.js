@@ -516,7 +516,7 @@ function initLightbox() {
 
     const curW = img.offsetWidth, curH = img.offsetHeight;
     const imgX = Math.max(0, (inner.clientWidth  - curW) / 2);
-    const imgY = Math.max(0, (inner.clientHeight - curH) / 2);
+    const imgY = parseFloat(img.style.marginTop || '0');
     const rx = (cursorX - imgX) / curW;
     const ry = (cursorY - imgY) / curH;
 
@@ -530,6 +530,7 @@ function initLightbox() {
 
     const newImgX = Math.max(0, (inner.clientWidth  - newW) / 2);
     const newImgY = Math.max(0, (inner.clientHeight - newH) / 2);
+    img.style.marginTop = newImgY + 'px';
     inner.scrollLeft = newImgX + rx * newW - (e.clientX - innerRect.left);
     inner.scrollTop  = newImgY + ry * newH - (e.clientY - innerRect.top);
   }, { passive: false });
@@ -595,6 +596,9 @@ function openLightbox(src) {
     if (!natW || !natH) return;
     const scale = Math.min(1, inner.clientWidth / natW, inner.clientHeight / natH);
     if (scale < 1) img.style.width = Math.round(natW * scale) + 'px';
+    // Vertikale Zentrierung per marginTop (CSS-Flex entfernt → explizit setzen)
+    const dispH = img.offsetHeight || Math.round(natH * scale);
+    img.style.marginTop = Math.max(0, (inner.clientHeight - dispH) / 2) + 'px';
   };
   if (img.complete && img.naturalWidth) { fitImg(); } else { img.onload = fitImg; }
 }

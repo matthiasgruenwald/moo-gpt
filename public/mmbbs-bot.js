@@ -592,6 +592,9 @@ export class MMBBSBOT {
     });
 
     chatWindow.scrollTop = chatWindow.scrollHeight;
+    // Bug #15: KaTeX-CSS lädt async → Höhen nach Cache-Clear zunächst falsch.
+    // Verzögerter Scroll als Fallback (nach CSS-Anwendung).
+    setTimeout(() => { chatWindow.scrollTop = chatWindow.scrollHeight; }, 300);
   }
 
   /** Teilt Nachrichten in Sessions auf (Pause > 30 Min = neue Session). */
@@ -860,10 +863,10 @@ export class MMBBSBOT {
       const cursorX = inner.scrollLeft + (e.clientX - innerRect.left);
       const cursorY = inner.scrollTop  + (e.clientY - innerRect.top);
 
-      // Aktuelle Bildposition im Canvas (flex-Zentrierung, analytisch)
+      // Aktuelle Bildposition im Canvas (margin:auto horizontal, marginTop vertikal)
       const curW = img.offsetWidth, curH = img.offsetHeight;
       const imgX = Math.max(0, (inner.clientWidth  - curW) / 2);
-      const imgY = Math.max(0, (inner.clientHeight - curH) / 2);
+      const imgY = parseFloat(img.style.marginTop || '0');
 
       // Relativer Treffer im Bild (0..1)
       const rx = (cursorX - imgX) / curW;
@@ -879,6 +882,7 @@ export class MMBBSBOT {
 
       const newImgX = Math.max(0, (inner.clientWidth  - newW) / 2);
       const newImgY = Math.max(0, (inner.clientHeight - newH) / 2);
+      img.style.marginTop = newImgY + 'px';
       inner.scrollLeft = newImgX + rx * newW - (e.clientX - innerRect.left);
       inner.scrollTop  = newImgY + ry * newH - (e.clientY - innerRect.top);
     }, { passive: false });
@@ -941,13 +945,16 @@ export class MMBBSBOT {
     inner.scrollTop  = 0;
     lb.style.display = 'flex';
 
-    // Initiales Fit: Bild auf max 90vw × 90vh skalieren
+    // Initiales Fit: Bild auf max 90vw × 90vh skalieren + vertikal zentrieren
     const fitImg = () => {
       const natW = img.naturalWidth, natH = img.naturalHeight;
       if (!natW || !natH) return;
       const maxW = inner.clientWidth, maxH = inner.clientHeight;
       const scale = Math.min(1, maxW / natW, maxH / natH);
       if (scale < 1) img.style.width = Math.round(natW * scale) + 'px';
+      // Vertikale Zentrierung per marginTop (CSS-Flex entfernt → explizit setzen)
+      const dispH = img.offsetHeight || Math.round(natH * scale);
+      img.style.marginTop = Math.max(0, (inner.clientHeight - dispH) / 2) + 'px';
     };
     if (img.complete && img.naturalWidth) { fitImg(); }
     else { img.onload = fitImg; }

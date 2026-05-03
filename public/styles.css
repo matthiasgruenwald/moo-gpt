@@ -282,15 +282,12 @@ button:hover {
 #mmb-lb-canvas {
     min-width: 100%;
     min-height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 #mmb-lb-img {
     display: block;
+    margin: 0 auto;
     height: auto;
     cursor: grab;
-    flex-shrink: 0;
     user-select: none;
     -webkit-user-select: none;
     -webkit-user-drag: none;
