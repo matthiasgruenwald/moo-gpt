@@ -1,21 +1,14 @@
-const VERSION = "2.3.0";
+const VERSION = "3.0.0";
 
-import axios from "axios";
-import cheerio from "cheerio";
 import express from "express";
 import OpenAI from "openai";
-import AsyncOpenAI from "openai";
 import fs from "fs";
 import expressWs from "express-ws";
-import EventEmitter from "events";
 import http from "http";
 import https from "https";
 import cors from "cors";
-import { encode } from "querystring";
 import moment from "moment";
-import { log } from "console";
-import puppeteer from "puppeteer";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getStudents, updateThreadName, upsertActivity, getActivity, getActivityName, saveTokenUsage, getThreadCostTokens, getActivityCostTokens } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, getActivityName, saveTokenUsage, getThreadCostTokens, getActivityCostTokens } from "./db.js";
 import crypto from "crypto";
 
 const app = express();
@@ -198,23 +191,22 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-if (process.env.APIKEY === undefined) {
-  console.error("API key is not set");
+if (!process.env.APIKEY) {
+  console.error("APIKEY ist nicht gesetzt");
   process.exit(1);
 }
-if (process.env.AID === undefined) {
-  console.error("Assistenten AID key is not set");
+if (!process.env.MODEL_NAME) {
+  console.error("MODEL_NAME ist nicht gesetzt (z.B. gpt-4o)");
   process.exit(1);
 }
 
-const oai = new AsyncOpenAI({
-  apiKey: process.env.APIKEY,
-});
-var assistant = await oai.beta.assistants.retrieve(process.env.AID);
+const oai = new OpenAI({ apiKey: process.env.APIKEY });
 
-// Issue #11: Modellname aus Assistant-Objekt
-const MODEL_NAME = assistant.model;
-console.log(`[Pricing] Modell: ${MODEL_NAME}`);
+// Issue #13: Modell + System-Prompt aus Env (nicht mehr aus OpenAI-Dashboard)
+const MODEL_NAME    = process.env.MODEL_NAME;
+const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || '';
+console.log(`[Config] Modell: ${MODEL_NAME}`);
+if (!SYSTEM_PROMPT) console.warn('[Config] SYSTEM_PROMPT nicht gesetzt – leerer System-Prompt');
 
 // Issue #11: LiteLLM-Preise laden und 24 h cachen
 let PRICING = null;
@@ -319,293 +311,6 @@ function enrichStudentsWithCost(students) {
 // SQLite-DB initialisieren
 initDb();
 
-async function fetchPage(url) {
-  console.log("fetchPage:", url);
-  try {
-    const { data } = await axios.get(url);
-    return data;
-  } catch (error) {
-    console.error(`Error fetching ${url}:`, error);
-    return null;
-  }
-}
-
-function extractText(html) {
-  const $ = cheerio.load(html);
-  // Entferne alle Skripte und Stile im .page-content Container
-  $(".page-content script, .page-content style").remove();
-  // Extrahiere den reinen Text aus dem .page-content Container
-  return $(".page-content").text();
-}
-
-function extractLinks(html) {
-  console.log("extractLinks");
-  const $ = cheerio.load(html);
-  const links = [];
-  $(".page-content a").each((index, element) => {
-    const href = $(element).attr("href");
-    if (href) {
-      links.push(href);
-    }
-  });
-  return links;
-}
-
-async function fetchAndExtract(query) {
-  console.log("fetchAndExtract:", query);
-
-  var result = "";
-  const browser = await puppeteer.launch({
-    //executablePath: "/usr/bin/chromium",
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    dumpio: true,
-  });
-  console.log('1');
-  var page;
-  try {
-    page = await browser.newPage();
-    console.log("2");
-  } catch (error) {
-    console.error("Error creating a new page:", error);
-  }
-  
-  const searchQuery = query + " site:mmbbs.de";
-  
-  console.log('3');
-  await page.goto("https://duckduckgo.com/");
-  await page.type('input[name="q"]', searchQuery);
-  await page.keyboard.press("Enter");
-
-  console.log('los geht es');
-  var results = [];
-  try {
-    // Warten, bis die Ergebnisse geladen sind. Hier verwenden wir den `.result__body` Selektor.
-    console.log("Page loaded");
-
-    await page.waitForSelector(".react-results--main", { timeout: 60000 });
-
-    results = await page.evaluate(() => {
-      let links = [];
-      let items = document.querySelectorAll("a[data-testid='result-title-a']");
-      for (let i = 0; i < 3; i++) {
-        const url = items[i].href;
-        if (!url.endsWith(".pdf")) {
-          // Ausschluss von Links, die auf .pdf enden
-          links.push(url);
-        }
-      }
-      return links;
-    });
-    console.log(results);
-  } catch (error) {
-    console.error("An error occurred:", error);
-  } finally {
-    await browser.close();
-  }
-
-  console.log("Anzahl links:", results.length);
-  var max = results.length;
-  if (max > 2) max = 2;
-  for (var i = 0; i < max; i++) {
-    console.log('Get Link Nr. ' + i + ': ' + results[i]);
-    
-    const absoluteLink = new URL(results[i], results[i]).href;
-    console.log("Get Link Nr. " + i + ": Destination " + absoluteLink);
-    const linkHtml = await fetchPage(absoluteLink);
-    if (linkHtml) {
-      const linkText = extractText(linkHtml);
-      //console.log('linkText:', linkText);
-      result += linkText;
-      //result.push({ url: absoluteLink, text: linkText });
-    }
-    
-  }
-
-  return result;
-}
-
-/**
- * OpenAI function that query a webpage
- * 
- * {
-  "name": "query_homepage",
-  "description": "query the homepage to get actual informations",
-  "parameters": {
-    "type": "object",
-    "properties": {
-      "query": {
-        "type": "string",
-        "description": "The query for the homepage"
-      }
-    },
-    "required": [
-      "the query result"
-    ]
-  }
-}
- * 
- */
-
-async function query_homepage(toolId, query) {
-  
-  console.log("------- CALLING AN EXTERNAL API ----------");
-  console.log("query", JSON.stringify(query));
-  var encoded = encodeURIComponent(query);
-  const url = "https://duckduckgo.com/" + query;
-  const result = await fetchAndExtract(query); // Awaiting the result
-  console.log("\r\n\r\n-------------->" + result + "<---------------");
-  return {
-    tool_call_id: toolId,
-    output: result,
-  };
-}
-
-class EventHandler extends EventEmitter {
-  constructor(client, ws, citations, resContent) {
-    super();
-    this.client = client;
-    this.ws = ws;
-    this.citations = citations;
-    this.resContent = resContent;
-    this.pendingFunctions = false;
-
-    console.log("EventHandler constructor called");
-  }
-
-  async onEvent(event) {
-    try {
-      var chatMsg = {
-        end: false,
-        messages: "",
-      };
-
-      console.log("**" + event.event + "**");
-      if (event.event === "thread.run.requires_action") {
-        //console.log(event);
-        this.pendingFunctions = true;
-        const r = await this.handleRequiresAction(
-          event.data,
-          event.data.thread_id
-        );
-        //console.log("\r\nRun completed" + JSON.stringify(r, null, 2));
-        if (r != undefined) {
-          this.resContent = r[0].content[0].text.value;
-          this.resContent = this.resContent.replace("\r\n\r\n", "\r\n");
-          console.log("Antwort: " + this.resContent);
-          chatMsg.messages = this.resContent;
-          chatMsg.end = true;
-          this.pendingFunctions = false;
-          this.ws.send(JSON.stringify(chatMsg));
-        }
-      } else if (event.event === "thread.message.completed") {
-        var citation = "<br><br><b>Quelle(n):</b>&nbsp;";
-        var num = 1;
-        this.citations.forEach(async (file_id) => {
-          const citedFile = await oai.files.retrieve(file_id);
-          console.log("** Cited File **", JSON.stringify(citedFile));
-          if (
-            fs.existsSync(
-              process.cwd() + "/public/storage/" + citedFile.filename
-            )
-          ) {
-            citation +=
-              '[<a class="reference" href=\'storage/' +
-              citedFile.filename +
-              "' target='_blank'>" +
-              num +
-              "</a>]";
-          } else {
-            citation += "[" + num + "]:" + citedFile.filename;
-          }
-          num++;
-          this.resContent = this.resContent.replace("\r\n\r\n", "\r\n");
-          chatMsg.messages = this.resContent + citation;
-          this.ws.send(JSON.stringify(chatMsg));
-        });
-      } else if (event === "thread.run.textDelta") {
-        console.log("text Delta event");
-      }
-    } catch (error) {
-      console.error("Error handling event:", error);
-    }
-  }
-
-  async handleRequiresAction(run, threadId) {
-    //console.log("Run object:", JSON.stringify(run));
-    //console.log("Required action:", JSON.stringify(run.required_action));
-    try {
-      //console.log("handleRequiresAction called:", JSON.stringify(run));
-      if (!run.required_action || !run.required_action.submit_tool_outputs) {
-        throw new Error("submit_tool_outputs not found in required_action");
-      }
-
-      const toolCalls =
-        run.required_action.submit_tool_outputs.tool_calls || [];
-      const toolOutputs = await Promise.all(
-        toolCalls.map(async (toolCall) => {
-          console.log("toolCall:", JSON.stringify(toolCall));
-          if (toolCall.function.name === "query_homepage") {
-            const args = JSON.parse(toolCall.function.arguments);
-            const keyword = args.query;
-            var results = await query_homepage(toolCall.id, keyword);
-            //console.log('results:', JSON.stringify(results));
-            return {
-              tool_call_id: toolCall.id,
-              output: results.output,
-            };
-          }
-        })
-      );
-
-      console.log("toolOutputs:", JSON.stringify(toolOutputs));
-      if (toolOutputs.length > 0) {
-        const result = await oai.beta.threads.runs.submitToolOutputsAndPoll(
-          threadId,
-          run.id,
-          { tool_outputs: toolOutputs }
-        );
-        console.log("Tool outputs submitted successfully.");
-        return this.handleRunStatus(result, threadId);
-      } else {
-        console.log("No tool outputs to submit.");
-      }
-    } catch (error) {
-      console.error("Error processing required action:", error);
-    }
-  }
-
-  async handleRunStatus(run, threadId) {
-    console.log("handleRunStatus called:");
-
-    // Check if the run is completed
-    if (run.status === "completed") {
-      let messages = await oai.beta.threads.messages.list(threadId);
-      //console.log("messages:", JSON.stringify(messages));
-      return messages.data;
-    } else if (run.status === "requires_action") {
-      return await this.handleRequiresAction(run, threadId);
-    } else {
-      console.error("Run did not complete:", run);
-    }
-  }
-
-  async submitToolOutputs(toolOutputs, runId, threadId) {
-    try {
-      console.log("submitToolOutputs called");
-      const stream = oai.beta.threads.runs.submitToolOutputsStream(
-        threadId,
-        runId,
-        { tool_outputs: toolOutputs }
-      );
-      for await (const event of stream) {
-        this.emit("event", event);
-      }
-    } catch (error) {
-      console.error("Error submitting tool outputs:", error);
-    }
-  }
-}
 
 // ── Issue #5: Teacher-Dashboard REST-Endpoints ──────────────────────────────
 
@@ -723,16 +428,8 @@ app.ws('/api/dashboard-ws', (ws, req) => {
 
 app.ws("/api/chat", (ws, req) => {
   checkOrigin(ws, req, () => {
-    settings = {
-      hints: "",
-      task: "",
-    };
-    var thread = undefined;
-    var settings = undefined;
-    var run = undefined;
-    var threadDbId = undefined;  // Issue #3: im äußeren Scope, damit chatmsg-Handler darauf zugreifen kann
-
-    var eventHandler = undefined;
+    var settings  = undefined;
+    var threadDbId = undefined;
 
     // Keepalive: alle 30 Sek. ping senden, damit Cloudflare die Verbindung nicht trennt
     const keepalive = setInterval(() => {
@@ -745,12 +442,7 @@ app.ws("/api/chat", (ws, req) => {
     ws.on("message", (message) => {
       limitRequests(ws, req, message, () => {
         console.log("Message received:", message);
-        var citations = [];
-        var resContent = "";
-        var chatMsg = {
-          end: false,
-          messages: "",
-        };
+        var chatMsg = { end: false, messages: "" };
         try {
           var msgObj = JSON.parse(message);
           console.log("msgObj:", JSON.stringify(msgObj, null, 2));
@@ -766,7 +458,6 @@ app.ws("/api/chat", (ws, req) => {
                     ? process.env.TEACHER_USER_IDS.split(',').map(s => s.trim())
                     : [];
                   const isTeacherByEnv = !!(settings.userId && teacherIds.includes(settings.userId));
-                  // Client-Erkennung (editmode-Formular) ist primär; TEACHER_USER_IDS als optionaler Override
                   ws.isTeacher = settings.isTeacher === true || isTeacherByEnv;
                   console.log(`[Auth] isTeacher=${ws.isTeacher} (client=${settings.isTeacher}, env=${isTeacherByEnv})`);
                 }
@@ -783,162 +474,94 @@ app.ws("/api/chat", (ws, req) => {
                   console.log(`[Dashboard] Token für Lehrer ${settings.userId} / Aufgabe ${settings.activityId} erzeugt`);
                 }
 
-                // Issue #3: Bestehenden Thread suchen oder neuen anlegen
-                let existingThreadRow = null;
-                if (settings.userId && settings.activityId) {
-                  existingThreadRow = findThread({ moodle_user_id: settings.userId, activity_id: settings.activityId });
-                }
-                if (existingThreadRow) {
-                  try {
-                    thread = await oai.beta.threads.retrieve(existingThreadRow.openai_thread_id);
+                // Issue #13: Thread nur noch in SQLite – kein OpenAI-Thread-Objekt mehr
+                {
+                  let existingThreadRow = null;
+                  if (settings.userId && settings.activityId) {
+                    existingThreadRow = findThread({ moodle_user_id: settings.userId, activity_id: settings.activityId });
+                  }
+                  if (existingThreadRow) {
                     threadDbId = existingThreadRow.id;
                     touchThread(threadDbId);
-                    // Issue #5: Namen nachfüllen, falls er beim ersten Anlegen fehlte
                     if (!existingThreadRow.moodle_user_name && settings.userName) {
                       updateThreadName(threadDbId, settings.userName);
                       console.log(`[DB] Namen nachgefüllt: ${settings.userName} (db_id=${threadDbId})`);
                     }
-                    console.log(`[DB] Bestehenden Thread wiederverwendet: ${thread.id} (db_id=${threadDbId})`);
-                  } catch (e) {
-                    console.warn(`[DB] Thread nicht mehr bei OpenAI (${existingThreadRow.openai_thread_id}), lege neuen an: ${e.message}`);
-                    existingThreadRow = null;
-                  }
-                }
-                if (!existingThreadRow) {
-                  thread = await oai.beta.threads.create();
-                  console.log("thread created: " + thread.id);
-                  threadDbId = saveThread({
-                    moodle_user_id:   settings.userId   || null,
-                    moodle_user_name: settings.userName || null,
-                    activity_id:      settings.activityId || null,
-                    openai_thread_id: thread.id,
-                  });
-                  console.log(`[DB] Neuer Thread gespeichert, db_id=${threadDbId}`);
-                }
+                    console.log(`[DB] Bestehenden Thread wiederverwendet (db_id=${threadDbId})`);
+                  } else {
+                    threadDbId = saveThread({
+                      moodle_user_id:   settings.userId   || null,
+                      moodle_user_name: settings.userName || null,
+                      activity_id:      settings.activityId || null,
+                    });
+                    console.log(`[DB] Neuer Thread angelegt, db_id=${threadDbId}`);
 
-                // Bilder aus der Aufgabenstellung als Thread-Message hinzufügen (nur bei neuem Thread)
-                if (!existingThreadRow && settings.images && settings.images.length > 0) {
-                  console.log(`Füge ${settings.images.length} Bild(er) zum Thread hinzu`);
-                  const imageItems = [];
-                  for (const img of settings.images) {
-                    try {
-                      const imgClean = img && typeof img === 'string' ? img.trim() : img;
-                      let imageBuffer, mimeType;
-
-                      if (imgClean && imgClean.startsWith('data:')) {
-                        // Base64 data-URL → Buffer extrahieren
-                        const mimeMatch = imgClean.match(/^data:([^;]+);base64,/);
-                        mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
-                        const b64 = imgClean.replace(/^data:[^;]+;base64,/, '');
-                        imageBuffer = Buffer.from(b64, 'base64');
-                        console.log(`Base64-Bild empfangen (${mimeType}, ${imageBuffer.length} bytes)`);
-                      } else {
-                        // Normale URL - fetchen
-                        const parsed = new URL(imgClean);
-                        if (!['http:', 'https:'].includes(parsed.protocol)) {
-                          console.log(`Bild übersprungen (ungültiges Protokoll): ${imgClean}`);
-                          continue;
+                    // Aufgabenbilder als task_image in DB speichern (statt Files API + Thread-Message)
+                    if (settings.images && settings.images.length > 0) {
+                      let saved = 0;
+                      for (const img of settings.images) {
+                        try {
+                          const imgClean = typeof img === 'string' ? img.trim() : img;
+                          if (!imgClean) continue;
+                          let dataUrl;
+                          if (imgClean.startsWith('data:')) {
+                            dataUrl = imgClean;
+                          } else {
+                            const parsed = new URL(imgClean);
+                            if (!['http:', 'https:'].includes(parsed.protocol)) continue;
+                            const res = await fetch(imgClean);
+                            if (!res.ok) { console.log(`[Settings] Bild übersprungen (HTTP ${res.status})`); continue; }
+                            const mimeType = res.headers.get('content-type') || 'image/jpeg';
+                            const buf = Buffer.from(await res.arrayBuffer());
+                            dataUrl = `data:${mimeType};base64,${buf.toString('base64')}`;
+                          }
+                          saveMessage({ thread_db_id: threadDbId, role: 'user', content: dataUrl, content_type: 'task_image' });
+                          saved++;
+                        } catch (e) {
+                          console.warn('[Settings] Aufgabenbild übersprungen:', e.message);
                         }
-                        const res = await fetch(imgClean);
-                        if (!res.ok) {
-                          console.log(`Bild übersprungen (HTTP ${res.status}): ${imgClean}`);
-                          continue;
-                        }
-                        mimeType = res.headers.get('content-type') || 'image/jpeg';
-                        imageBuffer = Buffer.from(await res.arrayBuffer());
-                        console.log(`URL-Bild geladen: ${imgClean} (${mimeType}, ${imageBuffer.length} bytes)`);
                       }
-
-                      // Bild bei OpenAI hochladen (Assistants API unterstützt keine base64 data-URLs)
-                      const ext = mimeType.split('/')[1]?.split('+')[0] || 'png';
-                      const uploadedFile = await oai.files.create({
-                        file: new File([imageBuffer], `image.${ext}`, { type: mimeType }),
-                        purpose: 'vision',
-                      });
-                      imageItems.push({
-                        type: "image_file",
-                        image_file: { file_id: uploadedFile.id },
-                      });
-                      console.log(`Bild hochgeladen: file_id=${uploadedFile.id}`);
-                    } catch (e) {
-                      console.log(`Bild übersprungen (Fehler): ${e.message}`);
+                      console.log(`[DB] ${saved} Aufgabenbild(er) als task_image gespeichert`);
                     }
                   }
-                  if (imageItems.length > 0) {
-                    const imageContent = [
-                      { type: "text", text: "Aufgabenstellung (enthält Bilder):" },
-                      ...imageItems,
-                    ];
-                    await oai.beta.threads.messages.create(thread.id, {
-                      role: "user",
-                      content: imageContent,
-                    });
-                    console.log(`${imageItems.length} Bild(er) zum Thread hinzugefügt`);
-                  } else {
-                    console.log("Keine gültigen Bilder gefunden, übersprungen");
+
+                  // Chatverlauf an Client senden (nur bei bestehendem Thread)
+                  if (existingThreadRow) {
+                    const history = getMessages(threadDbId);
+                    if (history.length > 0) {
+                      ws.send(JSON.stringify({ type: "history", messages: history }));
+                      console.log(`[DB] ${history.length} Nachrichten an Client gesendet`);
+                    }
                   }
                 }
-
-                // Chatverlauf an Client senden (nur bei bestehendem Thread)
-                if (existingThreadRow) {
-                  const history = getMessages(threadDbId);
-                  if (history.length > 0) {
-                    ws.send(JSON.stringify({ type: "history", messages: history }));
-                    console.log(`[DB] ${history.length} Nachrichten an Client gesendet`);
-                  }
-                }
-
-                eventHandler = new EventHandler(oai, ws, citations, resContent);
-                eventHandler.on(
-                  "event",
-                  eventHandler.onEvent.bind(eventHandler)
-                );
                 break;
               case "chatmsg":
-                // Thread noch nicht bereit (race condition)
-                if (!thread) {
+                // Noch nicht bereit (race condition)
+                if (!threadDbId) {
                   chatMsg.end = true;
                   chatMsg.messages = "⏳ Verbindung wird aufgebaut, bitte nochmal senden...";
                   ws.send(JSON.stringify(chatMsg));
                   return;
                 }
-                // Handle user typing notification
                 if (msgObj.data.message === "about") {
-                  var resContent =
-                    "**Version " +
-                    VERSION +
-                    "**\r\n\r\n© 2024 Dr. Jörg Tuttas · Erweitert 2026 von Matthias Grünwald";
-                  chatMsg.messages = resContent;
+                  chatMsg.messages = `**Version ${VERSION}**\r\n\r\n© 2024 Dr. Jörg Tuttas · Erweitert 2026 von Matthias Grünwald`;
                   chatMsg.end = true;
                   ws.send(JSON.stringify(chatMsg));
                   return;
-                } else {
-                  // Usernachricht in DB spiegeln (Issue #2)
-                  if (threadDbId) {
-                    saveMessage({ thread_db_id: threadDbId, role: 'user', content: msgObj.data.message });
-                    // Issue #5: Lehrer-Dashboard live benachrichtigen
-                    if (settings.activityId) {
-                      notifyDashboard(settings.activityId, {
-                        type:        'newMessage',
-                        threadDbId,
-                        userId:      settings.userId   || null,
-                        userName:    settings.userName || null,
-                        role:        'user',
-                        content:     msgObj.data.message,
-                        createdAt:   new Date().toISOString(),
-                      });
-                    }
-                  }
-                  handleMsg(
-                    ws,
-                    thread,
-                    msgObj.data.message,
-                    settings,
-                    eventHandler,
-                    run,
-                    threadDbId
-                  );
                 }
+                // Usernachricht in DB spiegeln + Dashboard benachrichtigen
+                saveMessage({ thread_db_id: threadDbId, role: 'user', content: msgObj.data.message });
+                if (settings.activityId) {
+                  notifyDashboard(settings.activityId, {
+                    type: 'newMessage', threadDbId,
+                    userId:    settings.userId   || null,
+                    userName:  settings.userName || null,
+                    role:      'user',
+                    content:   msgObj.data.message,
+                    createdAt: new Date().toISOString(),
+                  });
+                }
+                streamResponse(ws, settings, threadDbId);
                 break;
               case "filemsg": {
                 // Issue #10: Dateiupload (Bilder & PDF)
@@ -948,70 +571,59 @@ app.ws("/api/chat", (ws, req) => {
                   return;
                 }
                 const { file, originalType } = msgObj.data;
-                // Videos grundsätzlich ablehnen
                 if (originalType === 'video') {
                   ws.send(JSON.stringify({ end: true, messages: '⚠️ Videos werden nicht unterstützt.' }));
                   return;
                 }
-                // PDF nur bei mode 'files'
                 if (originalType === 'pdf' && uploadMode !== 'files') {
                   ws.send(JSON.stringify({ end: true, messages: '⚠️ PDF-Upload ist für diese Aufgabe nicht aktiviert (nur Bilder erlaubt).' }));
                   return;
                 }
-                if (!thread) {
+                if (!threadDbId) {
                   ws.send(JSON.stringify({ end: true, messages: '⏳ Verbindung wird aufgebaut, bitte nochmal senden...' }));
                   return;
                 }
                 try {
-                  // base64 data-URL → Buffer
                   const mimeMatch = file.match(/^data:([^;]+);base64,/);
                   const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
                   const b64 = file.replace(/^data:[^;]+;base64,/, '');
                   const imageBuffer = Buffer.from(b64, 'base64');
                   console.log(`[Upload] originalType=${originalType}, mimeType=${mimeType}, size=${imageBuffer.length}`);
 
-                  // Nochmal Video-Check auf mimeType-Ebene (client-seitige Validierung bereits erfolgt)
                   if (mimeType.startsWith('video/')) {
                     ws.send(JSON.stringify({ end: true, messages: '⚠️ Videos werden nicht unterstützt.' }));
                     return;
                   }
 
-                  // Bei OpenAI hochladen (purpose: vision)
-                  const ext = mimeType.split('/')[1]?.split('+')[0] || 'jpeg';
-                  const uploadedFile = await oai.files.create({
-                    file: new File([imageBuffer], `upload.${ext}`, { type: mimeType }),
-                    purpose: 'vision',
-                  });
-                  console.log(`[Upload] file_id=${uploadedFile.id}`);
-
-                  // DB-Inhalt: base64 wenn <2 MB, sonst Marker mit file_id
+                  // Kleine Dateien direkt als base64 in DB; große über Files API (bleibt verfügbar)
                   const TWO_MB = 2 * 1024 * 1024;
-                  const dbContent = imageBuffer.length < TWO_MB
-                    ? file
-                    : `[${originalType}:${uploadedFile.id}]`;
+                  let dbContent;
+                  if (imageBuffer.length < TWO_MB) {
+                    dbContent = file;
+                  } else {
+                    const ext = mimeType.split('/')[1]?.split('+')[0] || 'jpeg';
+                    const uploadedFile = await oai.files.create({
+                      file: new File([imageBuffer], `upload.${ext}`, { type: mimeType }),
+                      purpose: 'vision',
+                    });
+                    dbContent = `[${originalType}:${uploadedFile.id}]`;
+                    console.log(`[Upload] Große Datei → Files API, file_id=${uploadedFile.id}`);
+                  }
                   const contentType = originalType === 'pdf' ? 'pdf' : 'image';
 
-                  // Thread-Message mit Bild anlegen
-                  await oai.beta.threads.messages.create(thread.id, {
-                    role: 'user',
-                    content: [{ type: 'image_file', image_file: { file_id: uploadedFile.id } }],
-                  });
-
-                  // In DB spiegeln + Dashboard live benachrichtigen
-                  if (threadDbId) {
-                    saveMessage({ thread_db_id: threadDbId, role: 'user', content: dbContent, content_type: contentType });
-                    if (settings.activityId) {
-                      notifyDashboard(settings.activityId, {
-                        type: 'newMessage', threadDbId,
-                        userId: settings.userId || null, userName: settings.userName || null,
-                        role: 'user', content: dbContent, contentType,
-                        createdAt: new Date().toISOString(),
-                      });
-                    }
+                  // In DB speichern + Dashboard benachrichtigen
+                  saveMessage({ thread_db_id: threadDbId, role: 'user', content: dbContent, content_type: contentType });
+                  if (settings.activityId) {
+                    notifyDashboard(settings.activityId, {
+                      type: 'newMessage', threadDbId,
+                      userId: settings.userId || null, userName: settings.userName || null,
+                      role: 'user', content: dbContent, contentType,
+                      createdAt: new Date().toISOString(),
+                    });
                   }
 
-                  // Assistenten-Antwort streamen (Thread-Message bereits angelegt)
-                  streamRun(ws, thread, settings, eventHandler, run, threadDbId);
+                  // History jetzt vollständig in DB – direkt streamen
+                  streamResponse(ws, settings, threadDbId);
                 } catch (err) {
                   console.error('[Upload] Fehler:', err);
                   ws.send(JSON.stringify({ end: true, messages: `⚠️ Upload fehlgeschlagen: ${err.message}` }));
@@ -1035,143 +647,130 @@ app.ws("/api/chat", (ws, req) => {
   });
 });
 
-async function handleMsg(ws, thread, userMessage, settings, eventHandler, run, threadDbId = null) {
-  console.log("handleMsg called " + thread.id);
+/**
+ * Baut das input-Array für oai.responses.create() aus der SQLite-History.
+ * Inkl. task_image-Einträge (Aufgabenbilder).
+ */
+function buildInput(messages) {
+  return messages.map(m => {
+    const ct = m.content_type || 'text';
 
-  // Thread-Message mit Text anlegen
-  const msg = oai.beta.threads.messages.create(thread.id, {
-    role: "user",
-    content: userMessage,
+    if (ct === 'image' || ct === 'task_image') {
+      if (m.content.startsWith('data:')) {
+        return { role: m.role, content: [{ type: 'input_image', image_url: m.content }] };
+      }
+      // Marker [image:file-xxx] oder [pdf:file-xxx]
+      const match = m.content.match(/^\[(?:image|pdf):([^\]]+)\]$/);
+      if (match) {
+        return { role: m.role, content: [{ type: 'input_image', file_id: match[1] }] };
+      }
+    }
+
+    if (ct === 'pdf') {
+      const match = m.content.match(/^\[pdf:([^\]]+)\]$/);
+      if (match) {
+        return { role: m.role, content: [{ type: 'input_file', file_id: match[1] }] };
+      }
+    }
+
+    // Default: Plaintext
+    return { role: m.role, content: m.content };
   });
-
-  console.log("Message received:", userMessage);
-  streamRun(ws, thread, settings, eventHandler, run, threadDbId);
 }
 
 /**
- * Startet den Assistenten-Run und streamt die Antwort.
- * Wird von handleMsg (Text) und dem filemsg-Handler (Bild/PDF) verwendet.
- * Thread-Message muss BEREITS angelegt sein, bevor diese Funktion aufgerufen wird.
+ * Streamt eine Antwort via Responses API und spiegelt sie in SQLite.
+ * History wird vollständig aus der DB aufgebaut (inkl. task_image).
  */
-async function streamRun(ws, thread, settings, eventHandler, run, threadDbId = null) {
-  var citationindex = 1;
-  eventHandler.resContent = "";
-  eventHandler.citations = [];
+async function streamResponse(ws, settings, threadDbId) {
+  const chatMsg = { end: false, messages: '' };
 
-  var chatMsg = { end: false, messages: "" };
+  moment.locale('de');
+  const now     = moment();
+  const dayName = now.format('dddd');
+  const date    = now.format('DD.MM.YYYY');
+  const time    = now.format('HH:mm');
 
-  moment.locale("de");
-  const now = moment();
-  const dayName = now.format("dddd");
-  const date = now.format("DD.MM.YYYY");
-  const time = now.format("HH:mm");
-  console.log(`Heute ist ${dayName}, der ${date} um ${time}`);
+  const instructions = SYSTEM_PROMPT +
+    `\nHeute ist ${dayName}, der ${date} um ${time}.\n` +
+    (settings.hints || '') +
+    (settings.task  || '');
 
-  if (run != undefined) {
-    console.log("run is defined");
-    run.cancel();
-  }
+  const input = buildInput(getMessagesAll(threadDbId));
 
-  const runs = await oai.beta.threads.runs.list(thread.id);
-  console.log("RUNS:" + JSON.stringify(runs));
+  let resContent = '';
 
   try {
-    run = oai.beta.threads.runs
-      .stream(
-        thread.id,
-        {
-          assistant_id: process.env.AID,
-          instructions:
-            assistant.instructions +
-            `.Heute ist ${dayName}, der ${date} um ${time}.` +
-            settings.hints +
-            settings.task,
-        },
-        eventHandler
-      )
-      .on("event", (event) => {
-        eventHandler.emit("event", event);
-      })
-      .on("textDelta", async (textDelta, snapshot) => {
-        if (textDelta.hasOwnProperty("annotations")) {
-          for (let annotation of textDelta.annotations) {
-            const { file_citation } = annotation;
-            if (file_citation) {
-              console.log("File Citation", file_citation.file_id);
-              eventHandler.citations.push(file_citation.file_id);
-            }
-            textDelta.value = " [" + citationindex + "] ";
-            citationindex++;
-          }
-          eventHandler.resContent += textDelta.value;
-        } else {
-          eventHandler.resContent += textDelta.value;
-        }
-        eventHandler.resContent = eventHandler.resContent.replace("\r\n\r\n", "\r\n");
-        chatMsg.messages = eventHandler.resContent;
-        ws.send(JSON.stringify(chatMsg));
-      })
-      .on("end", async () => {
-        console.log("End event called: pendingFunctions=" + eventHandler.pendingFunctions);
-        eventHandler.resContent = eventHandler.resContent.replace("sandbox:/mnt/data/", "storage/");
-        eventHandler.resContent = eventHandler.resContent.replace("\r\n\r\n", "\r\n");
+    const stream = await oai.responses.create({
+      model:        MODEL_NAME,
+      instructions,
+      input,
+      stream:       true,
+    });
 
-        if (!eventHandler.pendingFunctions) {
-          console.log("Antwort: " + eventHandler.resContent);
+    let usage = null;
+    for await (const event of stream) {
+      if (event.type === 'response.output_text.delta') {
+        resContent += event.delta;
+        chatMsg.messages = resContent;
+        if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(chatMsg));
+      } else if (event.type === 'response.completed') {
+        usage = event.response?.usage ?? null;
+      }
+    }
 
-          // Assistenten-Antwort in DB spiegeln (Issue #2)
-          // msgId für token_log-Verknüpfung (Issue #12)
-          let msgId = null;
-          if (threadDbId) {
-            msgId = saveMessage({ thread_db_id: threadDbId, role: 'assistant', content: eventHandler.resContent });
-          }
+    resContent = resContent.replace('sandbox:/mnt/data/', 'storage/');
+    console.log(`[Chat] Antwort (${resContent.length} Zeichen)`);
 
-          // Issue #11/#12: Token-Verbrauch in DB speichern + Kosten berechnen
-          let runCost     = null;
-          let threadCost  = null;
-          let activityCost = null;
-          try {
-            const finalRun = run.currentRun();
-            if (finalRun?.usage && threadDbId) {
-              saveTokenUsage(threadDbId, settings?.activityId || null, MODEL_NAME, finalRun.usage, msgId);
-              console.log(`[Token] ${MODEL_NAME} – prompt=${finalRun.usage.prompt_tokens} completion=${finalRun.usage.completion_tokens} total=${finalRun.usage.total_tokens}`);
-              runCost      = computeRunCost(finalRun.usage.prompt_tokens, finalRun.usage.completion_tokens);
-              threadCost   = computeThreadCost(threadDbId);
-              activityCost = computeActivityCost(settings?.activityId || null);
-            }
-          } catch (e) {
-            console.warn('[Token] Fehler beim Speichern:', e.message);
-          }
+    // Assistenten-Antwort in DB spiegeln
+    const msgId = saveMessage({ thread_db_id: threadDbId, role: 'assistant', content: resContent });
 
-          // Issue #5: Lehrer-Dashboard live benachrichtigen (mit Kosten aus Issue #12)
-          if (threadDbId && settings.activityId) {
-            notifyDashboard(settings.activityId, {
-              type:         'newMessage',
-              threadDbId,
-              userId:       settings.userId   || null,
-              userName:     settings.userName || null,
-              role:         'assistant',
-              content:      eventHandler.resContent,
-              createdAt:    new Date().toISOString(),
-              runCost,
-              threadCost,
-              activityCost,
-            });
-          }
+    // Token-Verbrauch speichern (Responses API: input_tokens / output_tokens)
+    let runCost      = null;
+    let threadCost   = null;
+    let activityCost = null;
+    try {
+      if (usage && threadDbId) {
+        const mapped = {
+          prompt_tokens:     usage.input_tokens,
+          completion_tokens: usage.output_tokens,
+          total_tokens:      usage.total_tokens,
+        };
+        saveTokenUsage(threadDbId, settings?.activityId || null, MODEL_NAME, mapped, msgId);
+        console.log(`[Token] ${MODEL_NAME} – input=${usage.input_tokens} output=${usage.output_tokens}`);
+        runCost      = computeRunCost(mapped.prompt_tokens, mapped.completion_tokens);
+        threadCost   = computeThreadCost(threadDbId);
+        activityCost = computeActivityCost(settings?.activityId || null);
+      }
+    } catch (e) {
+      console.warn('[Token] Fehler beim Speichern:', e.message);
+    }
 
-          chatMsg.end = true;
-          chatMsg.messages = eventHandler.resContent;
-          ws.send(JSON.stringify(chatMsg));
-        }
-      })
-      .on("error", (error) => {
-        console.error("Error:", error);
+    // Dashboard benachrichtigen
+    if (settings.activityId) {
+      notifyDashboard(settings.activityId, {
+        type:         'newMessage',
+        threadDbId,
+        userId:       settings.userId   || null,
+        userName:     settings.userName || null,
+        role:         'assistant',
+        content:      resContent,
+        createdAt:    new Date().toISOString(),
+        runCost,
+        threadCost,
+        activityCost,
       });
+    }
+
+    chatMsg.end      = true;
+    chatMsg.messages = resContent;
+    if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(chatMsg));
+
   } catch (error) {
-    chatMsg.end = true;
-    chatMsg.messages = "Error: " + error.message;
-    ws.send(JSON.stringify(chatMsg));
-    console.log("Error: ", error);
+    console.error('[Chat] streamResponse Fehler:', error);
+    chatMsg.end      = true;
+    chatMsg.messages = 'Error: ' + error.message;
+    if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(chatMsg));
   }
 }
 

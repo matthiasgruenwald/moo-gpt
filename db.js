@@ -58,6 +58,27 @@ export function initDb() {
   try { db.exec(`ALTER TABLE messages ADD COLUMN content_type TEXT DEFAULT 'text'`); } catch (_) {}
   // Issue #12: message_id in token_log für Kostenanzeige pro Nachrichtenrunde
   try { db.exec(`ALTER TABLE token_log ADD COLUMN message_id INTEGER`); } catch (_) {}
+  // Issue #13: openai_thread_id nullable machen (Responses API braucht keinen Thread)
+  {
+    const col = db.pragma('table_info(threads)').find(c => c.name === 'openai_thread_id');
+    if (col && col.notnull === 1) {
+      db.exec(`
+        ALTER TABLE threads RENAME TO threads_old;
+        CREATE TABLE threads (
+          id               INTEGER PRIMARY KEY AUTOINCREMENT,
+          moodle_user_id   TEXT,
+          moodle_user_name TEXT,
+          activity_id      TEXT,
+          openai_thread_id TEXT,
+          created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at       DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        INSERT INTO threads SELECT * FROM threads_old;
+        DROP TABLE threads_old;
+      `);
+      console.log('[DB] Migration: openai_thread_id ist jetzt nullable');
+    }
+  }
 
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;
@@ -66,22 +87,19 @@ export function initDb() {
 /**
  * Legt einen neuen Thread-Eintrag an.
  * Gibt die interne DB-ID zurück.
+ * openai_thread_id ist optional (Responses API braucht keinen Thread).
  */
-export function saveThread({ moodle_user_id, moodle_user_name, activity_id, openai_thread_id }) {
+export function saveThread({ moodle_user_id, moodle_user_name, activity_id, openai_thread_id = null }) {
   const stmt = db.prepare(`
-    INSERT OR IGNORE INTO threads (moodle_user_id, moodle_user_name, activity_id, openai_thread_id)
+    INSERT INTO threads (moodle_user_id, moodle_user_name, activity_id, openai_thread_id)
     VALUES (?, ?, ?, ?)
   `);
   const result = stmt.run(
     moodle_user_id   || null,
     moodle_user_name || null,
     activity_id      || null,
-    openai_thread_id
+    openai_thread_id || null
   );
-  // Falls IGNORE griff (Thread existiert schon), trotzdem ID zurückgeben
-  if (result.lastInsertRowid === 0) {
-    return getThreadDbId(openai_thread_id);
-  }
   return result.lastInsertRowid;
 }
 
@@ -113,21 +131,38 @@ export function findThread({ moodle_user_id, activity_id }) {
 }
 
 /**
- * Gibt alle Nachrichten eines Threads zurück (chronologisch).
- * Maximal 100 Einträge, um das Chat-Fenster nicht zu überfluten.
+ * Gibt die anzeigbaren Nachrichten eines Threads zurück (chronologisch).
+ * Filtert task_image-Einträge heraus (Aufgabenbilder – nur für API-Input relevant).
  * Issue #3: Chatverlauf beim Reconnect
  * Issue #12: Kosten-Spalten (cost_prompt, cost_completion) via JOIN mit token_log
  */
 export function getMessages(thread_db_id) {
   return db.prepare(`
-    SELECT m.role, m.content, m.content_type, m.created_at,
+    SELECT m.id, m.role, m.content, m.content_type, m.created_at,
+           tl.prompt_tokens     AS cost_prompt,
+           tl.completion_tokens AS cost_completion
+    FROM messages m
+    LEFT JOIN token_log tl ON tl.message_id = m.id
+    WHERE m.thread_id = ? AND COALESCE(m.content_type, 'text') != 'task_image'
+    ORDER BY m.created_at ASC
+    LIMIT 100
+  `).all(thread_db_id);
+}
+
+/**
+ * Wie getMessages, aber inkl. task_image-Einträge.
+ * Wird von streamResponse genutzt, um die vollständige History für die API zu bauen.
+ */
+export function getMessagesAll(thread_db_id) {
+  return db.prepare(`
+    SELECT m.id, m.role, m.content, m.content_type, m.created_at,
            tl.prompt_tokens     AS cost_prompt,
            tl.completion_tokens AS cost_completion
     FROM messages m
     LEFT JOIN token_log tl ON tl.message_id = m.id
     WHERE m.thread_id = ?
     ORDER BY m.created_at ASC
-    LIMIT 100
+    LIMIT 150
   `).all(thread_db_id);
 }
 
