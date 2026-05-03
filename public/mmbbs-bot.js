@@ -835,7 +835,9 @@ export class MMBBSBOT {
     lb.id = 'mmb-lightbox';
     lb.innerHTML = `
       <button id="mmb-lb-close" aria-label="Schließen">✕</button>
-      <div id="mmb-lb-inner"><img id="mmb-lb-img" src="" alt="Vorschau"></div>`;
+      <div id="mmb-lb-inner">
+        <div id="mmb-lb-canvas"><img id="mmb-lb-img" src="" alt="Vorschau"></div>
+      </div>`;
     document.body.appendChild(lb);
 
     const inner = lb.querySelector('#mmb-lb-inner');
@@ -848,17 +850,39 @@ export class MMBBSBOT {
     lb.querySelector('#mmb-lb-close').addEventListener('click', () => this._closeLightbox());
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') this._closeLightbox(); });
 
-    // Maus-Zoom, cursor-zentriert
+    // Maus-Zoom: cursor-zentriert, analytische Scroll-Korrektur
     inner.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const factor  = e.deltaY < 0 ? 1.12 : 0.89;
-      const imgRect = img.getBoundingClientRect();
-      const ox = e.clientX - imgRect.left;
-      const oy = e.clientY - imgRect.top;
-      const newW = Math.min(Math.max(img.offsetWidth * factor, 150), img.naturalWidth * 5);
+      const factor = e.deltaY < 0 ? 1.08 : 0.93;
+      const innerRect = inner.getBoundingClientRect();
+
+      // Cursor-Position im Scroll-Raum
+      const cursorX = inner.scrollLeft + (e.clientX - innerRect.left);
+      const cursorY = inner.scrollTop  + (e.clientY - innerRect.top);
+
+      // Aktuelle Bildposition im Canvas (flex-zentriert → analytisch berechnet)
+      const curW = img.offsetWidth, curH = img.offsetHeight;
+      const imgX = Math.max(0, (inner.clientWidth  - curW) / 2);
+      const imgY = Math.max(0, (inner.clientHeight - curH) / 2);
+
+      // Relativer Treffer im Bild (0..1)
+      const rx = (cursorX - imgX) / curW;
+      const ry = (cursorY - imgY) / curH;
+
+      // Neue Breite (max 600% der Originalgröße, min 100px)
+      const natW = img.naturalWidth  || inner.clientWidth;
+      const natH = img.naturalHeight || inner.clientHeight;
+      const newW = Math.min(Math.max(curW * factor, 100), natW * 6);
+      const newH = newW / natW * natH;
       img.style.width = newW + 'px';
-      inner.scrollLeft += ox * (factor - 1);
-      inner.scrollTop  += oy * (factor - 1);
+
+      // Neue Bildposition im Canvas
+      const newImgX = Math.max(0, (inner.clientWidth  - newW) / 2);
+      const newImgY = Math.max(0, (inner.clientHeight - newH) / 2);
+
+      // Scroll so korrigieren, dass Cursor auf dem selben Bildpunkt bleibt
+      inner.scrollLeft = newImgX + rx * newW - (e.clientX - innerRect.left);
+      inner.scrollTop  = newImgY + ry * newH - (e.clientY - innerRect.top);
     }, { passive: false });
 
     // Drag-to-Pan (Maus)
@@ -899,7 +923,8 @@ export class MMBBSBOT {
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
-        img.style.width = Math.min(Math.max(initW * dist / initDist, 150), img.naturalWidth * 5) + 'px';
+        const natW = img.naturalWidth || inner.clientWidth;
+        img.style.width = Math.min(Math.max(initW * dist / initDist, 100), natW * 6) + 'px';
       }
     }, { passive: false });
     inner.addEventListener('touchend', () => { initDist = null; });
@@ -912,11 +937,22 @@ export class MMBBSBOT {
     const inner = this._lbInner || document.getElementById('mmb-lb-inner');
     const img   = this._lbImg   || document.getElementById('mmb-lb-img');
     if (!lb || !img || !inner) return;
-    img.style.width = '';   // reset → max-width:100% greift
+    img.style.width = '';
     img.src = src;
     inner.scrollLeft = 0;
     inner.scrollTop  = 0;
     lb.style.display = 'flex';
+
+    // Initiales Fit: Bild auf max 90vw × 90vh skalieren
+    const fitImg = () => {
+      const natW = img.naturalWidth, natH = img.naturalHeight;
+      if (!natW || !natH) return;
+      const maxW = inner.clientWidth, maxH = inner.clientHeight;
+      const scale = Math.min(1, maxW / natW, maxH / natH);
+      if (scale < 1) img.style.width = Math.round(natW * scale) + 'px';
+    };
+    if (img.complete && img.naturalWidth) { fitImg(); }
+    else { img.onload = fitImg; }
   }
 
   _closeLightbox() {

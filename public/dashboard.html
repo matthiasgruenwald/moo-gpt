@@ -312,12 +312,14 @@
     }
     #dash-lb-close:hover { background: rgba(255,255,255,0.3); }
     #dash-lb-inner {
-      width: 90vw; height: 90vh;
-      overflow: auto; border-radius: 4px;
+      width: 90vw; height: 90vh; overflow: auto;
+    }
+    #dash-lb-canvas {
+      min-width: 100%; min-height: 100%;
+      display: flex; align-items: center; justify-content: center;
     }
     #dash-lb-img {
-      display: block; max-width: 100%; height: auto;
-      border-radius: 4px; cursor: grab;
+      display: block; height: auto; cursor: grab; flex-shrink: 0;
       user-select: none; -webkit-user-drag: none;
     }
     #dash-lb-img.dash-dragging { cursor: grabbing; }
@@ -410,7 +412,9 @@
 <!-- Lightbox (Issue #15) -->
 <div id="dash-lightbox">
   <button id="dash-lb-close" aria-label="Schließen">✕</button>
-  <div id="dash-lb-inner"><img id="dash-lb-img" src="" alt="Vorschau"></div>
+  <div id="dash-lb-inner">
+    <div id="dash-lb-canvas"><img id="dash-lb-img" src="" alt="Vorschau"></div>
+  </div>
 </div>
 
 <!-- Initialer Fehler: keine Dashboard-Struktur sichtbar -->
