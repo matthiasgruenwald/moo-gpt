@@ -11,6 +11,11 @@ import moment from "moment";
 import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, getActivityName, saveTokenUsage, getThreadCostTokens, getActivityCostTokens } from "./db.js";
 import crypto from "crypto";
 
+// Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled Promise Rejection – Prozess läuft weiter:', reason);
+});
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 

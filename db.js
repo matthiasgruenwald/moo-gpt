@@ -12,6 +12,7 @@ let db;
 export function initDb() {
   db = new Database(DB_PATH);
   db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = OFF'); // Explizit OFF – Migration bricht sonst FK-Referenz in messages
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS threads (
