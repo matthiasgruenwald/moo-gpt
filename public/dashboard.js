@@ -493,11 +493,35 @@ function escHtml(str) {
 }
 
 function simpleMarkdown(text) {
-  let html = escHtml(text);
-  html = html.replace(/```[\s\S]*?```/g, m => `<pre>${m.slice(3, -3).trim()}</pre>`);
+  // Extract LaTeX before HTML-escaping so backslashes and < > survive intact.
+  // Placeholders use null bytes (\x00) which escHtml never touches.
+  const math = [];
+  let s = text;
+
+  // Block math: $$...$$ and \[...\]
+  s = s.replace(/\$\$([\s\S]+?)\$\$/g,   (_, m) => { math.push({ m, d: true  }); return `\x00math${math.length-1}\x00`; });
+  s = s.replace(/\\\[([\s\S]+?)\\\]/g,   (_, m) => { math.push({ m, d: true  }); return `\x00math${math.length-1}\x00`; });
+  // Inline math: \(...\) and $...$
+  s = s.replace(/\\\((.+?)\\\)/g,        (_, m) => { math.push({ m, d: false }); return `\x00math${math.length-1}\x00`; });
+  s = s.replace(/\$([^\n$]+?)\$/g,       (_, m) => { math.push({ m, d: false }); return `\x00math${math.length-1}\x00`; });
+
+  let html = escHtml(s);
+  html = html.replace(/```[\s\S]*?```/g, match => `<pre>${match.slice(3, -3).trim()}</pre>`);
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\n/g, '<br>');
+
+  if (math.length) {
+    html = html.replace(/\x00math(\d+)\x00/g, (_, i) => {
+      const { m, d } = math[+i];
+      try {
+        return window.katex
+          ? katex.renderToString(m, { displayMode: d, throwOnError: false })
+          : escHtml(d ? `$$${m}$$` : `$${m}$`);
+      } catch { return escHtml(d ? `$$${m}$$` : `$${m}$`); }
+    });
+  }
+
   return html;
 }
 

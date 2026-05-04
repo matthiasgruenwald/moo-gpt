@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Schüler-Dashboard – MMBbS GPT</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js" crossorigin="anonymous"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -219,6 +221,11 @@
       white-space: pre-wrap;
       font-size: 13px;
     }
+    .msg-bubble .katex-display {
+      margin: 6px 0;
+      overflow-x: auto;
+    }
+    .msg-bubble .katex { font-size: 1em; }
     .msg-time {
       font-size: 11px;
       opacity: 0.6;
