@@ -11,6 +11,33 @@ const params     = new URLSearchParams(window.location.search);
 const activityId = params.get('activityId') || '';
 const token      = params.get('token')      || '';
 
+// ── Issue #25: Modell-Einstellungen (localStorage) ───────────────────────────
+const GEN_MODEL_KEYS    = ['criteria', 'personas', 'utterances', 'eval'];
+const GEN_MODEL_DEFAULT = 'gpt-4.1-nano';
+
+function getGenModel(key) {
+  return localStorage.getItem(`genModel_${key}`) || GEN_MODEL_DEFAULT;
+}
+function setGenModel(key, value) {
+  localStorage.setItem(`genModel_${key}`, value);
+}
+
+function populateGenModelSelects(models) {
+  for (const key of GEN_MODEL_KEYS) {
+    const sel = document.getElementById(`model-${key}`);
+    if (!sel) continue;
+    const saved = getGenModel(key);
+    sel.innerHTML = '';
+    for (const m of models) {
+      const opt = document.createElement('option');
+      opt.value = m; opt.textContent = m;
+      if (m === saved) opt.selected = true;
+      sel.appendChild(opt);
+    }
+    sel.addEventListener('change', () => setGenModel(key, sel.value));
+  }
+}
+
 // ── State ────────────────────────────────────────────────────────────────────
 let students                = [];          // aktuelle Schülerliste (sortiert)
 let selectedThreadId        = null;        // aktuell angezeigter Thread
@@ -868,6 +895,11 @@ function applySettingsData(data) {
   document.getElementById('sp-display').value            = data.systemPrompt || '';
   document.getElementById('global-model-display').textContent = data.model || '–';
 
+  // Issue #25: Gen-Modell-Selects befüllen + Chat-Modell-Feld setzen
+  if (data.genModels?.length) populateGenModelSelects(data.genModels);
+  const chatModelInput = document.getElementById('model-chat');
+  if (chatModelInput) chatModelInput.value = data.model || '–';
+
   // Persönliches Modell-Dropdown
   const mySelect = document.getElementById('my-model-select');
   mySelect.innerHTML = `<option value="">Standard (${escHtml(data.model)})</option>`;
@@ -1043,7 +1075,11 @@ document.getElementById('criteria-suggest-btn').addEventListener('click', async 
   loading.classList.add('visible');
   sugg.style.display = 'none';
   try {
-    const data = await apiFetch(`/api/criteria-suggest/${encodeURIComponent(activityId)}`, { method: 'POST' });
+    const data = await apiFetch(`/api/criteria-suggest/${encodeURIComponent(activityId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ genModel: getGenModel('criteria') }),
+    });
     renderCriteriaSuggestions(data.suggestions || []);
   } catch (e) {
     setStatus(document.getElementById('criteria-status'), `Fehler: ${e.message}`, true);
@@ -1137,7 +1173,11 @@ document.getElementById('personas-suggest-btn').addEventListener('click', async 
   loading.classList.add('visible');
   sugg.style.display = 'none';
   try {
-    const data = await apiFetch(`/api/personas-suggest/${encodeURIComponent(activityId)}`, { method: 'POST' });
+    const data = await apiFetch(`/api/personas-suggest/${encodeURIComponent(activityId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ genModel: getGenModel('personas') }),
+    });
     renderPersonaSuggestions(data.suggestions || []);
   } catch (e) {
     setStatus(document.getElementById('personas-status'), `Fehler: ${e.message}`, true);
@@ -1171,24 +1211,80 @@ function renderPersonaSuggestions(suggestions) {
 
 // ── Simulation starten ────────────────────────────────────────────────────────
 
+// ── Issue #26: SSE-Simulation ─────────────────────────────────────────────────
+
 document.getElementById('sim-start-btn').addEventListener('click', async () => {
   const personaId = document.getElementById('sim-persona-select').value;
   if (!personaId) return alert('Bitte eine Persona auswählen.');
 
-  const loading = document.getElementById('sim-loading');
-  const results = document.getElementById('sim-results');
-  const startBtn = document.getElementById('sim-start-btn');
+  const loading   = document.getElementById('sim-loading');
+  const progress  = document.getElementById('sim-progress');
+  const results   = document.getElementById('sim-results');
+  const suggDiv   = document.getElementById('sim-suggestion');
+  const startBtn  = document.getElementById('sim-start-btn');
+
   loading.classList.add('visible');
   startBtn.disabled = true;
   results.innerHTML = '';
+  suggDiv.innerHTML = '';
+  progress.textContent = 'Starte…';
+
+  let headerAdded = false;
 
   try {
-    const data = await apiFetch(`/api/simulate?activityId=${encodeURIComponent(activityId)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ personaId: parseInt(personaId) }),
-    });
-    renderSimResults(data.results || [], data.personaName || '');
+    const response = await fetch(
+      `/api/simulate?activityId=${encodeURIComponent(activityId)}&token=${encodeURIComponent(token)}`,
+      {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personaId:      parseInt(personaId),
+          utteranceModel: getGenModel('utterances'),
+          evalModel:      getGenModel('eval'),
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${response.status}`);
+    }
+
+    const reader  = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer    = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        let ev;
+        try { ev = JSON.parse(line.slice(6)); } catch { continue; }
+
+        if (ev.type === 'start') {
+          progress.textContent = `Simulation gestartet (${ev.total} Paare)…`;
+        } else if (ev.type === 'progress') {
+          progress.textContent = ev.label || 'Simuliere…';
+        } else if (ev.type === 'pair') {
+          if (!headerAdded) {
+            results.innerHTML = `<p style="font-size:13px;font-weight:600;color:#003366;margin-bottom:8px">Simulation: ${escHtml(ev.personaName || '')}</p>`;
+            headerAdded = true;
+          }
+          renderSimPair(ev.pair, ev.index, results);
+        } else if (ev.type === 'suggestion') {
+          renderSimSuggestion(ev, suggDiv);
+        } else if (ev.type === 'done') {
+          progress.textContent = 'Simulation abgeschlossen.';
+        } else if (ev.type === 'error') {
+          results.insertAdjacentHTML('beforeend', `<p style="color:#c0392b;font-size:13px">Fehler: ${escHtml(ev.message)}</p>`);
+        }
+      }
+    }
   } catch (e) {
     results.innerHTML = `<p style="color:#c0392b;font-size:13px">Fehler: ${escHtml(e.message)}</p>`;
   } finally {
@@ -1209,36 +1305,47 @@ function highlightResponse(text, highlights) {
   return result;
 }
 
-function renderSimResults(results, personaName) {
-  const container = document.getElementById('sim-results');
-  container.innerHTML = `<p style="font-size:13px;font-weight:600;color:#003366;margin-bottom:8px">Simulation: ${escHtml(personaName)}</p>`;
+function renderSimPair(pair, index, container) {
+  const { utterance, aiResponse, evaluation } = pair;
+  const ev           = evaluation || {};
+  const overallClass = `sim-overall-${ev.overall || 'gemischt'}`;
+  const scoreStars   = '⭐'.repeat(Math.max(1, Math.min(5, ev.score || 3)));
 
-  for (let i = 0; i < results.length; i++) {
-    const { utterance, aiResponse, evaluation } = results[i];
-    const ev = evaluation || {};
-    const overallClass = `sim-overall-${ev.overall || 'gemischt'}`;
-    const scoreStars = '⭐'.repeat(Math.max(1, Math.min(5, ev.score || 3)));
+  const el = document.createElement('div');
+  el.className = 'sim-pair';
+  el.innerHTML = `
+    <div class="sim-pair-header">
+      <span>Äußerung ${index + 1}</span>
+      <span class="${overallClass}">${ev.overall || 'gemischt'}</span>
+      <span class="sim-score">${scoreStars}</span>
+    </div>
+    <div class="sim-utterance">${escHtml(utterance)}</div>
+    <div class="sim-response">${highlightResponse(aiResponse, ev.highlights)}</div>
+    ${ev.summary ? `<div class="sim-summary">💬 ${escHtml(ev.summary)}</div>` : ''}`;
+  container.appendChild(el);
+}
 
-    const pair = document.createElement('div');
-    pair.className = 'sim-pair';
-    pair.innerHTML = `
-      <div class="sim-pair-header">
-        <span>Äußerung ${i + 1}</span>
-        <span class="${overallClass}">${ev.overall || 'gemischt'}</span>
-        <span class="sim-score">${scoreStars}</span>
-      </div>
-      <div class="sim-utterance">${escHtml(utterance)}</div>
-      <div class="sim-response">${highlightResponse(aiResponse, ev.highlights)}</div>
-      ${ev.summary ? `<div class="sim-summary">💬 ${escHtml(ev.summary)}</div>` : ''}`;
-    container.appendChild(pair);
-  }
+function renderSimSuggestion(ev, container) {
+  const text = ev.erfahrungsprompt_neu || '';
+  container.innerHTML = '';
 
-  if (results.length) {
-    const hint = document.createElement('p');
-    hint.style.cssText = 'font-size:12px;color:#888;margin-top:4px';
-    hint.textContent = '🟢 = gelungen · 🔴 = problematisch. Wechsel zu "Optimierung" um daraus einen neuen Erfahrungsprompt zu generieren.';
-    container.appendChild(hint);
-  }
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = `
+    <h4>✅ Erfahrungsprompt-Vorschlag (basierend auf dieser Simulation)</h4>
+    <textarea rows="6" readonly style="width:100%;box-sizing:border-box;font-size:13px;border:1px solid #b2d9b2;border-radius:4px;padding:8px;background:white">${escHtml(text)}</textarea>`;
+
+  const btn = document.createElement('button');
+  btn.className = 'sim-adopt-btn';
+  btn.textContent = 'Vorschlag übernehmen → Optimierung';
+  btn.addEventListener('click', () => {
+    const tabBtn = document.querySelector('.tab-btn[data-tab="optimize"]');
+    if (tabBtn) tabBtn.click();
+    const neuField = document.getElementById('opt-neu');
+    if (neuField) { neuField.value = text; neuField.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  });
+
+  wrapper.appendChild(btn);
+  container.appendChild(wrapper);
 }
 
 // ── Optimierungs-Panel (Issue #20) ────────────────────────────────────────────

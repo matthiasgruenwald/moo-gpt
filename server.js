@@ -259,6 +259,10 @@ const AVAILABLE_MODELS = process.env.AVAILABLE_MODELS
   ? process.env.AVAILABLE_MODELS.split(',').map(m => m.trim()).filter(Boolean)
   : [MODEL_NAME];
 
+// Issue #25: Günstige Modelle für Hilfsgenerierungen (Kriterien, Personas, Äußerungen, Evaluierung)
+const GEN_MODEL  = process.env.GEN_MODEL || 'gpt-4.1-nano';
+const GEN_MODELS = [...new Set(['gpt-4.1-nano', 'gpt-4.1', ...AVAILABLE_MODELS])];
+
 let cachedConfig = { content: SYSTEM_PROMPT, model: MODEL_NAME }; // wird nach initDb() überschrieben
 
 // Issue #11: LiteLLM-Preise laden und 24 h cachen
@@ -438,6 +442,7 @@ app.get('/api/admin/config', (req, res) => {
     systemPrompt:    cachedConfig.content,
     model:           cachedConfig.model,
     availableModels: AVAILABLE_MODELS,
+    genModels:       GEN_MODELS,
     isAdmin:         isAdmin(userId),
     myModel:         pref?.preferred_model || null,
   });
@@ -558,33 +563,26 @@ app.get('/api/erfahrungsprompt-history/:activityId', (req, res) => {
   res.json({ history: getErfahrungspromptHistory(activityId) });
 });
 
-/** POST /api/optimize-prompt?activityId=X&token= – KI-Vorschlag generieren */
-app.post('/api/optimize-prompt', async (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId, token } = req.query;
-  if (!activityId || !validateDashboardToken(token, activityId))
-    return res.status(403).json({ error: 'Unauthorized' });
+// Issue #26: Optimize-Logik als Hilfsfunktion (wird von /api/optimize-prompt und /api/simulate genutzt)
+async function generateOptimizeProposal(activityId, simResultsText = '') {
+  const feedbacks    = getFeedbackByActivity(activityId);
+  const erkenntnisse = getErkenntnisse(activityId);
+  const erf          = getActiveErfahrungsprompt(activityId);
 
-  try {
-    const feedbacks   = getFeedbackByActivity(activityId);
-    const erkenntnisse = getErkenntnisse(activityId);
-    const erf         = getActiveErfahrungsprompt(activityId);
+  const feedbackText = feedbacks.length === 0
+    ? 'Noch keine Bewertungen vorhanden.'
+    : feedbacks.map(f => {
+        const lines = [`[${f.rating.toUpperCase()}] ${(f.message_content || '').slice(0, 300)}`];
+        if (f.comment) lines.push(`Kommentar: ${f.comment}`);
+        if (f.improved_text) lines.push(`Verbesserter Vorschlag: ${f.improved_text.slice(0, 300)}`);
+        return lines.join('\n');
+      }).join('\n---\n');
 
-    // Feedback-Paare kompakt formatieren
-    const feedbackText = feedbacks.length === 0
-      ? 'Noch keine Bewertungen vorhanden.'
-      : feedbacks.map(f => {
-          const lines = [`[${f.rating.toUpperCase()}] ${(f.message_content || '').slice(0, 300)}`];
-          if (f.comment) lines.push(`Kommentar: ${f.comment}`);
-          if (f.improved_text) lines.push(`Verbesserter Vorschlag: ${f.improved_text.slice(0, 300)}`);
-          return lines.join('\n');
-        }).join('\n---\n');
+  const erkenntnisText = erkenntnisse.length === 0
+    ? 'Keine Erkenntnisse vorhanden.'
+    : erkenntnisse.map(e => `- ${e.content}`).join('\n');
 
-    const erkenntnisText = erkenntnisse.length === 0
-      ? 'Keine Erkenntnisse vorhanden.'
-      : erkenntnisse.map(e => `- ${e.content}`).join('\n');
-
-    const instructions = `Du bist Experte für pädagogisches Prompt-Engineering an einer IGS (Klasse 9).
+  const instructions = `Du bist Experte für pädagogisches Prompt-Engineering an einer IGS (Klasse 9).
 Deine Aufgabe: Erstelle einen verbesserten Erfahrungsprompt basierend auf Feedback-Daten.
 
 Der Erfahrungsprompt ist ein kurzer Zusatz zum globalen Systemprompt – aktivitätsspezifisch, max. 200 Wörter.
@@ -598,38 +596,44 @@ Antworte AUSSCHLIESSLICH mit validem JSON ohne Markdown-Blöcke:
   ]
 }`;
 
-    const userMessage = `Globaler Systemprompt:\n${cachedConfig.content}\n\n` +
-      `Aktueller Erfahrungsprompt:\n${erf?.content || '(noch keiner)'}\n\n` +
-      `Feedback zu KI-Antworten dieser Aufgabe:\n${feedbackText}\n\n` +
-      `Bisherige Erkenntnisse:\n${erkenntnisText}\n\n` +
-      `Erstelle einen verbesserten Erfahrungsprompt für diese Aufgabe.`;
+  const userMessage = `Globaler Systemprompt:\n${cachedConfig.content}\n\n` +
+    `Aktueller Erfahrungsprompt:\n${erf?.content || '(noch keiner)'}\n\n` +
+    `Feedback zu KI-Antworten dieser Aufgabe:\n${feedbackText}\n\n` +
+    (simResultsText ? `Simulations-Ergebnisse (frisch):\n${simResultsText}\n\n` : '') +
+    `Bisherige Erkenntnisse:\n${erkenntnisText}\n\n` +
+    `Erstelle einen verbesserten Erfahrungsprompt für diese Aufgabe.`;
 
-    const response = await oai.responses.create({
-      model:        cachedConfig.model || MODEL_NAME,
-      instructions,
-      input:        [{ role: 'user', content: userMessage }],
-      stream:       false,
-    });
+  const response = await oai.responses.create({
+    model:        cachedConfig.model || MODEL_NAME,
+    instructions,
+    input:        [{ role: 'user', content: userMessage }],
+    stream:       false,
+  });
 
-    const raw = response.output_text || '';
-    let parsed;
-    try {
-      // JSON ggf. aus Markdown-Block extrahieren
-      const jsonStr = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
-      parsed = JSON.parse(jsonStr);
-    } catch (_) {
-      return res.status(500).json({ error: 'KI hat kein gültiges JSON zurückgegeben', raw });
-    }
+  const raw = response.output_text || '';
+  const jsonStr = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+  const parsed = JSON.parse(jsonStr);
+  if (!parsed.erfahrungsprompt_neu || !Array.isArray(parsed.kausalkette))
+    throw new Error('Unvollständige KI-Antwort');
 
-    if (!parsed.erfahrungsprompt_neu || !Array.isArray(parsed.kausalkette))
-      return res.status(500).json({ error: 'Unvollständige KI-Antwort', raw });
+  return {
+    erfahrungsprompt_alt: erf?.content || '',
+    erfahrungsprompt_neu: parsed.erfahrungsprompt_neu,
+    kausalkette:          parsed.kausalkette,
+  };
+}
 
-    console.log(`[Optimize] Vorschlag für ${activityId} generiert (${parsed.kausalkette.length} Kausalketten-Einträge)`);
-    res.json({
-      erfahrungsprompt_alt: erf?.content || '',
-      erfahrungsprompt_neu: parsed.erfahrungsprompt_neu,
-      kausalkette:          parsed.kausalkette,
-    });
+/** POST /api/optimize-prompt?activityId=X&token= – KI-Vorschlag generieren */
+app.post('/api/optimize-prompt', async (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId, token } = req.query;
+  if (!activityId || !validateDashboardToken(token, activityId))
+    return res.status(403).json({ error: 'Unauthorized' });
+
+  try {
+    const result = await generateOptimizeProposal(activityId);
+    console.log(`[Optimize] Vorschlag für ${activityId} generiert (${result.kausalkette.length} Kausalketten-Einträge)`);
+    res.json(result);
   } catch (e) {
     console.error('[Optimize] Fehler:', e);
     res.status(500).json({ error: e.message });
@@ -653,9 +657,9 @@ app.post('/api/erkenntnisse', (req, res) => {
 
 // ── Issue #21: Personas & Simulation – AI-Hilfsfunktionen ────────────────────
 
-async function aiJsonCall(instructions, userMessage) {
+async function aiJsonCall(instructions, userMessage, model = GEN_MODEL) {
   const response = await oai.responses.create({
-    model:   cachedConfig.model || MODEL_NAME,
+    model,
     instructions,
     input:   [{ role: 'user', content: userMessage }],
     stream:  false,
@@ -664,13 +668,14 @@ async function aiJsonCall(instructions, userMessage) {
   return JSON.parse(raw);
 }
 
-async function generateSimulatedUtterances(persona, count = 4) {
+async function generateSimulatedUtterances(persona, count = 4, model = GEN_MODEL) {
   return aiJsonCall(
     `Du simulierst Schüleräußerungen für Prompt-Engineering-Tests an einer IGS (Klasse 9).
 Generiere exakt ${count} kurze Schüleräußerungen für den beschriebenen Schüler-Typ.
 Antworte NUR mit einem JSON-Array von Strings: ["Äußerung 1", "Äußerung 2", ...]`,
     `Schüler-Typ: ${persona.name}\nBeschreibung: ${persona.description || '–'}\n` +
-    (persona.example_msgs ? `Typische Formulierungen: ${persona.example_msgs}` : '')
+    (persona.example_msgs ? `Typische Formulierungen: ${persona.example_msgs}` : ''),
+    model
   );
 }
 
@@ -685,7 +690,7 @@ async function generateAIResponse(systemContent, erfahrungContent, utterance) {
   return r.output_text || '';
 }
 
-async function evaluateResponse(utterance, aiResponse, criteria) {
+async function evaluateResponse(utterance, aiResponse, criteria, model = GEN_MODEL) {
   const criteriaText = criteria.length
     ? criteria.map(c => `- ${c.content}`).join('\n')
     : '- Gibt keine fertigen Lösungen\n- Stellt Rückfragen\n- Fördert eigenständiges Denken';
@@ -700,7 +705,8 @@ Antworte AUSSCHLIESSLICH mit validem JSON (keine Markdown-Blöcke):
   "summary": "Kurzes Gesamturteil"
 }
 Wähle nur Highlights deren Wortlaut EXAKT so in der KI-Antwort steht.`,
-    `Kriterien:\n${criteriaText}\n\nSchüler-Äußerung: ${utterance}\n\nKI-Antwort:\n${aiResponse}`
+    `Kriterien:\n${criteriaText}\n\nSchüler-Äußerung: ${utterance}\n\nKI-Antwort:\n${aiResponse}`,
+    model
   );
 }
 
@@ -720,6 +726,7 @@ app.post('/api/personas-suggest/:activityId', async (req, res) => {
   const { activityId } = req.params;
   if (!validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
   try {
+    const { genModel } = req.body;
     const msgs = getStudentMessages(activityId);
     const sample = msgs.slice(0, 60).map(m => m.content).join('\n---\n');
     const result = await aiJsonCall(
@@ -727,7 +734,8 @@ app.post('/api/personas-suggest/:activityId', async (req, res) => {
 Antworte AUSSCHLIESSLICH mit validem JSON:
 { "personas": [{ "name": "...", "description": "...", "example_msgs": "Beispiel 1|Beispiel 2|Beispiel 3" }] }
 Leite 3–5 gut unterscheidbare Personas ab. Wenn keine Äußerungen vorliegen, erstelle generische Schüler-Typen für eine IGS Klasse 9.`,
-      msgs.length ? `Schüler-Äußerungen:\n${sample}` : 'Noch keine Schüler-Äußerungen vorhanden. Erstelle typische Klasse-9-Personas.'
+      msgs.length ? `Schüler-Äußerungen:\n${sample}` : 'Noch keine Schüler-Äußerungen vorhanden. Erstelle typische Klasse-9-Personas.',
+      genModel || GEN_MODEL
     );
     res.json({ suggestions: result.personas || [] });
   } catch (e) {
@@ -773,12 +781,14 @@ app.post('/api/criteria-suggest/:activityId', async (req, res) => {
   const { activityId } = req.params;
   if (!validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
   try {
+    const { genModel } = req.body;
     const result = await aiJsonCall(
       `Du leitest Bewertungskriterien für eine KI-Tutoring-Anwendung aus einem Systemprompt ab.
 Antworte AUSSCHLIESSLICH mit validem JSON:
 { "criteria": ["Kriterium 1", "Kriterium 2", ...] }
 Leite 5–8 präzise, prüfbare Kriterien ab. Formuliere sie als positive Aussagen (was die KI TUN soll).`,
-      `Systemprompt:\n${cachedConfig.content}`
+      `Systemprompt:\n${cachedConfig.content}`,
+      genModel || GEN_MODEL
     );
     res.json({ suggestions: result.criteria || [] });
   } catch (e) {
@@ -808,49 +818,84 @@ app.delete('/api/criteria/:id', (req, res) => {
   res.json({ ok: true, criteria: getCriteria(activityId) });
 });
 
-// ── Issue #21: Simulation ─────────────────────────────────────────────────────
+// ── Issues #21 + #26: Simulation (SSE-Streaming) ─────────────────────────────
 
-/** POST /api/simulate?activityId=X&token= */
+/** POST /api/simulate?activityId=X&token= – SSE-Stream */
 app.post('/api/simulate', async (req, res) => {
   if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
   const { activityId, token } = req.query;
   if (!activityId || !validateDashboardToken(token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
 
-  const { personaId } = req.body;
+  const { personaId, utteranceModel, evalModel } = req.body;
   const personas = getPersonas(activityId);
   const persona  = personas.find(p => p.id === parseInt(personaId));
   if (!persona) return res.status(400).json({ error: 'Persona nicht gefunden' });
 
-  const criteria       = getCriteria(activityId);
+  const criteria         = getCriteria(activityId);
   const erfahrungsprompt = getActiveErfahrungsprompt(activityId);
 
-  try {
-    console.log(`[Simulate] Start für ${activityId}, Persona: ${persona.name}`);
+  res.writeHead(200, {
+    'Content-Type':      'text/event-stream',
+    'Cache-Control':     'no-cache',
+    'Connection':        'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
 
-    const utterances = await generateSimulatedUtterances(persona, 4);
+  const sendEvent = (type, data = {}) => res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`);
+
+  try {
+    const uModel = utteranceModel || GEN_MODEL;
+    const eModel = evalModel      || GEN_MODEL;
+    const total  = 4;
+    console.log(`[Simulate] Start für ${activityId}, Persona: ${persona.name}, utteranceModel: ${uModel}, evalModel: ${eModel}`);
+
+    sendEvent('start', { total, personaName: persona.name });
+    sendEvent('progress', { label: 'Generiere Schüler-Äußerungen…' });
+
+    const utterances = await generateSimulatedUtterances(persona, total, uModel);
     console.log(`[Simulate] ${utterances.length} Äußerungen generiert`);
 
     const results = [];
-    for (const utterance of utterances) {
-      const aiResponse = await generateAIResponse(
-        cachedConfig.content, erfahrungsprompt?.content || '', utterance
-      );
-      let evaluation = null;
+    for (let i = 0; i < utterances.length; i++) {
+      sendEvent('progress', { label: `Simuliere Antwort ${i + 1} von ${utterances.length}…` });
+      const utterance  = utterances[i];
+      const aiResponse = await generateAIResponse(cachedConfig.content, erfahrungsprompt?.content || '', utterance);
+      let evaluation   = null;
       try {
-        evaluation = await evaluateResponse(utterance, aiResponse, criteria);
+        evaluation = await evaluateResponse(utterance, aiResponse, criteria, eModel);
       } catch (evalErr) {
         console.warn('[Simulate] Evaluierung fehlgeschlagen:', evalErr.message);
         evaluation = { overall: 'gemischt', score: 3, highlights: [], summary: 'Evaluierung nicht möglich.' };
       }
-      results.push({ utterance, aiResponse, evaluation });
+      const pair = { utterance, aiResponse, evaluation };
+      results.push(pair);
+      sendEvent('pair', { index: i, pair, personaName: persona.name });
     }
 
-    console.log(`[Simulate] Abgeschlossen: ${results.length} Paare`);
-    res.json({ results, personaName: persona.name });
+    console.log(`[Simulate] ${results.length} Paare abgeschlossen, generiere Erfahrungsprompt-Vorschlag`);
+    sendEvent('progress', { label: 'Generiere Erfahrungsprompt-Vorschlag…' });
+
+    const simResultsText = results.map((r, i) =>
+      `Äußerung ${i + 1}: ${r.utterance}\n` +
+      `KI-Antwort: ${r.aiResponse.slice(0, 400)}\n` +
+      `Bewertung: ${r.evaluation.overall} (Score ${r.evaluation.score}/5) – ${r.evaluation.summary || ''}`
+    ).join('\n---\n');
+
+    try {
+      const suggestion = await generateOptimizeProposal(activityId, simResultsText);
+      sendEvent('suggestion', suggestion);
+      console.log(`[Simulate] Erfahrungsprompt-Vorschlag gesendet`);
+    } catch (optErr) {
+      console.warn('[Simulate] Optimize-Vorschlag fehlgeschlagen:', optErr.message);
+    }
+
+    sendEvent('done', { personaName: persona.name });
   } catch (e) {
     console.error('[Simulate] Fehler:', e);
-    res.status(500).json({ error: e.message });
+    sendEvent('error', { message: e.message });
   }
+
+  res.end();
 });
 
 // ── Issue #19: Feedback-Bewertung ────────────────────────────────────────────

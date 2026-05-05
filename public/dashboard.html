@@ -564,6 +564,76 @@
       border-top: 1px solid #eef0f3;
       background: #fafbfc;
     }
+    /* Issue #26: Simulations-Vorschlag */
+    #sim-suggestion {
+      background: #eef7ee;
+      border: 1px solid #b2d9b2;
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 13px;
+    }
+    #sim-suggestion h4 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      color: #27ae60;
+    }
+    #sim-suggestion textarea {
+      width: 100%;
+      box-sizing: border-box;
+      font-size: 13px;
+      border: 1px solid #b2d9b2;
+      border-radius: 4px;
+      padding: 8px;
+      resize: vertical;
+      background: white;
+    }
+    #sim-suggestion .sim-adopt-btn {
+      margin-top: 8px;
+      background: #27ae60;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 14px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    #sim-suggestion .sim-adopt-btn:hover { background: #219a52; }
+
+    /* Issue #25: Modell-Einstellungen */
+    #sim-model-details summary {
+      cursor: pointer;
+      font-size: 12px;
+      color: #999;
+      user-select: none;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    #sim-model-details[open] summary { color: #555; }
+    .sim-model-grid {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 5px 10px;
+      align-items: center;
+      margin-top: 8px;
+      font-size: 12px;
+      color: #555;
+    }
+    .sim-model-grid select,
+    .sim-model-grid input[type="text"] {
+      font-size: 12px;
+      padding: 3px 6px;
+      border: 1px solid #ccd3db;
+      border-radius: 4px;
+      max-width: 220px;
+    }
+    .sim-model-grid input[type="text"]:disabled {
+      background: #f4f6f8;
+      color: #999;
+      border-color: #e0e4e8;
+      cursor: default;
+    }
 
     /* ── Optimierungs-Panel (Issue #20) ─────────────────────────────────── */
     #optimize-panel {
@@ -849,9 +919,25 @@
         <option value="">– Persona auswählen –</option>
       </select>
       <button class="settings-btn" id="sim-start-btn">Simulation starten</button>
-      <span class="opt-loading" id="sim-loading">Simuliere (kann ~60 s dauern)…</span>
+      <span class="opt-loading" id="sim-loading"><span id="sim-progress">Simuliere…</span></span>
     </div>
+    <details id="sim-model-details" style="margin-top:10px">
+      <summary>Modell-Einstellungen</summary>
+      <div class="sim-model-grid">
+        <span>Kriterien-Vorschlag:</span>
+        <select id="model-criteria"></select>
+        <span>Personas-Vorschlag:</span>
+        <select id="model-personas"></select>
+        <span>Äußerungen:</span>
+        <select id="model-utterances"></select>
+        <span>Evaluierung:</span>
+        <select id="model-eval"></select>
+        <span>Chat-Antwort:</span>
+        <input type="text" id="model-chat" disabled placeholder="wird aus Einstellungen geladen">
+      </div>
+    </details>
     <div id="sim-results" style="margin-top:12px"></div>
+    <div id="sim-suggestion" style="margin-top:8px"></div>
   </div>
 
 </div>
