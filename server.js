@@ -8,7 +8,7 @@ import http from "http";
 import https from "https";
 import cors from "cors";
 import moment from "moment";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, getActivityName, saveTokenUsage, getThreadCostTokens, getActivityCostTokens } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, getActivityName, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, getTeacherPreference, setTeacherPreference, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getPersonas, upsertPersona, deletePersona, getCriteria, deleteCriterion, getStudentMessages } from "./db.js";
 import crypto from "crypto";
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
@@ -154,6 +154,49 @@ function notifyDashboard(activityId, payload) {
   }
 }
 
+/** Sendet ein Ereignis an ALLE verbundenen Dashboards (z.B. bei Config-Änderung). */
+function notifyAllDashboards(payload) {
+  const msg = JSON.stringify(payload);
+  for (const clients of dashboardClients.values()) {
+    for (const ws of clients) {
+      if (ws.readyState === ws.OPEN) ws.send(msg);
+    }
+  }
+}
+
+/** Gibt die userId eines gültigen Dashboard-Tokens zurück (ohne activityId-Bindung). */
+function getUserIdFromToken(token) {
+  if (!token) return null;
+  const entry = dashboardTokens.get(token);
+  if (!entry) return null;
+  if (Date.now() > entry.expires) { dashboardTokens.delete(token); return null; }
+  return entry.userId;
+}
+
+/** Gibt das effektive Modell zurück: persönliche Präferenz > globaler DB-Wert. */
+function getEffectiveModel(isTeacher, userId) {
+  if (isTeacher && userId) {
+    const pref = getTeacherPreference(userId);
+    if (pref?.preferred_model && AVAILABLE_MODELS.includes(pref.preferred_model)) {
+      return pref.preferred_model;
+    }
+  }
+  return cachedConfig.model || MODEL_NAME;
+}
+
+/** Baut die vollständigen instructions für einen Chat-Request. */
+function buildInstructions(settings, activityId) {
+  moment.locale('de');
+  const now = moment();
+  let instructions = cachedConfig.content
+    + `\nHeute ist ${now.format('dddd')}, der ${now.format('DD.MM.YYYY')} um ${now.format('HH:mm')}.\n`
+    + (settings.hints || '')
+    + (settings.task  || '');
+  const erf = getActiveErfahrungsprompt(activityId);
+  if (erf?.content) instructions += `\n\n${erf.content}`;
+  return instructions;
+}
+
 // ---------------------------------------------------------------------------
 
 function checkFormat(ws, msgObj, next) {
@@ -207,11 +250,16 @@ if (!process.env.MODEL_NAME) {
 
 const oai = new OpenAI({ apiKey: process.env.APIKEY });
 
-// Issue #13: Modell + System-Prompt aus Env (nicht mehr aus OpenAI-Dashboard)
+// Issue #13: Modell + System-Prompt aus Env (Fallback, wenn DB noch leer)
 const MODEL_NAME    = process.env.MODEL_NAME;
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || '';
-console.log(`[Config] Modell: ${MODEL_NAME}`);
-if (!SYSTEM_PROMPT) console.warn('[Config] SYSTEM_PROMPT nicht gesetzt – leerer System-Prompt');
+
+// Issue #17: Verfügbare Modelle und aktive Konfiguration (DB überschreibt Env)
+const AVAILABLE_MODELS = process.env.AVAILABLE_MODELS
+  ? process.env.AVAILABLE_MODELS.split(',').map(m => m.trim()).filter(Boolean)
+  : [MODEL_NAME];
+
+let cachedConfig = { content: SYSTEM_PROMPT, model: MODEL_NAME }; // wird nach initDb() überschrieben
 
 // Issue #11: LiteLLM-Preise laden und 24 h cachen
 let PRICING = null;
@@ -316,6 +364,28 @@ function enrichStudentsWithCost(students) {
 // SQLite-DB initialisieren
 initDb();
 
+// Issue #17: Admins aus ADMIN_USER_IDS-Env seeden (idempotent via INSERT OR IGNORE)
+{
+  const adminIds = process.env.ADMIN_USER_IDS
+    ? process.env.ADMIN_USER_IDS.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+  for (const uid of adminIds) addAdmin(uid, 'env');
+  if (adminIds.length > 0) console.log(`[Admin] ${adminIds.length} Admin(s) aus ADMIN_USER_IDS eingetragen`);
+}
+
+// Issue #17/#18: Systemprompt + Modell aus DB laden; bei Erststart aus Env migrieren
+{
+  const dbPrompt = getActiveSystemPrompt();
+  if (dbPrompt) {
+    cachedConfig = { content: dbPrompt.content, model: dbPrompt.model || MODEL_NAME };
+    console.log(`[Config] Systemprompt aus DB (v${dbPrompt.version}), Modell: ${cachedConfig.model}`);
+  } else {
+    saveSystemPrompt(SYSTEM_PROMPT || '', MODEL_NAME, 'env-migration');
+    cachedConfig = { content: SYSTEM_PROMPT || '', model: MODEL_NAME };
+    console.log(`[Config] Systemprompt aus ENV in DB migriert, Modell: ${MODEL_NAME}`);
+  }
+}
+
 
 // ── Issue #5: Teacher-Dashboard REST-Endpoints ──────────────────────────────
 
@@ -353,6 +423,469 @@ app.get('/api/dashboard/messages/:threadDbId', (req, res) => {
   } catch (e) {
     console.error('[Dashboard] getMessages error:', e);
     res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// ── Issue #17: Admin/Teacher-Config-Endpunkte ────────────────────────────────
+
+/** GET /api/admin/config?token=… – Prompt + Modell lesen (alle Lehrer) */
+app.get('/api/admin/config', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+  const pref = getTeacherPreference(userId);
+  res.json({
+    systemPrompt:    cachedConfig.content,
+    model:           cachedConfig.model,
+    availableModels: AVAILABLE_MODELS,
+    isAdmin:         isAdmin(userId),
+    myModel:         pref?.preferred_model || null,
+  });
+});
+
+/** PUT /api/admin/config?token=… – Systemprompt + Globalmodell speichern (nur Admin) */
+app.put('/api/admin/config', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+  if (!isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+
+  const { systemPrompt, model } = req.body;
+  if (typeof systemPrompt !== 'string') return res.status(400).json({ error: 'systemPrompt fehlt' });
+  if (!model || !AVAILABLE_MODELS.includes(model)) return res.status(400).json({ error: 'Ungültiges Modell' });
+
+  saveSystemPrompt(systemPrompt, model, userId);
+  cachedConfig = { content: systemPrompt, model };
+  notifyAllDashboards({ type: 'configUpdated', model, updatedBy: userId });
+  console.log(`[Admin] Systemprompt + Modell gespeichert von ${userId}, Modell: ${model}`);
+  res.json({ ok: true });
+});
+
+/** GET /api/admin/prompt-history?token=… – Versionshistorie (Admin) */
+app.get('/api/admin/prompt-history', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+  res.json({ history: getPromptHistory() });
+});
+
+/** GET /api/admin/admins?token=… – Admin-Liste (Admin) */
+app.get('/api/admin/admins', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+  res.json({ admins: getAdmins() });
+});
+
+/** POST /api/admin/admins?token=… – Admin hinzufügen (Admin) */
+app.post('/api/admin/admins', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+  const { newUserId } = req.body;
+  if (!newUserId || typeof newUserId !== 'string') return res.status(400).json({ error: 'newUserId fehlt' });
+  addAdmin(newUserId.trim(), userId);
+  console.log(`[Admin] ${newUserId} als Admin eingetragen von ${userId}`);
+  res.json({ ok: true, admins: getAdmins() });
+});
+
+/** DELETE /api/admin/admins/:targetId?token=… – Admin entfernen (Admin) */
+app.delete('/api/admin/admins/:targetId', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+  const targetId = req.params.targetId;
+  if (targetId === userId) return res.status(400).json({ error: 'Eigene Admin-Rechte nicht entziehbar' });
+  removeAdmin(targetId);
+  console.log(`[Admin] ${targetId} als Admin entfernt von ${userId}`);
+  res.json({ ok: true, admins: getAdmins() });
+});
+
+/** GET /api/teacher/preferences?token=… – Persönliche Präferenzen lesen */
+app.get('/api/teacher/preferences', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+  const pref = getTeacherPreference(userId);
+  res.json({ myModel: pref?.preferred_model || null, availableModels: AVAILABLE_MODELS });
+});
+
+/** PUT /api/teacher/preferences?token=… – Persönliches Modell setzen */
+app.put('/api/teacher/preferences', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+  const { model } = req.body;
+  const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
+  if (model && model !== '' && !validModel) return res.status(400).json({ error: 'Ungültiges Modell' });
+  setTeacherPreference(userId, validModel);
+  console.log(`[Teacher] ${userId} setzt Modell-Präferenz: ${validModel || 'Standard'}`);
+  res.json({ ok: true, myModel: validModel });
+});
+
+// ── Issue #20: Erfahrungsprompt-Verwaltung + Prompt-Optimierung ──────────────
+
+/** GET /api/erfahrungsprompt/:activityId?token= */
+app.get('/api/erfahrungsprompt/:activityId', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.params;
+  if (!validateDashboardToken(req.query.token, activityId))
+    return res.status(403).json({ error: 'Unauthorized' });
+  const erf = getActiveErfahrungsprompt(activityId);
+  res.json({ content: erf?.content || '', version: erf?.version || 0 });
+});
+
+/** POST /api/erfahrungsprompt/:activityId?token= – manuell speichern */
+app.post('/api/erfahrungsprompt/:activityId', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.params;
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !validateDashboardToken(req.query.token, activityId))
+    return res.status(403).json({ error: 'Unauthorized' });
+  const { content } = req.body;
+  if (typeof content !== 'string') return res.status(400).json({ error: 'content fehlt' });
+  saveErfahrungsprompt(activityId, content, userId);
+  console.log(`[Erfahrungsprompt] Gespeichert für ${activityId} von ${userId}`);
+  res.json({ ok: true });
+});
+
+/** GET /api/erfahrungsprompt-history/:activityId?token= */
+app.get('/api/erfahrungsprompt-history/:activityId', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.params;
+  if (!validateDashboardToken(req.query.token, activityId))
+    return res.status(403).json({ error: 'Unauthorized' });
+  res.json({ history: getErfahrungspromptHistory(activityId) });
+});
+
+/** POST /api/optimize-prompt?activityId=X&token= – KI-Vorschlag generieren */
+app.post('/api/optimize-prompt', async (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId, token } = req.query;
+  if (!activityId || !validateDashboardToken(token, activityId))
+    return res.status(403).json({ error: 'Unauthorized' });
+
+  try {
+    const feedbacks   = getFeedbackByActivity(activityId);
+    const erkenntnisse = getErkenntnisse(activityId);
+    const erf         = getActiveErfahrungsprompt(activityId);
+
+    // Feedback-Paare kompakt formatieren
+    const feedbackText = feedbacks.length === 0
+      ? 'Noch keine Bewertungen vorhanden.'
+      : feedbacks.map(f => {
+          const lines = [`[${f.rating.toUpperCase()}] ${(f.message_content || '').slice(0, 300)}`];
+          if (f.comment) lines.push(`Kommentar: ${f.comment}`);
+          if (f.improved_text) lines.push(`Verbesserter Vorschlag: ${f.improved_text.slice(0, 300)}`);
+          return lines.join('\n');
+        }).join('\n---\n');
+
+    const erkenntnisText = erkenntnisse.length === 0
+      ? 'Keine Erkenntnisse vorhanden.'
+      : erkenntnisse.map(e => `- ${e.content}`).join('\n');
+
+    const instructions = `Du bist Experte für pädagogisches Prompt-Engineering an einer IGS (Klasse 9).
+Deine Aufgabe: Erstelle einen verbesserten Erfahrungsprompt basierend auf Feedback-Daten.
+
+Der Erfahrungsprompt ist ein kurzer Zusatz zum globalen Systemprompt – aktivitätsspezifisch, max. 200 Wörter.
+Er wiederholt den Systemprompt NICHT, sondern ergänzt ihn mit konkreten Hinweisen für diese Aufgabe.
+
+Antworte AUSSCHLIESSLICH mit validem JSON ohne Markdown-Blöcke:
+{
+  "erfahrungsprompt_neu": "...",
+  "kausalkette": [
+    { "problem": "...", "ursache": "...", "aenderung": "..." }
+  ]
+}`;
+
+    const userMessage = `Globaler Systemprompt:\n${cachedConfig.content}\n\n` +
+      `Aktueller Erfahrungsprompt:\n${erf?.content || '(noch keiner)'}\n\n` +
+      `Feedback zu KI-Antworten dieser Aufgabe:\n${feedbackText}\n\n` +
+      `Bisherige Erkenntnisse:\n${erkenntnisText}\n\n` +
+      `Erstelle einen verbesserten Erfahrungsprompt für diese Aufgabe.`;
+
+    const response = await oai.responses.create({
+      model:        cachedConfig.model || MODEL_NAME,
+      instructions,
+      input:        [{ role: 'user', content: userMessage }],
+      stream:       false,
+    });
+
+    const raw = response.output_text || '';
+    let parsed;
+    try {
+      // JSON ggf. aus Markdown-Block extrahieren
+      const jsonStr = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+      parsed = JSON.parse(jsonStr);
+    } catch (_) {
+      return res.status(500).json({ error: 'KI hat kein gültiges JSON zurückgegeben', raw });
+    }
+
+    if (!parsed.erfahrungsprompt_neu || !Array.isArray(parsed.kausalkette))
+      return res.status(500).json({ error: 'Unvollständige KI-Antwort', raw });
+
+    console.log(`[Optimize] Vorschlag für ${activityId} generiert (${parsed.kausalkette.length} Kausalketten-Einträge)`);
+    res.json({
+      erfahrungsprompt_alt: erf?.content || '',
+      erfahrungsprompt_neu: parsed.erfahrungsprompt_neu,
+      kausalkette:          parsed.kausalkette,
+    });
+  } catch (e) {
+    console.error('[Optimize] Fehler:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** POST /api/erkenntnisse?activityId=X&token= – Erkenntnisse aus Kausalkette speichern */
+app.post('/api/erkenntnisse', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId, token } = req.query;
+  if (!activityId || !validateDashboardToken(token, activityId))
+    return res.status(403).json({ error: 'Unauthorized' });
+  const { items } = req.body; // [{ problem, ursache, aenderung }]
+  if (!Array.isArray(items)) return res.status(400).json({ error: 'items-Array fehlt' });
+  for (const item of items) {
+    const text = [item.problem, item.ursache, item.aenderung].filter(Boolean).join(' → ');
+    if (text) saveErkenntnisse(activityId, text, 'ai');
+  }
+  res.json({ ok: true, saved: items.length });
+});
+
+// ── Issue #21: Personas & Simulation – AI-Hilfsfunktionen ────────────────────
+
+async function aiJsonCall(instructions, userMessage) {
+  const response = await oai.responses.create({
+    model:   cachedConfig.model || MODEL_NAME,
+    instructions,
+    input:   [{ role: 'user', content: userMessage }],
+    stream:  false,
+  });
+  const raw = (response.output_text || '').replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+  return JSON.parse(raw);
+}
+
+async function generateSimulatedUtterances(persona, count = 4) {
+  return aiJsonCall(
+    `Du simulierst Schüleräußerungen für Prompt-Engineering-Tests an einer IGS (Klasse 9).
+Generiere exakt ${count} kurze Schüleräußerungen für den beschriebenen Schüler-Typ.
+Antworte NUR mit einem JSON-Array von Strings: ["Äußerung 1", "Äußerung 2", ...]`,
+    `Schüler-Typ: ${persona.name}\nBeschreibung: ${persona.description || '–'}\n` +
+    (persona.example_msgs ? `Typische Formulierungen: ${persona.example_msgs}` : '')
+  );
+}
+
+async function generateAIResponse(systemContent, erfahrungContent, utterance) {
+  const instructions = systemContent + (erfahrungContent ? `\n\n${erfahrungContent}` : '');
+  const r = await oai.responses.create({
+    model:        cachedConfig.model || MODEL_NAME,
+    instructions,
+    input:        [{ role: 'user', content: utterance }],
+    stream:       false,
+  });
+  return r.output_text || '';
+}
+
+async function evaluateResponse(utterance, aiResponse, criteria) {
+  const criteriaText = criteria.length
+    ? criteria.map(c => `- ${c.content}`).join('\n')
+    : '- Gibt keine fertigen Lösungen\n- Stellt Rückfragen\n- Fördert eigenständiges Denken';
+
+  return aiJsonCall(
+    `Du bewertest KI-Antworten nach pädagogischen Kriterien.
+Antworte AUSSCHLIESSLICH mit validem JSON (keine Markdown-Blöcke):
+{
+  "overall": "gut|gemischt|problematisch",
+  "score": 1-5,
+  "highlights": [{ "quote": "exakter Wortlaut aus der KI-Antwort", "type": "gut|schlecht", "reason": "Begründung" }],
+  "summary": "Kurzes Gesamturteil"
+}
+Wähle nur Highlights deren Wortlaut EXAKT so in der KI-Antwort steht.`,
+    `Kriterien:\n${criteriaText}\n\nSchüler-Äußerung: ${utterance}\n\nKI-Antwort:\n${aiResponse}`
+  );
+}
+
+// ── Issue #21: Personas-Endpunkte ────────────────────────────────────────────
+
+/** GET /api/personas/:activityId?token= */
+app.get('/api/personas/:activityId', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.params;
+  if (!validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
+  res.json({ personas: getPersonas(activityId) });
+});
+
+/** POST /api/personas-suggest/:activityId?token= – KI schlägt Personas vor */
+app.post('/api/personas-suggest/:activityId', async (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.params;
+  if (!validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
+  try {
+    const msgs = getStudentMessages(activityId);
+    const sample = msgs.slice(0, 60).map(m => m.content).join('\n---\n');
+    const result = await aiJsonCall(
+      `Du analysierst Schüleräußerungen aus einer Lernaktivität und leitest typische Schüler-Personas ab.
+Antworte AUSSCHLIESSLICH mit validem JSON:
+{ "personas": [{ "name": "...", "description": "...", "example_msgs": "Beispiel 1|Beispiel 2|Beispiel 3" }] }
+Leite 3–5 gut unterscheidbare Personas ab. Wenn keine Äußerungen vorliegen, erstelle generische Schüler-Typen für eine IGS Klasse 9.`,
+      msgs.length ? `Schüler-Äußerungen:\n${sample}` : 'Noch keine Schüler-Äußerungen vorhanden. Erstelle typische Klasse-9-Personas.'
+    );
+    res.json({ suggestions: result.personas || [] });
+  } catch (e) {
+    console.error('[Personas-Suggest] Fehler:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** POST /api/personas/:activityId?token= – Persona speichern/aktualisieren */
+app.post('/api/personas/:activityId', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.params;
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
+  const { id, name, description, example_msgs } = req.body;
+  if (!name) return res.status(400).json({ error: 'name fehlt' });
+  upsertPersona({ id: id || null, activityId, name, description, example_msgs, createdBy: userId });
+  res.json({ ok: true, personas: getPersonas(activityId) });
+});
+
+/** DELETE /api/personas/:activityId/:id?token= */
+app.delete('/api/personas/:activityId/:id', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.params;
+  if (!validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
+  deletePersona(parseInt(req.params.id));
+  res.json({ ok: true, personas: getPersonas(activityId) });
+});
+
+// ── Issue #21: Kriterien-Endpunkte ───────────────────────────────────────────
+
+/** GET /api/criteria/:activityId?token= */
+app.get('/api/criteria/:activityId', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.params;
+  if (!validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
+  res.json({ criteria: getCriteria(activityId) });
+});
+
+/** POST /api/criteria-suggest/:activityId?token= – KI schlägt Kriterien vor */
+app.post('/api/criteria-suggest/:activityId', async (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.params;
+  if (!validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
+  try {
+    const result = await aiJsonCall(
+      `Du leitest Bewertungskriterien für eine KI-Tutoring-Anwendung aus einem Systemprompt ab.
+Antworte AUSSCHLIESSLICH mit validem JSON:
+{ "criteria": ["Kriterium 1", "Kriterium 2", ...] }
+Leite 5–8 präzise, prüfbare Kriterien ab. Formuliere sie als positive Aussagen (was die KI TUN soll).`,
+      `Systemprompt:\n${cachedConfig.content}`
+    );
+    res.json({ suggestions: result.criteria || [] });
+  } catch (e) {
+    console.error('[Criteria-Suggest] Fehler:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** POST /api/criteria/:activityId?token= – Kriterium hinzufügen */
+app.post('/api/criteria/:activityId', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.params;
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
+  const { content } = req.body;
+  if (!content) return res.status(400).json({ error: 'content fehlt' });
+  saveErkenntnisse(activityId, content, 'criteria');
+  res.json({ ok: true, criteria: getCriteria(activityId) });
+});
+
+/** DELETE /api/criteria/:id?activityId=X&token= */
+app.delete('/api/criteria/:id', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.query;
+  if (!activityId || !validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
+  deleteCriterion(parseInt(req.params.id));
+  res.json({ ok: true, criteria: getCriteria(activityId) });
+});
+
+// ── Issue #21: Simulation ─────────────────────────────────────────────────────
+
+/** POST /api/simulate?activityId=X&token= */
+app.post('/api/simulate', async (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId, token } = req.query;
+  if (!activityId || !validateDashboardToken(token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
+
+  const { personaId } = req.body;
+  const personas = getPersonas(activityId);
+  const persona  = personas.find(p => p.id === parseInt(personaId));
+  if (!persona) return res.status(400).json({ error: 'Persona nicht gefunden' });
+
+  const criteria       = getCriteria(activityId);
+  const erfahrungsprompt = getActiveErfahrungsprompt(activityId);
+
+  try {
+    console.log(`[Simulate] Start für ${activityId}, Persona: ${persona.name}`);
+
+    const utterances = await generateSimulatedUtterances(persona, 4);
+    console.log(`[Simulate] ${utterances.length} Äußerungen generiert`);
+
+    const results = [];
+    for (const utterance of utterances) {
+      const aiResponse = await generateAIResponse(
+        cachedConfig.content, erfahrungsprompt?.content || '', utterance
+      );
+      let evaluation = null;
+      try {
+        evaluation = await evaluateResponse(utterance, aiResponse, criteria);
+      } catch (evalErr) {
+        console.warn('[Simulate] Evaluierung fehlgeschlagen:', evalErr.message);
+        evaluation = { overall: 'gemischt', score: 3, highlights: [], summary: 'Evaluierung nicht möglich.' };
+      }
+      results.push({ utterance, aiResponse, evaluation });
+    }
+
+    console.log(`[Simulate] Abgeschlossen: ${results.length} Paare`);
+    res.json({ results, personaName: persona.name });
+  } catch (e) {
+    console.error('[Simulate] Fehler:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Issue #19: Feedback-Bewertung ────────────────────────────────────────────
+
+/** POST /api/feedback?activityId=…&token=… */
+app.post('/api/feedback', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId, token } = req.query;
+  if (!activityId || !token || !validateDashboardToken(token, activityId))
+    return res.status(403).json({ error: 'Unauthorized' });
+  const { messageId, threadId, rating, comment, improvedText } = req.body;
+  if (!messageId || !['gut', 'schlecht'].includes(rating))
+    return res.status(400).json({ error: 'messageId und rating (gut|schlecht) erforderlich' });
+  const userId = getUserIdFromToken(token);
+  try {
+    saveFeedback({ messageId, threadId, activityId, rating, comment, improvedText, ratedBy: userId });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[Feedback] Fehler:', e);
+    res.status(500).json({ error: 'Interner Fehler' });
+  }
+});
+
+/** GET /api/feedback/:activityId?token=… */
+app.get('/api/feedback/:activityId', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.params;
+  const { token } = req.query;
+  if (!token || !validateDashboardToken(token, activityId))
+    return res.status(403).json({ error: 'Unauthorized' });
+  try {
+    res.json({ feedback: getFeedbackByActivity(activityId) });
+  } catch (e) {
+    console.error('[Feedback] Ladefehler:', e);
+    res.status(500).json({ error: 'Interner Fehler' });
   }
 });
 
@@ -464,6 +997,7 @@ app.ws("/api/chat", (ws, req) => {
                     : [];
                   const isTeacherByEnv = !!(settings.userId && teacherIds.includes(settings.userId));
                   ws.isTeacher = settings.isTeacher === true || isTeacherByEnv;
+                  ws.userId    = settings.userId || null;
                   console.log(`[Auth] isTeacher=${ws.isTeacher} (client=${settings.isTeacher}, env=${isTeacherByEnv})`);
                 }
 
@@ -690,24 +1224,15 @@ function buildInput(messages) {
 async function streamResponse(ws, settings, threadDbId) {
   const chatMsg = { end: false, messages: '' };
 
-  moment.locale('de');
-  const now     = moment();
-  const dayName = now.format('dddd');
-  const date    = now.format('DD.MM.YYYY');
-  const time    = now.format('HH:mm');
-
-  const instructions = SYSTEM_PROMPT +
-    `\nHeute ist ${dayName}, der ${date} um ${time}.\n` +
-    (settings.hints || '') +
-    (settings.task  || '');
-
-  const input = buildInput(getMessagesAll(threadDbId));
+  const effectiveModel = getEffectiveModel(ws.isTeacher, ws.userId);
+  const instructions   = buildInstructions(settings, settings.activityId);
+  const input          = buildInput(getMessagesAll(threadDbId));
 
   let resContent = '';
 
   try {
     const stream = await oai.responses.create({
-      model:        MODEL_NAME,
+      model:        effectiveModel,
       instructions,
       input,
       stream:       true,
@@ -741,8 +1266,8 @@ async function streamResponse(ws, settings, threadDbId) {
           completion_tokens: usage.output_tokens,
           total_tokens:      usage.total_tokens,
         };
-        saveTokenUsage(threadDbId, settings?.activityId || null, MODEL_NAME, mapped, msgId);
-        console.log(`[Token] ${MODEL_NAME} – input=${usage.input_tokens} output=${usage.output_tokens}`);
+        saveTokenUsage(threadDbId, settings?.activityId || null, effectiveModel, mapped, msgId);
+        console.log(`[Token] ${effectiveModel} – input=${usage.input_tokens} output=${usage.output_tokens}`);
         runCost      = computeRunCost(mapped.prompt_tokens, mapped.completion_tokens);
         threadCost   = computeThreadCost(threadDbId);
         activityCost = computeActivityCost(settings?.activityId || null);
@@ -761,6 +1286,7 @@ async function streamResponse(ws, settings, threadDbId) {
         role:         'assistant',
         content:      resContent,
         createdAt:    new Date().toISOString(),
+        messageId:    msgId,
         runCost,
         threadCost,
         activityCost,

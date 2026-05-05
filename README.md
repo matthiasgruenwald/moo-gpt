@@ -34,10 +34,27 @@ npm start
 | Variable | Pflicht | Beschreibung |
 |----------|---------|--------------|
 | `APIKEY` | ✅ | OpenAI API Key |
-| `AID` | ✅ | OpenAI Assistenten-ID |
+| `MODEL_NAME` | ✅ | Standard-Modell beim Erststart, z. B. `gpt-5`. Beim ersten Start in die DB migriert – danach im Dashboard änderbar. |
+| `SYSTEM_PROMPT` | – | System-Prompt beim Erststart. Beim ersten Start in die DB migriert – danach im Dashboard änderbar. |
+| `ADMIN_USER_IDS` | – | Kommagetrennte Moodle-User-IDs der initialen Admins, z. B. `12345,67890`. Beim Start automatisch in die DB eingetragen (idempotent). Danach können Admins weitere Admins im Dashboard verwalten. Fallback: direkt per SQL in `admin_users` eintragen. |
+| `AVAILABLE_MODELS` | – | Kommagetrennte Liste der im Dashboard angebotenen Modelle, z. B. `gpt-5,gpt-4o,gpt-4.1-mini,gpt-4.1-nano`. Alle Modelle müssen Vision unterstützen. Standard: nur `MODEL_NAME`. |
+| `TEACHER_USER_IDS` | – | Kommagetrennte Moodle-User-IDs, die server-seitig als Lehrkraft eingestuft werden (unabhängig vom Client-Flag). |
 | `ALLOWED_ORIGIN` | – | Kommagetrennte Liste erlaubter Origins (z. B. `https://moodle.mm-bbs.de`). Ohne diese Variable ist jede Origin erlaubt. |
 | `MAX_REQUESTS` | – | Max. Anfragen pro IP und Tag (z. B. `4`) |
 | `DB_PATH` | – | Pfad zur SQLite-Datenbankdatei (Standard: `/opt/mmbbs-gpt/chats.db`) |
+
+### Beispiel `/etc/mmbbs-gpt.env`
+
+```env
+APIKEY=sk-proj-...
+MODEL_NAME=gpt-5
+SYSTEM_PROMPT=Du bist ein freundlicher Lehrer...
+ADMIN_USER_IDS=12345,67890
+AVAILABLE_MODELS=gpt-5,gpt-4o,gpt-4.1-mini,gpt-4.1-nano
+TEACHER_USER_IDS=12345,67890
+ALLOWED_ORIGIN=https://moodle.beispiel.de
+DB_PATH=/opt/mmbbs-gpt/chats.db
+```
 
 ## SQLite-Datenbank
 

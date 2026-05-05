@@ -51,6 +51,58 @@ export function initDb() {
       total_tokens       INTEGER,
       created_at         DATETIME DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS admin_users (
+      moodle_user_id TEXT PRIMARY KEY,
+      granted_by     TEXT,
+      granted_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS prompts (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      scope       TEXT NOT NULL,
+      type        TEXT NOT NULL,
+      model       TEXT,
+      content     TEXT NOT NULL,
+      version     INTEGER DEFAULT 1,
+      created_by  TEXT,
+      created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS teacher_preferences (
+      moodle_user_id  TEXT PRIMARY KEY,
+      preferred_model TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS message_feedback (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      message_id    INTEGER NOT NULL,
+      thread_id     INTEGER NOT NULL,
+      activity_id   TEXT,
+      rating        TEXT NOT NULL,
+      comment       TEXT,
+      improved_text TEXT,
+      rated_by      TEXT,
+      created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS personas (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      activity_id  TEXT NOT NULL,
+      name         TEXT NOT NULL,
+      description  TEXT,
+      example_msgs TEXT,
+      created_by   TEXT,
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS erkenntnisse (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      activity_id  TEXT,
+      content      TEXT NOT NULL,
+      source       TEXT,
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // Migrationen für bestehende DBs
@@ -59,6 +111,8 @@ export function initDb() {
   try { db.exec(`ALTER TABLE messages ADD COLUMN content_type TEXT DEFAULT 'text'`); } catch (_) {}
   // Issue #12: message_id in token_log für Kostenanzeige pro Nachrichtenrunde
   try { db.exec(`ALTER TABLE token_log ADD COLUMN message_id INTEGER`); } catch (_) {}
+  // Issue #19: Unique-Index damit saveFeedback ON CONFLICT funktioniert
+  try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_feedback_msgid ON message_feedback (message_id)`); } catch (_) {}
   // Issue #13: openai_thread_id nullable machen (Responses API braucht keinen Thread)
   {
     const col = db.pragma('table_info(threads)').find(c => c.name === 'openai_thread_id');
@@ -141,9 +195,13 @@ export function getMessages(thread_db_id) {
   return db.prepare(`
     SELECT m.id, m.role, m.content, m.content_type, m.created_at,
            tl.prompt_tokens     AS cost_prompt,
-           tl.completion_tokens AS cost_completion
+           tl.completion_tokens AS cost_completion,
+           mf.rating            AS fb_rating,
+           mf.comment           AS fb_comment,
+           mf.improved_text     AS fb_improved
     FROM messages m
-    LEFT JOIN token_log tl ON tl.message_id = m.id
+    LEFT JOIN token_log tl        ON tl.message_id = m.id
+    LEFT JOIN message_feedback mf ON mf.message_id = m.id
     WHERE m.thread_id = ? AND COALESCE(m.content_type, 'text') != 'task_image'
     ORDER BY m.created_at ASC
     LIMIT 100
@@ -264,6 +322,193 @@ export function getActivityCostTokens(activityId) {
            COALESCE(SUM(completion_tokens), 0) AS completion_tokens
     FROM token_log WHERE activity_id = ?
   `).get(activityId) || { prompt_tokens: 0, completion_tokens: 0 };
+}
+
+// ── Admin-Verwaltung (Issue #17) ─────────────────────────────────────────────
+
+export function isAdmin(userId) {
+  if (!userId) return false;
+  return !!db.prepare('SELECT 1 FROM admin_users WHERE moodle_user_id = ?').get(userId);
+}
+
+export function addAdmin(userId, grantedBy = null) {
+  db.prepare(`
+    INSERT OR IGNORE INTO admin_users (moodle_user_id, granted_by) VALUES (?, ?)
+  `).run(userId, grantedBy);
+}
+
+export function removeAdmin(userId) {
+  db.prepare('DELETE FROM admin_users WHERE moodle_user_id = ?').run(userId);
+}
+
+export function getAdmins() {
+  return db.prepare('SELECT * FROM admin_users ORDER BY granted_at ASC').all();
+}
+
+// ── Prompt-Verwaltung (Issue #17/#18) ────────────────────────────────────────
+
+export function getActiveSystemPrompt() {
+  return db.prepare(`
+    SELECT content, model, version, created_by, created_at
+    FROM prompts WHERE scope = 'global' AND type = 'system'
+    ORDER BY id DESC LIMIT 1
+  `).get() || null;
+}
+
+export function saveSystemPrompt(content, model, createdBy) {
+  const last = db.prepare(`
+    SELECT version FROM prompts WHERE scope = 'global' AND type = 'system' ORDER BY id DESC LIMIT 1
+  `).get();
+  const version = last ? last.version + 1 : 1;
+  db.prepare(`
+    INSERT INTO prompts (scope, type, model, content, version, created_by)
+    VALUES ('global', 'system', ?, ?, ?, ?)
+  `).run(model, content, version, createdBy || null);
+}
+
+export function getPromptHistory() {
+  return db.prepare(`
+    SELECT id, version, model, content, created_by, created_at
+    FROM prompts WHERE scope = 'global' AND type = 'system'
+    ORDER BY id DESC LIMIT 20
+  `).all();
+}
+
+export function getActiveErfahrungsprompt(activityId) {
+  if (!activityId) return null;
+  return db.prepare(`
+    SELECT content, version, created_at
+    FROM prompts WHERE scope = ? AND type = 'erfahrung'
+    ORDER BY id DESC LIMIT 1
+  `).get(activityId) || null;
+}
+
+export function saveErfahrungsprompt(activityId, content, createdBy) {
+  const last = db.prepare(`
+    SELECT version FROM prompts WHERE scope = ? AND type = 'erfahrung' ORDER BY id DESC LIMIT 1
+  `).get(activityId);
+  const version = last ? last.version + 1 : 1;
+  db.prepare(`
+    INSERT INTO prompts (scope, type, content, version, created_by)
+    VALUES (?, 'erfahrung', ?, ?, ?)
+  `).run(activityId, content, version, createdBy || null);
+}
+
+// ── Lehrkraft-Präferenzen (Issue #17) ────────────────────────────────────────
+
+export function getTeacherPreference(userId) {
+  if (!userId) return null;
+  return db.prepare('SELECT preferred_model FROM teacher_preferences WHERE moodle_user_id = ?').get(userId) || null;
+}
+
+export function setTeacherPreference(userId, preferredModel) {
+  db.prepare(`
+    INSERT INTO teacher_preferences (moodle_user_id, preferred_model) VALUES (?, ?)
+    ON CONFLICT(moodle_user_id) DO UPDATE SET preferred_model = excluded.preferred_model
+  `).run(userId, preferredModel || null);
+}
+
+// ── Feedback-Bewertung (Issue #19) ────────────────────────────────────────────
+
+export function saveFeedback({ messageId, threadId, activityId, rating, comment, improvedText, ratedBy }) {
+  db.prepare(`
+    INSERT INTO message_feedback (message_id, thread_id, activity_id, rating, comment, improved_text, rated_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(message_id) DO UPDATE SET
+      rating        = excluded.rating,
+      comment       = excluded.comment,
+      improved_text = excluded.improved_text,
+      rated_by      = excluded.rated_by
+  `).run(messageId, threadId, activityId || null, rating, comment || null, improvedText || null, ratedBy || null);
+}
+
+export function getFeedbackForMessage(messageId) {
+  return db.prepare('SELECT * FROM message_feedback WHERE message_id = ?').get(messageId) || null;
+}
+
+export function getErfahrungspromptHistory(activityId) {
+  if (!activityId) return [];
+  return db.prepare(`
+    SELECT id, version, content, created_by, created_at
+    FROM prompts WHERE scope = ? AND type = 'erfahrung'
+    ORDER BY id DESC LIMIT 10
+  `).all(activityId);
+}
+
+export function getErkenntnisse(activityId) {
+  return db.prepare(`
+    SELECT id, activity_id, content, source, created_at
+    FROM erkenntnisse
+    WHERE activity_id = ? OR activity_id IS NULL
+    ORDER BY created_at DESC LIMIT 50
+  `).all(activityId || '');
+}
+
+export function saveErkenntnisse(activityId, content, source) {
+  db.prepare(`
+    INSERT INTO erkenntnisse (activity_id, content, source) VALUES (?, ?, ?)
+  `).run(activityId || null, content, source || 'ai');
+}
+
+// ── Personas & Simulation (Issue #21) ────────────────────────────────────────
+
+export function getPersonas(activityId) {
+  return db.prepare('SELECT * FROM personas WHERE activity_id = ? ORDER BY created_at ASC').all(activityId);
+}
+
+export function upsertPersona({ id, activityId, name, description, example_msgs, createdBy }) {
+  if (id) {
+    db.prepare(`
+      UPDATE personas SET name = ?, description = ?, example_msgs = ?, created_by = ?
+      WHERE id = ? AND activity_id = ?
+    `).run(name, description || null, example_msgs || null, createdBy || null, id, activityId);
+  } else {
+    db.prepare(`
+      INSERT INTO personas (activity_id, name, description, example_msgs, created_by)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(activityId, name, description || null, example_msgs || null, createdBy || null);
+  }
+}
+
+export function deletePersona(id) {
+  db.prepare('DELETE FROM personas WHERE id = ?').run(id);
+}
+
+export function getCriteria(activityId) {
+  return db.prepare(`
+    SELECT * FROM erkenntnisse
+    WHERE source = 'criteria' AND (activity_id = ? OR activity_id IS NULL)
+    ORDER BY created_at ASC
+  `).all(activityId);
+}
+
+export function deleteCriterion(id) {
+  db.prepare('DELETE FROM erkenntnisse WHERE id = ? AND source = ?').run(id, 'criteria');
+}
+
+export function getStudentMessages(activityId) {
+  return db.prepare(`
+    SELECT m.content, t.moodle_user_name
+    FROM messages m
+    JOIN threads t ON t.id = m.thread_id
+    WHERE t.activity_id = ? AND m.role = 'user'
+      AND COALESCE(m.content_type, 'text') = 'text'
+      AND length(m.content) > 10
+    ORDER BY m.created_at DESC
+    LIMIT 80
+  `).all(activityId);
+}
+
+export function getFeedbackByActivity(activityId) {
+  return db.prepare(`
+    SELECT f.*, m.content AS message_content, m.created_at AS message_created_at,
+           t.moodle_user_name, t.moodle_user_id
+    FROM message_feedback f
+    JOIN messages m ON m.id = f.message_id
+    JOIN threads  t ON t.id = f.thread_id
+    WHERE f.activity_id = ?
+    ORDER BY f.created_at DESC
+  `).all(activityId);
 }
 
 /**

@@ -209,6 +209,10 @@ function handleServerMessage(msg) {
       handleNewMessage(msg);
       break;
 
+    case 'configUpdated':
+      handleConfigUpdated(msg);
+      break;
+
     case 'error':
       console.warn('[Dashboard] Server-Fehler:', msg.message);
       if (msg.message === 'Unauthorized') {
@@ -226,7 +230,7 @@ function handleServerMessage(msg) {
 // ── Neue Live-Nachricht ───────────────────────────────────────────────────────
 function handleNewMessage(msg) {
   const { threadDbId, userId: uid, userName, role, content, contentType, createdAt,
-          runCost, threadCost, activityCost: newActivityCost } = msg;
+          runCost, threadCost, activityCost: newActivityCost, messageId } = msg;
 
   // Schülerliste aktualisieren (Zähler + Zeitstempel + Kosten)
   const student = students.find(s => s.thread_db_id === threadDbId);
@@ -263,8 +267,8 @@ function handleNewMessage(msg) {
       currentThreadCost = threadCost;
       renderChatCost(currentThreadCost);
     }
-    // Nachricht anhängen (mit runCost für Assistenten-Antwort)
-    appendMessage({ role, content, content_type: contentType || 'text', created_at: createdAt, runCost });
+    // Nachricht anhängen (mit runCost + messageId für Feedback-Bar)
+    appendMessage({ id: messageId, role, content, content_type: contentType || 'text', created_at: createdAt, runCost, threadDbId });
     scrollToBottom();
   }
 }
@@ -428,7 +432,7 @@ function renderChatView(student, messages) {
   const sessions = splitIntoSessions(messages);
   for (const sess of sessions) {
     appendSessionHeader(sess);
-    for (const m of sess) appendMessage(m);
+    for (const m of sess) appendMessage({ ...m, threadDbId: student.thread_db_id });
   }
   scrollToBottom();
 }
@@ -453,8 +457,10 @@ function renderMsgContent(role, content, contentType) {
 /**
  * Hängt eine Nachricht an #chat-messages an.
  * runCost (Issue #12): { inputEur, outputEur } – nur bei Assistenten-Nachrichten mit Kosten
+ * id (Issue #19): DB-Message-ID für Feedback-Bar
  */
-function appendMessage({ role, content, content_type, created_at, runCost }) {
+function appendMessage({ id, role, content, content_type, created_at, runCost,
+                         fb_rating, fb_comment, fb_improved, threadDbId: msgThreadId }) {
   const wrap = document.createElement('div');
   wrap.style.display = 'flex';
   wrap.style.flexDirection = 'column';
@@ -466,7 +472,6 @@ function appendMessage({ role, content, content_type, created_at, runCost }) {
 
   const time = document.createElement('div');
   time.className = 'msg-time';
-  // Issue #12: Kosten in derselben Zeile wie Uhrzeit (nur Assistenten-Antworten)
   if (role === 'assistant' && runCost) {
     time.textContent = `${formatTime(created_at)}  ↑ ${formatCost(runCost.inputEur)} ↓ ${formatCost(runCost.outputEur)}`;
     time.title = 'Uhrzeit  ·  Kosten: Eingabe / Ausgabe';
@@ -477,7 +482,116 @@ function appendMessage({ role, content, content_type, created_at, runCost }) {
   wrap.appendChild(bubble);
   wrap.appendChild(time);
 
+  // Issue #19: Feedback-Bar für Assistenten-Nachrichten
+  if (role === 'assistant' && id) {
+    const threadId = msgThreadId ?? selectedThreadId;
+    wrap.appendChild(buildFeedbackBar(id, threadId, content, fb_rating, fb_comment, fb_improved));
+  }
+
   chatMessages.appendChild(wrap);
+}
+
+/** Erstellt eine Feedback-Bar für eine Assistent-Nachricht. */
+function buildFeedbackBar(messageId, threadId, originalContent, initRating, initComment, initImproved) {
+  const bar = document.createElement('div');
+  bar.className = 'feedback-bar';
+
+  const gutBtn      = document.createElement('button');
+  gutBtn.className  = 'fb-btn gut' + (initRating === 'gut' ? ' active' : '');
+  gutBtn.textContent = '✅ Gut';
+
+  const schlechtBtn     = document.createElement('button');
+  schlechtBtn.className = 'fb-btn schlecht' + (initRating === 'schlecht' ? ' active' : '');
+  schlechtBtn.textContent = '❌ Schlecht';
+
+  const commentInput      = document.createElement('input');
+  commentInput.type       = 'text';
+  commentInput.className  = 'fb-comment' + (initRating === 'schlecht' ? ' schlecht-hl' : '');
+  commentInput.placeholder = 'Kommentar…';
+  commentInput.value      = initComment || '';
+  commentInput.title      = 'Kommentar zur Bewertung (besonders bei "Schlecht" hilfreich)';
+
+  const editBtn      = document.createElement('button');
+  editBtn.className  = 'fb-btn edit';
+  editBtn.textContent = '✏';
+  editBtn.title      = 'Antwort bearbeiten und als gut markieren';
+
+  const statusSpan     = document.createElement('span');
+  statusSpan.className = 'fb-status';
+
+  // Edit-Bereich
+  const editArea = document.createElement('div');
+  editArea.className = 'fb-edit-area' + (initImproved ? ' visible' : '');
+
+  const editTextarea    = document.createElement('textarea');
+  editTextarea.className = 'fb-edit-textarea';
+  editTextarea.value    = initImproved || originalContent || '';
+  editTextarea.rows     = 4;
+
+  const saveEditBtn      = document.createElement('button');
+  saveEditBtn.className  = 'fb-save-edit';
+  saveEditBtn.textContent = 'Als gut speichern';
+
+  editArea.appendChild(editTextarea);
+  editArea.appendChild(saveEditBtn);
+
+  bar.append(gutBtn, schlechtBtn, commentInput, editBtn, statusSpan, editArea);
+
+  // ── Event-Handler ──
+  let currentRating = initRating || null;
+
+  function applyRatingStyle(rating) {
+    gutBtn.classList.toggle('active', rating === 'gut');
+    schlechtBtn.classList.toggle('active', rating === 'schlecht');
+    commentInput.classList.toggle('schlecht-hl', rating === 'schlecht');
+  }
+
+  async function save(rating, comment, improvedText) {
+    statusSpan.textContent = '…';
+    try {
+      await apiFetch(`/api/feedback?activityId=${encodeURIComponent(activityId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId, threadId, rating, comment, improvedText }),
+      });
+      statusSpan.textContent = '✓';
+      setTimeout(() => { if (statusSpan.textContent === '✓') statusSpan.textContent = ''; }, 2000);
+    } catch (e) {
+      statusSpan.textContent = '⚠';
+      console.warn('[Feedback] Fehler:', e);
+    }
+  }
+
+  gutBtn.addEventListener('click', () => {
+    currentRating = 'gut';
+    applyRatingStyle('gut');
+    save('gut', commentInput.value, editArea.classList.contains('visible') ? editTextarea.value : null);
+  });
+
+  schlechtBtn.addEventListener('click', () => {
+    currentRating = 'schlecht';
+    applyRatingStyle('schlecht');
+    save('schlecht', commentInput.value, null);
+    if (!commentInput.value) commentInput.focus();
+  });
+
+  commentInput.addEventListener('blur', () => {
+    if (!currentRating) return;
+    save(currentRating, commentInput.value, editArea.classList.contains('visible') ? editTextarea.value : null);
+  });
+
+  editBtn.addEventListener('click', () => {
+    editArea.classList.toggle('visible');
+  });
+
+  saveEditBtn.addEventListener('click', () => {
+    currentRating = 'gut';
+    applyRatingStyle('gut');
+    save('gut', commentInput.value, editTextarea.value);
+    editArea.classList.remove('visible');
+  });
+
+  return bar;
 }
 
 function scrollToBottom() {
@@ -671,3 +785,610 @@ function closeLightbox() {
 }
 
 initLightbox();
+
+// ── Tab-Navigation (Issue #17) ────────────────────────────────────────────────
+const tabBtns        = document.querySelectorAll('.tab-btn');
+const toolbarEl      = document.getElementById('toolbar');
+const mainEl         = document.getElementById('main');
+const settingsPanel  = document.getElementById('settings-panel');
+const optimizePanel  = document.getElementById('optimize-panel');
+const simulatePanel  = document.getElementById('simulate-panel');
+const adminBadge     = document.getElementById('admin-badge');
+
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    tabBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    const isStudents = tab === 'students';
+    toolbarEl.style.display = isStudents ? '' : 'none';
+    costBar.style.display   = isStudents ? '' : 'none';
+    mainEl.style.display    = isStudents ? '' : 'none';
+    settingsPanel.classList.toggle('visible', tab === 'settings');
+    optimizePanel.classList.toggle('visible', tab === 'optimize');
+    simulatePanel.classList.toggle('visible', tab === 'simulate');
+    if (tab === 'settings')  loadSettings();
+    if (tab === 'optimize')  loadOptimizePanel();
+    if (tab === 'simulate')  loadSimulatePanel();
+  });
+});
+
+// configUpdated vom Server (anderer Admin hat etwas geändert)
+function handleConfigUpdated(msg) {
+  if (!settingsData) return;
+  settingsData.model = msg.model;
+  const disp = document.getElementById('global-model-display');
+  if (disp) disp.textContent = msg.model || '–';
+  const sel = document.getElementById('global-model-select');
+  if (sel) sel.value = msg.model;
+  const myFirst = document.getElementById('my-model-select')?.options[0];
+  if (myFirst) myFirst.text = `Standard (${msg.model})`;
+}
+
+// ── Settings: Hilfsfunktionen ─────────────────────────────────────────────────
+
+let settingsLoaded = false;
+let settingsData   = null;
+
+function setStatus(el, msg, isError = false) {
+  el.textContent = msg;
+  el.className   = 'status-msg' + (isError ? ' error' : '');
+  if (msg && !isError) setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 3000);
+}
+
+async function apiFetch(path, opts = {}) {
+  const sep = path.includes('?') ? '&' : '?';
+  const r   = await fetch(`${path}${sep}token=${encodeURIComponent(token)}`, opts);
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || `HTTP ${r.status}`); }
+  return r.json();
+}
+const apiGet    = path          => apiFetch(path);
+const apiPut    = (path, body)  => apiFetch(path, { method: 'PUT',    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+const apiPost   = (path, body)  => apiFetch(path, { method: 'POST',   headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+const apiDelete = path          => apiFetch(path, { method: 'DELETE' });
+
+// ── Settings laden ────────────────────────────────────────────────────────────
+
+async function loadSettings() {
+  if (settingsLoaded) return;
+  settingsLoaded = true;
+  try {
+    settingsData = await apiGet('/api/admin/config');
+    applySettingsData(settingsData);
+    if (settingsData.isAdmin) {
+      loadAdmins();
+      loadPromptHistory();
+    }
+  } catch (e) {
+    console.error('[Settings] Ladefehler:', e);
+  }
+}
+
+function applySettingsData(data) {
+  document.getElementById('sp-display').value            = data.systemPrompt || '';
+  document.getElementById('global-model-display').textContent = data.model || '–';
+
+  // Persönliches Modell-Dropdown
+  const mySelect = document.getElementById('my-model-select');
+  mySelect.innerHTML = `<option value="">Standard (${escHtml(data.model)})</option>`;
+  for (const m of data.availableModels) {
+    const opt = document.createElement('option');
+    opt.value = m; opt.textContent = m;
+    if (m === data.myModel) opt.selected = true;
+    mySelect.appendChild(opt);
+  }
+
+  if (!data.isAdmin) return;
+
+  // Admin-Bereiche einblenden
+  adminBadge.classList.add('visible');
+  document.getElementById('sp-admin-section').style.display = 'flex';
+  document.getElementById('sp-history-details').style.display = '';
+  document.getElementById('admin-mgmt-card').style.display   = '';
+
+  // Admin-Formular
+  document.getElementById('sp-edit').value = data.systemPrompt || '';
+  const glbSel = document.getElementById('global-model-select');
+  glbSel.innerHTML = '';
+  for (const m of data.availableModels) {
+    const opt = document.createElement('option');
+    opt.value = m; opt.textContent = m;
+    if (m === data.model) opt.selected = true;
+    glbSel.appendChild(opt);
+  }
+}
+
+// ── Persönliches Modell speichern ─────────────────────────────────────────────
+
+document.getElementById('save-my-model-btn').addEventListener('click', async () => {
+  const model  = document.getElementById('my-model-select').value;
+  const status = document.getElementById('my-model-status');
+  try {
+    await apiPut('/api/teacher/preferences', { model: model || null });
+    setStatus(status, model ? `Modell gesetzt: ${model}` : 'Auf Standard zurückgesetzt');
+  } catch (e) { setStatus(status, e.message, true); }
+});
+
+// ── Globalmodell-Wechsel erfordert Bestätigung ────────────────────────────────
+
+document.getElementById('global-model-select').addEventListener('change', e => {
+  const confirmRow = document.getElementById('model-confirm-row');
+  if (e.target.value !== settingsData?.model) {
+    confirmRow.classList.add('visible');
+    document.getElementById('model-confirm-input').value = '';
+  } else {
+    confirmRow.classList.remove('visible');
+  }
+});
+
+// ── Systemprompt + Modell speichern (Admin) ───────────────────────────────────
+
+document.getElementById('sp-save-btn').addEventListener('click', async () => {
+  const status       = document.getElementById('sp-save-status');
+  const content      = document.getElementById('sp-edit').value;
+  const model        = document.getElementById('global-model-select').value;
+  const confirmRow   = document.getElementById('model-confirm-row');
+  const confirmInput = document.getElementById('model-confirm-input');
+
+  if (confirmRow.classList.contains('visible') && confirmInput.value.trim() !== model) {
+    setStatus(status, 'Bitte den Modellnamen korrekt zur Bestätigung eingeben.', true);
+    return;
+  }
+  try {
+    await apiPut('/api/admin/config', { systemPrompt: content, model });
+    setStatus(status, 'Gespeichert.');
+    document.getElementById('sp-display').value = content;
+    document.getElementById('global-model-display').textContent = model;
+    confirmRow.classList.remove('visible');
+    settingsData.systemPrompt = content;
+    settingsData.model        = model;
+    loadPromptHistory();
+  } catch (e) { setStatus(status, e.message, true); }
+});
+
+// ── Versionshistorie ──────────────────────────────────────────────────────────
+
+async function loadPromptHistory() {
+  try {
+    const data = await apiGet('/api/admin/prompt-history');
+    const list = document.getElementById('sp-history-list');
+    list.innerHTML = '';
+    for (const h of data.history) {
+      const d       = document.createElement('div');
+      d.className   = 'history-item';
+      const preview = escHtml((h.content || '').slice(0, 200));
+      d.innerHTML   = `<div class="history-meta">v${h.version} · ${escHtml(h.model || '–')} · ${formatTime(h.created_at)} · ${escHtml(h.created_by || '–')}</div>
+                       <div class="history-content">${preview}</div>`;
+      list.appendChild(d);
+    }
+  } catch (e) { console.warn('[Settings] Historyfehler:', e); }
+}
+
+// ── Admin-Verwaltung ──────────────────────────────────────────────────────────
+
+async function loadAdmins() {
+  try {
+    const data = await apiGet('/api/admin/admins');
+    renderAdminList(data.admins);
+  } catch (e) { console.warn('[Settings] Admin-Liste Fehler:', e); }
+}
+
+function renderAdminList(admins) {
+  const list = document.getElementById('admin-list');
+  list.innerHTML = '';
+  for (const a of admins) {
+    const item = document.createElement('div');
+    item.className = 'admin-list-item';
+    item.innerHTML = `
+      <span class="admin-id">${escHtml(a.moodle_user_id)}</span>
+      <span class="admin-since">seit ${formatTime(a.granted_at)}</span>
+      <button class="settings-btn danger" data-uid="${escHtml(a.moodle_user_id)}" style="padding:3px 8px;font-size:12px">Entfernen</button>`;
+    list.appendChild(item);
+  }
+  list.querySelectorAll('[data-uid]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const uid    = btn.dataset.uid;
+      const status = document.getElementById('admin-status');
+      try {
+        const data = await apiDelete(`/api/admin/admins/${encodeURIComponent(uid)}`);
+        renderAdminList(data.admins);
+        setStatus(status, `${uid} entfernt.`);
+      } catch (e) { setStatus(status, e.message, true); }
+    });
+  });
+}
+
+// ── Simulations-Panel (Issue #21) ────────────────────────────────────────────
+
+let simulateLoaded = false;
+
+async function loadSimulatePanel() {
+  if (simulateLoaded) return;
+  simulateLoaded = true;
+  await Promise.all([loadCriteria(), loadPersonas()]);
+}
+
+// ── Kriterien ─────────────────────────────────────────────────────────────────
+
+async function loadCriteria() {
+  try {
+    const data = await apiFetch(`/api/criteria/${encodeURIComponent(activityId)}`);
+    renderCriteria(data.criteria || []);
+  } catch (e) { console.warn('[Simulate] Kriterien Ladefehler:', e); }
+}
+
+function renderCriteria(criteria) {
+  const list = document.getElementById('criteria-list');
+  list.innerHTML = criteria.length ? '' : '<p style="font-size:13px;color:#aaa;margin:4px 0">Noch keine Kriterien – KI vorschlagen lassen oder manuell hinzufügen.</p>';
+  for (const c of criteria) {
+    const item = document.createElement('div');
+    item.className = 'criteria-item';
+    item.innerHTML = `<span class="ci-text">${escHtml(c.content)}</span>
+      <button class="fb-btn" data-cid="${c.id}" style="padding:2px 6px;font-size:12px;border-color:#e74c3c;color:#e74c3c">✕</button>`;
+    list.appendChild(item);
+  }
+  list.querySelectorAll('[data-cid]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        const data = await apiFetch(`/api/criteria/${btn.dataset.cid}?activityId=${encodeURIComponent(activityId)}`, { method: 'DELETE' });
+        renderCriteria(data.criteria || []);
+      } catch (e) { console.warn('[Simulate] Kriterium löschen:', e); }
+    });
+  });
+}
+
+document.getElementById('criteria-suggest-btn').addEventListener('click', async () => {
+  const loading = document.getElementById('criteria-loading');
+  const sugg    = document.getElementById('criteria-suggestions');
+  loading.classList.add('visible');
+  sugg.style.display = 'none';
+  try {
+    const data = await apiFetch(`/api/criteria-suggest/${encodeURIComponent(activityId)}`, { method: 'POST' });
+    renderCriteriaSuggestions(data.suggestions || []);
+  } catch (e) {
+    setStatus(document.getElementById('criteria-status'), `Fehler: ${e.message}`, true);
+  } finally { loading.classList.remove('visible'); }
+});
+
+function renderCriteriaSuggestions(suggestions) {
+  const sugg = document.getElementById('criteria-suggestions');
+  sugg.innerHTML = '<div style="font-size:12px;color:#888;margin-bottom:6px">KI-Vorschläge – klicken zum Übernehmen:</div>';
+  sugg.style.display = 'block';
+  for (const s of suggestions) {
+    const btn = document.createElement('button');
+    btn.className = 'suggest-btn';
+    btn.style.cssText = 'display:block;width:100%;text-align:left;margin-bottom:4px';
+    btn.textContent = s;
+    btn.addEventListener('click', async () => {
+      try {
+        const data = await apiFetch(`/api/criteria/${encodeURIComponent(activityId)}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: s }),
+        });
+        renderCriteria(data.criteria || []);
+        btn.remove();
+        if (!sugg.querySelector('button')) sugg.style.display = 'none';
+      } catch (e) { console.warn(e); }
+    });
+    sugg.appendChild(btn);
+  }
+}
+
+document.getElementById('criteria-add-btn').addEventListener('click', async () => {
+  const input  = document.getElementById('criteria-input');
+  const status = document.getElementById('criteria-status');
+  const content = input.value.trim();
+  if (!content) return;
+  try {
+    const data = await apiFetch(`/api/criteria/${encodeURIComponent(activityId)}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content }),
+    });
+    renderCriteria(data.criteria || []);
+    input.value = '';
+    setStatus(status, 'Kriterium hinzugefügt.');
+  } catch (e) { setStatus(status, e.message, true); }
+});
+
+// ── Personas ──────────────────────────────────────────────────────────────────
+
+async function loadPersonas() {
+  try {
+    const data = await apiFetch(`/api/personas/${encodeURIComponent(activityId)}`);
+    renderPersonas(data.personas || []);
+  } catch (e) { console.warn('[Simulate] Personas Ladefehler:', e); }
+}
+
+function renderPersonas(personas) {
+  const list   = document.getElementById('personas-list');
+  const select = document.getElementById('sim-persona-select');
+  list.innerHTML = personas.length ? '' : '<p style="font-size:13px;color:#aaa;margin:4px 0">Noch keine Personas – KI vorschlagen lassen.</p>';
+  select.innerHTML = '<option value="">– Persona auswählen –</option>';
+
+  for (const p of personas) {
+    const item = document.createElement('div');
+    item.className = 'persona-item';
+    item.innerHTML = `
+      <div class="pi-name">${escHtml(p.name)}</div>
+      <div class="pi-desc">${escHtml(p.description || '')}</div>
+      ${p.example_msgs ? `<div class="pi-examples">${escHtml(p.example_msgs)}</div>` : ''}
+      <div class="pi-actions">
+        <button class="fb-btn" data-pid="${p.id}" style="padding:2px 6px;font-size:12px;border-color:#e74c3c;color:#e74c3c">Löschen</button>
+      </div>`;
+    list.appendChild(item);
+
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name;
+    select.appendChild(opt);
+  }
+
+  list.querySelectorAll('[data-pid]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        const data = await apiFetch(`/api/personas/${encodeURIComponent(activityId)}/${btn.dataset.pid}`, { method: 'DELETE' });
+        renderPersonas(data.personas || []);
+      } catch (e) { console.warn('[Simulate] Persona löschen:', e); }
+    });
+  });
+}
+
+document.getElementById('personas-suggest-btn').addEventListener('click', async () => {
+  const loading = document.getElementById('personas-loading');
+  const sugg    = document.getElementById('personas-suggestions');
+  loading.classList.add('visible');
+  sugg.style.display = 'none';
+  try {
+    const data = await apiFetch(`/api/personas-suggest/${encodeURIComponent(activityId)}`, { method: 'POST' });
+    renderPersonaSuggestions(data.suggestions || []);
+  } catch (e) {
+    setStatus(document.getElementById('personas-status'), `Fehler: ${e.message}`, true);
+  } finally { loading.classList.remove('visible'); }
+});
+
+function renderPersonaSuggestions(suggestions) {
+  const sugg = document.getElementById('personas-suggestions');
+  sugg.innerHTML = '<div style="font-size:12px;color:#888;margin-bottom:6px">KI-Vorschläge – klicken zum Übernehmen:</div>';
+  sugg.style.display = 'block';
+  for (const s of suggestions) {
+    const btn = document.createElement('button');
+    btn.className = 'suggest-btn';
+    btn.style.cssText = 'display:block;width:100%;text-align:left;margin-bottom:6px';
+    btn.innerHTML = `<strong>${escHtml(s.name)}</strong><br><span style="font-size:12px">${escHtml(s.description || '')}</span>`;
+    btn.addEventListener('click', async () => {
+      try {
+        const data = await apiFetch(`/api/personas/${encodeURIComponent(activityId)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: s.name, description: s.description, example_msgs: s.example_msgs }),
+        });
+        renderPersonas(data.personas || []);
+        btn.remove();
+        if (!sugg.querySelector('button')) sugg.style.display = 'none';
+      } catch (e) { console.warn(e); }
+    });
+    sugg.appendChild(btn);
+  }
+}
+
+// ── Simulation starten ────────────────────────────────────────────────────────
+
+document.getElementById('sim-start-btn').addEventListener('click', async () => {
+  const personaId = document.getElementById('sim-persona-select').value;
+  if (!personaId) return alert('Bitte eine Persona auswählen.');
+
+  const loading = document.getElementById('sim-loading');
+  const results = document.getElementById('sim-results');
+  const startBtn = document.getElementById('sim-start-btn');
+  loading.classList.add('visible');
+  startBtn.disabled = true;
+  results.innerHTML = '';
+
+  try {
+    const data = await apiFetch(`/api/simulate?activityId=${encodeURIComponent(activityId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ personaId: parseInt(personaId) }),
+    });
+    renderSimResults(data.results || [], data.personaName || '');
+  } catch (e) {
+    results.innerHTML = `<p style="color:#c0392b;font-size:13px">Fehler: ${escHtml(e.message)}</p>`;
+  } finally {
+    loading.classList.remove('visible');
+    startBtn.disabled = false;
+  }
+});
+
+function highlightResponse(text, highlights) {
+  let result = escHtml(text).replace(/\n/g, '<br>');
+  for (const h of (highlights || [])) {
+    if (!h.quote || !h.quote.trim()) continue;
+    const escaped = escHtml(h.quote);
+    const cls     = h.type === 'gut' ? 'hl-gut' : 'hl-schlecht';
+    const title   = escHtml(h.reason || '');
+    result = result.replace(escaped, `<mark class="${cls}" title="${title}">${escaped}</mark>`);
+  }
+  return result;
+}
+
+function renderSimResults(results, personaName) {
+  const container = document.getElementById('sim-results');
+  container.innerHTML = `<p style="font-size:13px;font-weight:600;color:#003366;margin-bottom:8px">Simulation: ${escHtml(personaName)}</p>`;
+
+  for (let i = 0; i < results.length; i++) {
+    const { utterance, aiResponse, evaluation } = results[i];
+    const ev = evaluation || {};
+    const overallClass = `sim-overall-${ev.overall || 'gemischt'}`;
+    const scoreStars = '⭐'.repeat(Math.max(1, Math.min(5, ev.score || 3)));
+
+    const pair = document.createElement('div');
+    pair.className = 'sim-pair';
+    pair.innerHTML = `
+      <div class="sim-pair-header">
+        <span>Äußerung ${i + 1}</span>
+        <span class="${overallClass}">${ev.overall || 'gemischt'}</span>
+        <span class="sim-score">${scoreStars}</span>
+      </div>
+      <div class="sim-utterance">${escHtml(utterance)}</div>
+      <div class="sim-response">${highlightResponse(aiResponse, ev.highlights)}</div>
+      ${ev.summary ? `<div class="sim-summary">💬 ${escHtml(ev.summary)}</div>` : ''}`;
+    container.appendChild(pair);
+  }
+
+  if (results.length) {
+    const hint = document.createElement('p');
+    hint.style.cssText = 'font-size:12px;color:#888;margin-top:4px';
+    hint.textContent = '🟢 = gelungen · 🔴 = problematisch. Wechsel zu "Optimierung" um daraus einen neuen Erfahrungsprompt zu generieren.';
+    container.appendChild(hint);
+  }
+}
+
+// ── Optimierungs-Panel (Issue #20) ────────────────────────────────────────────
+
+let optimizeLoaded = false;
+
+async function loadOptimizePanel() {
+  if (optimizeLoaded) return;
+  optimizeLoaded = true;
+  await loadErfahrungsprompt();
+  await loadErfahrungspromptHistory();
+}
+
+async function loadErfahrungsprompt() {
+  try {
+    const data = await apiFetch(`/api/erfahrungsprompt/${encodeURIComponent(activityId)}`);
+    document.getElementById('erf-current').value = data.content || '';
+  } catch (e) { console.warn('[Optimize] Erfahrungsprompt Ladefehler:', e); }
+}
+
+async function loadErfahrungspromptHistory() {
+  try {
+    const data = await apiFetch(`/api/erfahrungsprompt-history/${encodeURIComponent(activityId)}`);
+    const list = document.getElementById('erf-history-list');
+    list.innerHTML = '';
+    for (const h of data.history) {
+      const d = document.createElement('div');
+      d.className = 'history-item';
+      d.innerHTML = `<div class="history-meta">v${h.version} · ${formatTime(h.created_at)} · ${escHtml(h.created_by || '–')}</div>
+                     <div class="history-content">${escHtml((h.content || '').slice(0, 200))}</div>`;
+      list.appendChild(d);
+    }
+  } catch (e) { console.warn('[Optimize] History Ladefehler:', e); }
+}
+
+// Manuell speichern
+document.getElementById('erf-save-btn').addEventListener('click', async () => {
+  const content = document.getElementById('erf-current').value;
+  const status  = document.getElementById('erf-save-status');
+  try {
+    await apiFetch(`/api/erfahrungsprompt/${encodeURIComponent(activityId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    setStatus(status, 'Erfahrungsprompt gespeichert.');
+    optimizeLoaded = false;
+    await loadErfahrungspromptHistory();
+    optimizeLoaded = true;
+  } catch (e) { setStatus(status, e.message, true); }
+});
+
+// KI-Vorschlag generieren
+document.getElementById('opt-generate-btn').addEventListener('click', async () => {
+  const loading = document.getElementById('opt-loading');
+  const result  = document.getElementById('opt-result');
+  const genBtn  = document.getElementById('opt-generate-btn');
+  loading.classList.add('visible');
+  genBtn.disabled = true;
+  result.style.display = 'none';
+  document.getElementById('opt-confirm-status').textContent = '';
+
+  try {
+    const data = await apiFetch(`/api/optimize-prompt?activityId=${encodeURIComponent(activityId)}`, {
+      method: 'POST',
+    });
+    document.getElementById('opt-alt').value = data.erfahrungsprompt_alt || '(leer)';
+    document.getElementById('opt-neu').value = data.erfahrungsprompt_neu || '';
+    renderKausalkette(data.kausalkette || []);
+    result.style.display = 'flex';
+  } catch (e) {
+    setStatus(document.getElementById('opt-confirm-status'), `Fehler: ${e.message}`, true);
+  } finally {
+    loading.classList.remove('visible');
+    genBtn.disabled = false;
+  }
+});
+
+function renderKausalkette(items) {
+  const container = document.getElementById('opt-kausalkette');
+  container.innerHTML = '';
+  if (!items.length) {
+    container.textContent = 'Keine Kausalkette vom KI generiert.';
+    return;
+  }
+  for (const item of items) {
+    const div = document.createElement('div');
+    div.className = 'kausalkette-item';
+    div.innerHTML = `
+      <div class="kk-label">Problem</div><div class="kk-text">${escHtml(item.problem || '–')}</div>
+      <div class="kk-label" style="margin-top:5px">Ursache</div><div class="kk-text">${escHtml(item.ursache || '–')}</div>
+      <div class="kk-label" style="margin-top:5px">Änderung</div><div class="kk-text">${escHtml(item.aenderung || '–')}</div>`;
+    container.appendChild(div);
+  }
+}
+
+// Bestätigen & speichern
+document.getElementById('opt-confirm-btn').addEventListener('click', async () => {
+  const content = document.getElementById('opt-neu').value;
+  const status  = document.getElementById('opt-confirm-status');
+  try {
+    // 1. Erfahrungsprompt speichern
+    await apiFetch(`/api/erfahrungsprompt/${encodeURIComponent(activityId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+
+    // 2. Kausalkette als Erkenntnisse speichern
+    const kkItems = Array.from(document.querySelectorAll('#opt-kausalkette .kausalkette-item')).map(el => {
+      const texts = el.querySelectorAll('.kk-text');
+      return {
+        problem:  texts[0]?.textContent || '',
+        ursache:  texts[1]?.textContent || '',
+        aenderung: texts[2]?.textContent || '',
+      };
+    });
+    if (kkItems.length) {
+      await apiFetch(`/api/erkenntnisse?activityId=${encodeURIComponent(activityId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: kkItems }),
+      });
+    }
+
+    // Aktuellen Erfahrungsprompt aktualisieren
+    document.getElementById('erf-current').value = content;
+    document.getElementById('opt-result').style.display = 'none';
+    setStatus(status, 'Gespeichert. Erkenntnisse übernommen.');
+    optimizeLoaded = false;
+    await loadErfahrungspromptHistory();
+    optimizeLoaded = true;
+  } catch (e) { setStatus(status, e.message, true); }
+});
+
+// Verwerfen
+document.getElementById('opt-discard-btn').addEventListener('click', () => {
+  document.getElementById('opt-result').style.display = 'none';
+  document.getElementById('opt-confirm-status').textContent = '';
+});
+
+document.getElementById('add-admin-btn').addEventListener('click', async () => {
+  const input  = document.getElementById('new-admin-input');
+  const status = document.getElementById('admin-status');
+  const uid    = input.value.trim();
+  if (!uid) return setStatus(status, 'Bitte eine User-ID eingeben.', true);
+  try {
+    const data = await apiPost('/api/admin/admins', { newUserId: uid });
+    renderAdminList(data.admins);
+    input.value = '';
+    setStatus(status, `${uid} als Admin eingetragen.`);
+  } catch (e) { setStatus(status, e.message, true); }
+});
