@@ -1038,6 +1038,14 @@ async function loadSimulatePanel() {
   if (simulateLoaded) return;
   simulateLoaded = true;
   await Promise.all([loadCriteria(), loadPersonas()]);
+  // genModels befüllen – entweder aus Cache oder frisch holen
+  const cfg = settingsData || await apiGet('/api/admin/config').catch(() => null);
+  if (cfg) {
+    if (!settingsData) settingsData = cfg;
+    if (cfg.genModels?.length) populateGenModelSelects(cfg.genModels);
+    const chatInput = document.getElementById('model-chat');
+    if (chatInput) chatInput.value = cfg.model || '–';
+  }
 }
 
 // ── Kriterien ─────────────────────────────────────────────────────────────────
