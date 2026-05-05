@@ -158,12 +158,6 @@ export function saveThread({ moodle_user_id, moodle_user_name, activity_id, open
   return result.lastInsertRowid;
 }
 
-/** Gibt die interne DB-ID für eine OpenAI-Thread-ID zurück. */
-export function getThreadDbId(openai_thread_id) {
-  const row = db.prepare('SELECT id FROM threads WHERE openai_thread_id = ?').get(openai_thread_id);
-  return row ? row.id : null;
-}
-
 /** updated_at aktualisieren, wenn neue Nachrichten kommen */
 export function touchThread(thread_db_id) {
   db.prepare(`UPDATE threads SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(thread_db_id);
@@ -420,10 +414,6 @@ export function saveFeedback({ messageId, threadId, activityId, rating, comment,
       improved_text = excluded.improved_text,
       rated_by      = excluded.rated_by
   `).run(messageId, threadId, activityId || null, rating, comment || null, improvedText || null, ratedBy || null);
-}
-
-export function getFeedbackForMessage(messageId) {
-  return db.prepare('SELECT * FROM message_feedback WHERE message_id = ?').get(messageId) || null;
 }
 
 export function getErfahrungspromptHistory(activityId) {
