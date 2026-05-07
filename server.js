@@ -1056,6 +1056,12 @@ app.ws("/api/chat", (ws, req) => {
                   upsertActivity(settings.activityId, settings.activityName, settings.opener || null, settings.uploadMode || null);
                 }
 
+                // AUTOMATISCHES SPEICHERN DES AUFGABENPROMPTS (hints)
+                if (settings.activityId && settings.hints) {
+                  saveErfahrungsprompt(settings.activityId, settings.hints, settings.userId || 'moodle-import');
+                  console.log(`[Settings] Aufgabenprompt (hints) für ${settings.activityId} automatisch gespeichert`);
+                }
+
                 // Issue #5: Dashboard-Token für Lehrer erzeugen und zurückschicken
                 if (ws.isTeacher && settings.activityId) {
                   const token = generateDashboardToken(settings.activityId, settings.userId);
