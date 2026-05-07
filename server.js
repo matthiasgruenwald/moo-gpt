@@ -7,8 +7,7 @@ import expressWs from "express-ws";
 import http from "http";
 import https from "https";
 import cors from "cors";
-import moment from "moment";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, getActivityName, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, getTeacherPreference, setTeacherPreference, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getPersonas, upsertPersona, deletePersona, getCriteria, deleteCriterion, getStudentMessages } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, getTeacherPreference, setTeacherPreference, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getPersonas, upsertPersona, deletePersona, getCriteria, deleteCriterion, getStudentMessages } from "./db.js";
 import crypto from "crypto";
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
@@ -41,6 +40,14 @@ if (fs.existsSync(CERT_FILE) && fs.existsSync(KEY_FILE)) {
  * Middle ware to limit the number of requests from a single IP address
  */
 const requests = {};
+
+// Prune stale IP entries daily to prevent unbounded growth
+setInterval(() => {
+  const today = new Date().toISOString().slice(0, 10);
+  for (const ip of Object.keys(requests)) {
+    if (requests[ip].date !== today) delete requests[ip];
+  }
+}, 24 * 60 * 60 * 1000);
 
 function limitRequests(ws, req, message, next) {
   const ip = req.socket.remoteAddress;
@@ -186,10 +193,12 @@ function getEffectiveModel(isTeacher, userId) {
 
 /** Baut die vollständigen instructions für einen Chat-Request. */
 function buildInstructions(settings, activityId) {
-  moment.locale('de');
-  const now = moment();
+  const now = new Date();
+  const dayName = now.toLocaleDateString('de-DE', { weekday: 'long' });
+  const dateStr = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   let instructions = cachedConfig.content
-    + `\nHeute ist ${now.format('dddd')}, der ${now.format('DD.MM.YYYY')} um ${now.format('HH:mm')}.\n`
+    + `\nHeute ist ${dayName}, der ${dateStr} um ${timeStr}.\n`
     + (settings.hints || '')
     + (settings.task  || '');
   const erf = getActiveErfahrungsprompt(activityId);
@@ -200,37 +209,11 @@ function buildInstructions(settings, activityId) {
 // ---------------------------------------------------------------------------
 
 function checkFormat(ws, msgObj, next) {
-  if (!msgObj.hasOwnProperty("type")) {
-    chatMsg.end = true;
-    chatMsg.messages =
-      "Error: Missing or wrong Parameter 'type' in JSON message";
-    ws.send(JSON.stringify(chatMsg));
-    console.log("Error: Missing or wrong Parameter 'type' in JSON message");
-    return;
-  } else if (typeof msgObj.type !== "string") {
-    chatMsg.end = true;
-    chatMsg.messages =
-      "Error: Parameter 'type' is not a string in JSON message";
-    ws.send(JSON.stringify(chatMsg));
-    console.log("Error: Parameter 'type' is not a string in JSON message");
-    return;
-  }
-  if (!msgObj.hasOwnProperty("data")) {
-    chatMsg.end = true;
-    chatMsg.messages =
-      "Error: Missing or wrong Parameter 'data' in JSON message";
-    ws.send(JSON.stringify(chatMsg));
-    console.log("Error: Missing or wrong Parameter 'data' in JSON message");
-    return;
-  } else if (typeof msgObj.data !== "object") {
-    chatMsg.end = true;
-    chatMsg.messages =
-      "Error: Parameter 'data' is not a object in JSON message";
-    ws.send(JSON.stringify(chatMsg));
-    console.log("Error: Parameter 'data' is not a object in JSON message");
-    return;
-  }
-
+  const sendErr = (msg) => { ws.send(JSON.stringify({ end: true, messages: msg })); console.log(msg); };
+  if (!msgObj.hasOwnProperty("type"))       return sendErr("Error: Missing or wrong Parameter 'type' in JSON message");
+  if (typeof msgObj.type !== "string")       return sendErr("Error: Parameter 'type' is not a string in JSON message");
+  if (!msgObj.hasOwnProperty("data"))       return sendErr("Error: Missing or wrong Parameter 'data' in JSON message");
+  if (typeof msgObj.data !== "object")      return sendErr("Error: Parameter 'data' is not a object in JSON message");
   next();
 }
 
@@ -942,14 +925,9 @@ app.get('/api/feedback/:activityId', (req, res) => {
 // ── Issue #5: Teacher-Dashboard WebSocket (Live-Updates) ────────────────────
 
 app.ws('/api/dashboard-ws', (ws, req) => {
-  // Origin-Check
-  const origin = req.headers.origin || '';
-  if (process.env.ALLOWED_ORIGIN) {
-    const allowed = process.env.ALLOWED_ORIGIN.split(',').map(o => o.trim()).some(o => origin.startsWith(o));
-    if (!allowed) {
-      ws.close(1008, 'Origin not allowed');
-      return;
-    }
+  if (!isOriginAllowed(req)) {
+    ws.close(1008, 'Origin not allowed');
+    return;
   }
 
   const params     = new URLSearchParams((req.url || '').split('?')[1] || '');

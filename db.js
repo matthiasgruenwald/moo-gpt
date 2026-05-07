@@ -267,12 +267,6 @@ export function getActivity(activity_id) {
   return db.prepare('SELECT activity_name, opener, upload_mode FROM activities WHERE activity_id = ?').get(activity_id) || null;
 }
 
-/** Abwärtskompatibilität */
-export function getActivityName(activity_id) {
-  const row = getActivity(activity_id);
-  return row ? row.activity_name : null;
-}
-
 /**
  * Speichert Token-Verbrauch nach einem Run (Issue #11).
  * usage: { prompt_tokens, completion_tokens, total_tokens } aus OpenAI-Response
