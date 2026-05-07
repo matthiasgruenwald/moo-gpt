@@ -782,12 +782,17 @@ app.post('/api/criteria-suggest/:activityId', async (req, res) => {
   if (!validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
   try {
     const { genModel } = req.body;
+    const erf = getActiveErfahrungsprompt(activityId);
+    const promptSource = erf
+      ? `Aufgabenprompt:\n${erf.content}`
+      : `Systemprompt:\n${cachedConfig.content}`;
+
     const result = await aiJsonCall(
-      `Du leitest Bewertungskriterien für eine KI-Tutoring-Anwendung aus einem Systemprompt ab.
+      `Du leitest Bewertungskriterien für eine KI-Tutoring-Anwendung aus einem Prompt ab.
 Antworte AUSSCHLIESSLICH mit validem JSON:
 { "criteria": ["Kriterium 1", "Kriterium 2", ...] }
 Leite 5–8 präzise, prüfbare Kriterien ab. Formuliere sie als positive Aussagen (was die KI TUN soll).`,
-      `Systemprompt:\n${cachedConfig.content}`,
+      promptSource,
       genModel || GEN_MODEL
     );
     res.json({ suggestions: result.criteria || [] });
