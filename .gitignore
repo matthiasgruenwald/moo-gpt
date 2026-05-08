@@ -12,8 +12,11 @@ public/chat-icon.png
 *.db-shm
 *.db-wal
 
-# Claude Code
-CLAUDE.md
+# Lokale Overrides (nur lokal, nie committen)
+CLAUDE.local.md
+.claude/local/
+.claude/settings.local.json
+.claude/worktrees/
 
 # macOS
 .DS_Store
