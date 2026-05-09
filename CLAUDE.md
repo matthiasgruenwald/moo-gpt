@@ -9,7 +9,7 @@ Kontext für Claude Code. Details in `docs/`.
 KI-Chatbot-Widget für Moodle (IGS Mittelstufe, v.a. Jg. 9). Floating-Chat-Widget per TinyMCE-Snippet. Lehrer-Dashboard mit Schüler-Chats, Token-Kosten, Session-Gruppen.
 
 - **Live-URL:** https://gpt.gruenwald.fun
-- **GitHub:** `matthiasgruenwald/mmbbs-gpt` (privat)
+- **GitHub:** `matthiasgruenwald/moo-gpt` (privat)
 - **Version:** 3.0.0
 - **Stack:** Node.js 22, Express, express-ws, OpenAI Responses API (gpt-5), openai SDK ≥6.35
 
@@ -20,10 +20,10 @@ KI-Chatbot-Widget für Moodle (IGS Mittelstufe, v.a. Jg. 9). Floating-Chat-Widge
 | | |
 |---|---|
 | Server | LXC 106 auf Proxmox |
-| Pfad auf LXC | `/opt/mmbbs-gpt` |
-| Dienst | `systemctl restart mmbbs-gpt` |
+| Pfad auf LXC | `/opt/moo-gpt` |
+| Dienst | `systemctl restart moo-gpt` |
 | Tunnel | Cloudflare → Port 3000 |
-| Env-Datei | `/etc/mmbbs-gpt.env` |
+| Env-Datei | `/etc/moo-gpt.env` |
 
 ---
 
@@ -84,10 +84,10 @@ Entwicklung findet primär direkt auf dem LXC statt (nicht mehr auf dem Mac mit 
 
 | | |
 |---|---|
-| Pfad | `/opt/mmbbs-gpt` |
-| Dienst-Neustart | `systemctl restart mmbbs-gpt` |
-| Logs | `journalctl -u mmbbs-gpt -f` |
-| Env-Datei | `/etc/mmbbs-gpt.env` (nicht im Repo) |
+| Pfad | `/opt/moo-gpt` |
+| Dienst-Neustart | `systemctl restart moo-gpt` |
+| Logs | `journalctl -u moo-gpt -f` |
+| Env-Datei | `/etc/moo-gpt.env` (nicht im Repo) |
 
 Auf dem LXC arbeitet Claude Code direkt im Projektverzeichnis. `git push` vom LXC, Mac dient nur noch als Review/Merge-Station.
 
@@ -109,16 +109,16 @@ Auch ignoriert: `.claude/settings.local.json`, `.claude/local/`, `.claude/worktr
 
 **LXC (primär):**
 ```bash
-cd /opt/mmbbs-gpt
+cd /opt/moo-gpt
 git add -p          # oder spezifische Dateien
 git commit -m "feat: ..."
 git push
-systemctl restart mmbbs-gpt
+systemctl restart moo-gpt
 ```
 
 **Mac → LXC Pull (nach Push vom Mac):**
 ```bash
-cd /opt/mmbbs-gpt && git fetch origin '+refs/heads/*:refs/remotes/origin/*' && git pull origin BRANCH-NAME && systemctl restart mmbbs-gpt
+cd /opt/moo-gpt && git fetch origin '+refs/heads/*:refs/remotes/origin/*' && git pull origin BRANCH-NAME && systemctl restart moo-gpt
 ```
 
 Details: [`docs/git-workflow.md`](docs/git-workflow.md)

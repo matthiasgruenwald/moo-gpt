@@ -2,7 +2,7 @@
 
 ## Context
 
-mmbbs-gpt (Node/Express + SQLite + WebSocket) soll in einer geordneten Serie von Paketen erweitert werden. Jedes Paket ist ein eigenes GitHub-Issue, folgt TDD, und wird mit Conventional Commits abgeschlossen. Sicherheitskritische Pakete (P8, P10) bekommen zusätzlich `/security-review`.
+moo-gpt (Node/Express + SQLite + WebSocket) soll in einer geordneten Serie von Paketen erweitert werden. Jedes Paket ist ein eigenes GitHub-Issue, folgt TDD, und wird mit Conventional Commits abgeschlossen. Sicherheitskritische Pakete (P8, P10) bekommen zusätzlich `/security-review`.
 
 ---
 
@@ -11,8 +11,8 @@ mmbbs-gpt (Node/Express + SQLite + WebSocket) soll in einer geordneten Serie von
 ```
 P1 (Bugs) ─────┐
 P2 (UX)  ──────┤
-P3 (Plenum) ───┤──► P4 (Rename) ──► P5 (Config) ──► P10 (OSS)
-                │                └──► P6 (Personas) ──► P7 (One-Click) ──┘
+P3 (Plenum) ───┤──► P4 (Rename Code) ──► P4a (Rename Infra) ──► P5 (Config) ──► P10 (OSS)
+                │                                             └──► P6 (Personas) ──► P7 (One-Click) ──┘
 P8 (Debug) ────┘ (eigenständig)
 P9 (Grafik) ─────── (eigenständig, parallel zu P5–P7)
 ```
@@ -103,9 +103,32 @@ ALTER TABLE erkenntnisse ADD COLUMN status TEXT DEFAULT 'active';
 
 ---
 
-## P4 — Umbenennung mmbbs-gpt → moo-gpt (1 Issue)
+## P4 — Umbenennung Code: mmbbs-gpt → moo-gpt ✓ done
 
 Scope: `db.js`, `public/mmbbs-bot.js` → `moo-bot.js`, `index.html`, `README.md`, `snippets/abgpt.txt`, `snippets/tegpt.txt` (Inhalt, nicht Dateinamen), `package.json`.
+
+---
+
+## P4a — Umbenennung Infra: mmbbs-gpt → moo-gpt
+
+Voraussetzung: P4 ✓
+
+**Schritte (auf LXC als root):**
+
+1. Dienst stoppen: `systemctl stop mmbbs-gpt`
+2. Ordner umbenennen: `mv /opt/mmbbs-gpt /opt/moo-gpt`
+3. Env-Datei verschieben: `mv /etc/mmbbs-gpt.env /etc/moo-gpt.env`
+4. Systemd-Unit umbenennen: `mv /etc/systemd/system/mmbbs-gpt.service /etc/systemd/system/moo-gpt.service` — darin `WorkingDirectory` und `EnvironmentFile` auf neue Pfade anpassen
+5. `systemctl daemon-reload && systemctl enable moo-gpt && systemctl start moo-gpt`
+6. LXC-Hostname: `hostnamectl set-hostname moo-gpt` (im Container)
+7. Proxmox: Container in der UI umbenennen (optional, kosmetisch)
+8. GitHub-Repo umbenennen: Settings → Rename → `moo-gpt` (optional, bricht bestehende Clone-URLs)
+
+**Nacharbeiten im Repo (nach Infra-Rename):**
+- `CLAUDE.md`: 10 Infra-Zeilen auf neue Pfade aktualisieren
+- `db.js:8`: `DB_PATH`-Default → `/opt/moo-gpt/chats.db`
+
+**Verification:** `grep -rE "mmbbs" . | grep -v ".git"` → 0 Treffer
 
 ---
 

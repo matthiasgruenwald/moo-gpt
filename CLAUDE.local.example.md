@@ -11,7 +11,7 @@ Beispiele für maschinenspezifische Ergänzungen:
 
 ```
 Ich arbeite auf dem Mac (nicht LXC).
-Projektpfad: ~/Documents/Claude/Projects/Moodle/mmbbs-gpt
+Projektpfad: ~/Documents/Claude/Projects/Moodle/moo-gpt
 ```
 
 ## Temporäre Hinweise

@@ -1,6 +1,6 @@
 /**
  * db.js – SQLite-Datenbankmodul für moo-gpt
- * Spiegelt alle Threads und Nachrichten lokal in /opt/moo-gpt/chats.db
+ * Pfad über DB_PATH-Env überschreibbar (Default: /opt/moo-gpt/chats.db)
  */
 
 import Database from 'better-sqlite3';
