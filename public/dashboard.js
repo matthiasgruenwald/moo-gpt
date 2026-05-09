@@ -1087,6 +1087,7 @@ async function loadCriteria() {
   try {
     const data = await apiFetch(`/api/criteria/${encodeURIComponent(activityId)}`);
     renderCriteria(data.criteria || []);
+    renderDeletedCriteria(data.deletedCriteria || []);
   } catch (e) { console.warn('[Simulate] Kriterien Ladefehler:', e); }
 }
 
@@ -1105,14 +1106,41 @@ function renderCriteria(criteria) {
       try {
         const data = await apiFetch(`/api/criteria/${btn.dataset.cid}?activityId=${encodeURIComponent(activityId)}`, { method: 'DELETE' });
         renderCriteria(data.criteria || []);
+        renderDeletedCriteria(data.deletedCriteria || []);
       } catch (e) { console.warn('[Simulate] Kriterium löschen:', e); }
     });
   });
 }
 
+function renderDeletedCriteria(criteria) {
+  const container = document.getElementById('criteria-deleted');
+  if (!criteria.length) { container.style.display = 'none'; return; }
+  container.style.display = 'block';
+  container.innerHTML = '<p style="font-size:12px;color:#888;margin:8px 0 4px">Verworfene Vorschläge:</p>';
+  for (const c of criteria) {
+    const item = document.createElement('div');
+    item.className = 'criteria-item';
+    item.style.opacity = '0.6';
+    item.innerHTML = `<span class="ci-text" style="text-decoration:line-through">${escHtml(c.content)}</span>
+      <button class="fb-btn" data-rid="${c.id}" style="padding:2px 6px;font-size:12px">Wiederherstellen</button>`;
+    container.appendChild(item);
+  }
+  container.querySelectorAll('[data-rid]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        const data = await apiFetch(`/api/criteria/${btn.dataset.rid}/restore?activityId=${encodeURIComponent(activityId)}`, { method: 'PATCH' });
+        renderCriteria(data.criteria || []);
+        renderDeletedCriteria(data.deletedCriteria || []);
+      } catch (e) { console.warn('[Simulate] Kriterium wiederherstellen:', e); }
+    });
+  });
+}
+
 document.getElementById('criteria-suggest-btn').addEventListener('click', async () => {
+  const btn     = document.getElementById('criteria-suggest-btn');
   const loading = document.getElementById('criteria-loading');
   const sugg    = document.getElementById('criteria-suggestions');
+  btn.disabled = true;
   loading.classList.add('visible');
   sugg.style.display = 'none';
   try {
@@ -1124,7 +1152,10 @@ document.getElementById('criteria-suggest-btn').addEventListener('click', async 
     renderCriteriaSuggestions(data.suggestions || []);
   } catch (e) {
     setStatus(document.getElementById('criteria-status'), `Fehler: ${e.message}`, true);
-  } finally { loading.classList.remove('visible'); }
+  } finally {
+    loading.classList.remove('visible');
+    btn.disabled = false;
+  }
 });
 
 function renderCriteriaSuggestions(suggestions) {
@@ -1142,6 +1173,7 @@ function renderCriteriaSuggestions(suggestions) {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: s }),
         });
         renderCriteria(data.criteria || []);
+        renderDeletedCriteria(data.deletedCriteria || []);
         btn.remove();
         if (!sugg.querySelector('button')) sugg.style.display = 'none';
       } catch (e) { console.warn(e); }
@@ -1160,6 +1192,7 @@ document.getElementById('criteria-add-btn').addEventListener('click', async () =
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content }),
     });
     renderCriteria(data.criteria || []);
+    renderDeletedCriteria(data.deletedCriteria || []);
     input.value = '';
     setStatus(status, 'Kriterium hinzugefügt.');
   } catch (e) { setStatus(status, e.message, true); }
@@ -1213,8 +1246,10 @@ function renderPersonas(personas) {
 }
 
 document.getElementById('personas-suggest-btn').addEventListener('click', async () => {
+  const btn     = document.getElementById('personas-suggest-btn');
   const loading = document.getElementById('personas-loading');
   const sugg    = document.getElementById('personas-suggestions');
+  btn.disabled = true;
   loading.classList.add('visible');
   sugg.style.display = 'none';
   try {
@@ -1226,7 +1261,10 @@ document.getElementById('personas-suggest-btn').addEventListener('click', async 
     renderPersonaSuggestions(data.suggestions || []);
   } catch (e) {
     setStatus(document.getElementById('personas-status'), `Fehler: ${e.message}`, true);
-  } finally { loading.classList.remove('visible'); }
+  } finally {
+    loading.classList.remove('visible');
+    btn.disabled = false;
+  }
 });
 
 function renderPersonaSuggestions(suggestions) {

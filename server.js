@@ -7,7 +7,7 @@ import expressWs from "express-ws";
 import http from "http";
 import https from "https";
 import cors from "cors";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getPersonas, upsertPersona, deletePersona, getCriteria, deleteCriterion, getStudentMessages } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getPersonas, upsertPersona, deletePersona, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
 import crypto from "crypto";
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
@@ -788,7 +788,7 @@ app.get('/api/criteria/:activityId', (req, res) => {
   if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
   const { activityId } = req.params;
   if (!validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
-  res.json({ criteria: getCriteria(activityId) });
+  res.json({ criteria: getCriteria(activityId), deletedCriteria: getDeletedCriteria(activityId) });
 });
 
 /** POST /api/criteria-suggest/:activityId?token= – KI schlägt Kriterien vor */
@@ -827,16 +827,25 @@ app.post('/api/criteria/:activityId', (req, res) => {
   const { content } = req.body;
   if (!content) return res.status(400).json({ error: 'content fehlt' });
   saveErkenntnisse(activityId, content, 'criteria');
-  res.json({ ok: true, criteria: getCriteria(activityId) });
+  res.json({ ok: true, criteria: getCriteria(activityId), deletedCriteria: getDeletedCriteria(activityId) });
 });
 
-/** DELETE /api/criteria/:id?activityId=X&token= */
+/** DELETE /api/criteria/:id?activityId=X&token= – Soft-Delete */
 app.delete('/api/criteria/:id', (req, res) => {
   if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
   const { activityId } = req.query;
   if (!activityId || !validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
-  deleteCriterion(parseInt(req.params.id));
-  res.json({ ok: true, criteria: getCriteria(activityId) });
+  softDeleteCriterion(parseInt(req.params.id));
+  res.json({ ok: true, criteria: getCriteria(activityId), deletedCriteria: getDeletedCriteria(activityId) });
+});
+
+/** PATCH /api/criteria/:id/restore?activityId=X&token= */
+app.patch('/api/criteria/:id/restore', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.query;
+  if (!activityId || !validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
+  restoreCriterion(parseInt(req.params.id));
+  res.json({ ok: true, criteria: getCriteria(activityId), deletedCriteria: getDeletedCriteria(activityId) });
 });
 
 // ── Issues #21 + #26: Simulation (SSE-Streaming) ─────────────────────────────

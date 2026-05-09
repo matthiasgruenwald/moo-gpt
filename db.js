@@ -113,6 +113,8 @@ export function initDb() {
   try { db.exec(`ALTER TABLE token_log ADD COLUMN message_id INTEGER`); } catch (_) {}
   // Issue #19: Unique-Index damit saveFeedback ON CONFLICT funktioniert
   try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_feedback_msgid ON message_feedback (message_id)`); } catch (_) {}
+  // P2: Soft-Delete für Kriterien
+  try { db.exec(`ALTER TABLE erkenntnisse ADD COLUMN status TEXT DEFAULT 'active'`); } catch (_) {}
   // Issue #13: openai_thread_id nullable machen (Responses API braucht keinen Thread)
   {
     const col = db.pragma('table_info(threads)').find(c => c.name === 'openai_thread_id');
@@ -479,13 +481,25 @@ export function deletePersona(id) {
 export function getCriteria(activityId) {
   return db.prepare(`
     SELECT * FROM erkenntnisse
-    WHERE source = 'criteria' AND (activity_id = ? OR activity_id IS NULL)
+    WHERE source = 'criteria' AND COALESCE(status, 'active') = 'active' AND (activity_id = ? OR activity_id IS NULL)
     ORDER BY created_at ASC
   `).all(activityId);
 }
 
-export function deleteCriterion(id) {
-  db.prepare('DELETE FROM erkenntnisse WHERE id = ? AND source = ?').run(id, 'criteria');
+export function getDeletedCriteria(activityId) {
+  return db.prepare(`
+    SELECT * FROM erkenntnisse
+    WHERE source = 'criteria' AND status = 'deleted' AND (activity_id = ? OR activity_id IS NULL)
+    ORDER BY created_at ASC
+  `).all(activityId);
+}
+
+export function softDeleteCriterion(id) {
+  db.prepare(`UPDATE erkenntnisse SET status = 'deleted' WHERE id = ? AND source = 'criteria'`).run(id);
+}
+
+export function restoreCriterion(id) {
+  db.prepare(`UPDATE erkenntnisse SET status = 'active' WHERE id = ? AND source = 'criteria'`).run(id);
 }
 
 export function getStudentMessages(activityId) {
