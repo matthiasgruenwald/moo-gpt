@@ -7,7 +7,7 @@ import expressWs from "express-ws";
 import http from "http";
 import https from "https";
 import cors from "cors";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, getTeacherPreference, setTeacherPreference, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getPersonas, upsertPersona, deletePersona, getCriteria, deleteCriterion, getStudentMessages } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getPersonas, upsertPersona, deletePersona, getCriteria, deleteCriterion, getStudentMessages } from "./db.js";
 import crypto from "crypto";
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
@@ -457,6 +457,18 @@ app.get('/api/admin/prompt-history', (req, res) => {
   res.json({ history: getPromptHistory() });
 });
 
+/** DELETE /api/admin/prompt-history/:id?token=… – Historyeintrag löschen (Admin) */
+app.delete('/api/admin/prompt-history/:id', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+  const id = parseInt(req.params.id, 10);
+  if (!id) return res.status(400).json({ error: 'Ungültige ID' });
+  const result = deletePromptHistoryEntry(id);
+  if (!result.ok) return res.status(400).json({ error: result.error });
+  res.json({ ok: true, history: getPromptHistory() });
+});
+
 /** GET /api/admin/admins?token=… – Admin-Liste (Admin) */
 app.get('/api/admin/admins', (req, res) => {
   if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
@@ -546,6 +558,19 @@ app.get('/api/erfahrungsprompt-history/:activityId', (req, res) => {
   res.json({ history: getErfahrungspromptHistory(activityId) });
 });
 
+/** DELETE /api/erfahrungsprompt-history/:id?activityId=&token= */
+app.delete('/api/erfahrungsprompt-history/:id', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.query;
+  if (!validateDashboardToken(req.query.token, activityId))
+    return res.status(403).json({ error: 'Unauthorized' });
+  const id = parseInt(req.params.id, 10);
+  if (!id) return res.status(400).json({ error: 'Ungültige ID' });
+  const result = deleteErfahrungspromptHistoryEntry(activityId, id);
+  if (!result.ok) return res.status(400).json({ error: result.error });
+  res.json({ ok: true, history: getErfahrungspromptHistory(activityId) });
+});
+
 // Issue #26: Optimize-Logik als Hilfsfunktion (wird von /api/optimize-prompt und /api/simulate genutzt)
 async function generateOptimizeProposal(activityId, simResultsText = '') {
   const feedbacks    = getFeedbackByActivity(activityId);
@@ -593,9 +618,7 @@ Antworte AUSSCHLIESSLICH mit validem JSON ohne Markdown-Blöcke:
     stream:       false,
   });
 
-  const raw = response.output_text || '';
-  const jsonStr = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
-  const parsed = JSON.parse(jsonStr);
+  const parsed = stripAndParseJson(response.output_text);
   if (!parsed.erfahrungsprompt_neu || !Array.isArray(parsed.kausalkette))
     throw new Error('Unvollständige KI-Antwort');
 
@@ -640,6 +663,17 @@ app.post('/api/erkenntnisse', (req, res) => {
 
 // ── Issue #21: Personas & Simulation – AI-Hilfsfunktionen ────────────────────
 
+function stripAndParseJson(text) {
+  const raw = (text || '').replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // LLMs sometimes produce invalid escape sequences (e.g. \' or \,); strip them
+    const repaired = raw.replace(/\\([^"\\\/bfnrtu])/g, (_, c) => c);
+    return JSON.parse(repaired);
+  }
+}
+
 async function aiJsonCall(instructions, userMessage, model = GEN_MODEL) {
   const response = await oai.responses.create({
     model,
@@ -647,8 +681,7 @@ async function aiJsonCall(instructions, userMessage, model = GEN_MODEL) {
     input:   [{ role: 'user', content: userMessage }],
     stream:  false,
   });
-  const raw = (response.output_text || '').replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
-  return JSON.parse(raw);
+  return stripAndParseJson(response.output_text);
 }
 
 async function generateSimulatedUtterances(persona, count = 4, model = GEN_MODEL) {

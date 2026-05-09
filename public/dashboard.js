@@ -683,7 +683,13 @@ function relTime(isoStr) {
 function formatTime(isoStr) {
   if (!isoStr) return '';
   try {
-    return parseUTC(isoStr).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+    const d    = parseUTC(isoStr);
+    const now  = new Date();
+    const tz   = { timeZone: 'Europe/Berlin' };
+    const time = d.toLocaleTimeString('de-DE', { ...tz, hour: '2-digit', minute: '2-digit' });
+    const sameDay = d.toLocaleDateString('de-DE', tz) === now.toLocaleDateString('de-DE', tz);
+    if (sameDay) return time;
+    return d.toLocaleDateString('de-DE', { ...tz, day: '2-digit', month: '2-digit' }) + ' ' + time;
   } catch { return isoStr; }
 }
 
@@ -887,7 +893,10 @@ async function loadSettings() {
       loadPromptHistory();
     }
   } catch (e) {
+    settingsLoaded = false;
     console.error('[Settings] Ladefehler:', e);
+    const status = document.getElementById('sp-save-status');
+    if (status) setStatus(status, 'Einstellungen konnten nicht geladen werden – Token fehlt oder ungültig.', true);
   }
 }
 
@@ -982,17 +991,41 @@ document.getElementById('sp-save-btn').addEventListener('click', async () => {
 
 async function loadPromptHistory() {
   try {
-    const data = await apiGet('/api/admin/prompt-history');
-    const list = document.getElementById('sp-history-list');
+    const data   = await apiGet('/api/admin/prompt-history');
+    const list   = document.getElementById('sp-history-list');
+    const status = document.getElementById('sp-save-status');
     list.innerHTML = '';
+    const latestId = data.history[0]?.id;
     for (const h of data.history) {
-      const d       = document.createElement('div');
-      d.className   = 'history-item';
-      const preview = escHtml((h.content || '').slice(0, 200));
-      d.innerHTML   = `<div class="history-meta">v${h.version} · ${escHtml(h.model || '–')} · ${formatTime(h.created_at)} · ${escHtml(h.created_by || '–')}</div>
-                       <div class="history-content">${preview}</div>`;
+      const d = document.createElement('div');
+      d.className = 'history-item';
+      const deleteBtn = h.id !== latestId
+        ? `<button class="history-delete-btn" data-id="${h.id}">Löschen</button>`
+        : '';
+      d.innerHTML = `
+        <div class="history-meta">
+          v${h.version} · ${escHtml(h.model || '–')} · ${formatTime(h.created_at)} · ${escHtml(h.created_by || '–')}
+          <button class="history-expand-btn">Anzeigen</button>${deleteBtn}
+        </div>
+        <div class="history-content">${escHtml(h.content || '')}</div>`;
       list.appendChild(d);
     }
+    list.querySelectorAll('.history-expand-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const content = btn.closest('.history-item').querySelector('.history-content');
+        content.classList.toggle('expanded');
+        btn.textContent = content.classList.contains('expanded') ? 'Ausblenden' : 'Anzeigen';
+      });
+    });
+    list.querySelectorAll('.history-delete-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        try {
+          await apiDelete(`/api/admin/prompt-history/${btn.dataset.id}`);
+          await loadPromptHistory();
+          setStatus(status, 'Eintrag gelöscht.');
+        } catch (e) { setStatus(status, e.message, true); }
+      });
+    });
   } catch (e) { console.warn('[Settings] Historyfehler:', e); }
 }
 
@@ -1130,6 +1163,10 @@ document.getElementById('criteria-add-btn').addEventListener('click', async () =
     input.value = '';
     setStatus(status, 'Kriterium hinzugefügt.');
   } catch (e) { setStatus(status, e.message, true); }
+});
+
+document.getElementById('criteria-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('criteria-add-btn').click();
 });
 
 // ── Personas ──────────────────────────────────────────────────────────────────
@@ -1461,16 +1498,42 @@ async function loadErfahrungsprompt() {
 
 async function loadErfahrungspromptHistory() {
   try {
-    const data = await apiFetch(`/api/erfahrungsprompt-history/${encodeURIComponent(activityId)}`);
-    const list = document.getElementById('erf-history-list');
+    const data   = await apiFetch(`/api/erfahrungsprompt-history/${encodeURIComponent(activityId)}`);
+    const list   = document.getElementById('erf-history-list');
+    const status = document.getElementById('erf-save-status');
     list.innerHTML = '';
+    const latestId = data.history[0]?.id;
     for (const h of data.history) {
       const d = document.createElement('div');
       d.className = 'history-item';
-      d.innerHTML = `<div class="history-meta">v${h.version} · ${formatTime(h.created_at)} · ${escHtml(h.created_by || '–')}</div>
-                     <div class="history-content">${escHtml((h.content || '').slice(0, 200))}</div>`;
+      const deleteBtn = h.id !== latestId
+        ? `<button class="history-delete-btn" data-id="${h.id}">Löschen</button>`
+        : '';
+      d.innerHTML = `
+        <div class="history-meta">
+          v${h.version} · ${formatTime(h.created_at)} · ${escHtml(h.created_by || '–')}
+          <button class="history-expand-btn">Anzeigen</button>${deleteBtn}
+        </div>
+        <div class="history-content">${escHtml(h.content || '')}</div>`;
       list.appendChild(d);
     }
+    list.querySelectorAll('.history-expand-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const content = btn.closest('.history-item').querySelector('.history-content');
+        content.classList.toggle('expanded');
+        btn.textContent = content.classList.contains('expanded') ? 'Ausblenden' : 'Anzeigen';
+      });
+    });
+    list.querySelectorAll('.history-delete-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        try {
+          await apiDelete(`/api/erfahrungsprompt-history/${id}?activityId=${encodeURIComponent(activityId)}`);
+          await loadErfahrungspromptHistory();
+          setStatus(status, 'Eintrag gelöscht.');
+        } catch (e) { setStatus(status, e.message, true); }
+      });
+    });
   } catch (e) { console.warn('[Optimize] History Ladefehler:', e); }
 }
 

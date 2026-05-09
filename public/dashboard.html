@@ -457,8 +457,15 @@
     .history-item .history-meta { color: #888; margin-bottom: 4px; }
     .history-item .history-content {
       font-family: monospace; font-size: 11px; white-space: pre-wrap;
-      max-height: 80px; overflow: hidden; color: #333;
+      max-height: 0; overflow: hidden; color: #333;
+      transition: max-height 0.3s ease;
     }
+    .history-item .history-content.expanded { max-height: 600px; }
+    .history-expand-btn, .history-delete-btn {
+      font-size: 10px; padding: 1px 6px; margin-left: 6px; cursor: pointer;
+      border: 1px solid #ccc; border-radius: 3px; background: #f0f0f0;
+    }
+    .history-delete-btn { color: #c00; border-color: #c00; background: #fff0f0; }
 
     /* ── Mobile (<768px) ─────────────────────────────────────────────────── */
     @media (max-width: 767px) {

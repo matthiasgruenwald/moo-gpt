@@ -419,6 +419,24 @@ export function getErfahrungspromptHistory(activityId) {
   `).all(activityId);
 }
 
+export function deletePromptHistoryEntry(id) {
+  const latest = db.prepare(
+    `SELECT id FROM prompts WHERE scope = 'global' AND type = 'system' ORDER BY id DESC LIMIT 1`
+  ).get();
+  if (!latest || latest.id === id) return { ok: false, error: 'Aktuelle Version kann nicht gelöscht werden' };
+  db.prepare(`DELETE FROM prompts WHERE id = ? AND scope = 'global' AND type = 'system'`).run(id);
+  return { ok: true };
+}
+
+export function deleteErfahrungspromptHistoryEntry(activityId, id) {
+  const latest = db.prepare(
+    `SELECT id FROM prompts WHERE scope = ? AND type = 'erfahrung' ORDER BY id DESC LIMIT 1`
+  ).get(activityId);
+  if (!latest || latest.id === id) return { ok: false, error: 'Aktuelle Version kann nicht gelöscht werden' };
+  db.prepare(`DELETE FROM prompts WHERE id = ? AND scope = ? AND type = 'erfahrung'`).run(id, activityId);
+  return { ok: true };
+}
+
 export function getErkenntnisse(activityId) {
   return db.prepare(`
     SELECT id, activity_id, content, source, created_at
