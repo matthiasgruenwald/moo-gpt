@@ -76,6 +76,35 @@
       background: #004488;
     }
     #student-count { margin-left: auto; font-size: 13px; opacity: 0.85; }
+    #lock-btn {
+      background: #003366;
+      color: white;
+      border: 1px solid #5588bb;
+      border-radius: 4px;
+      padding: 3px 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    #lock-btn.locked { background: #c0392b; border-color: #e74c3c; }
+    #lock-timer {
+      width: 44px;
+      font-size: 13px;
+      padding: 2px 4px;
+      border-radius: 4px;
+      border: 1px solid #5588bb;
+      background: #003366;
+      color: white;
+      text-align: center;
+    }
+    #lock-badge {
+      font-size: 12px;
+      background: #c0392b;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      display: none;
+    }
+    #lock-badge.visible { display: inline-block; }
 
     /* ── Layout ──────────────────────────────────────────────────────────── */
     #main {
@@ -898,6 +927,10 @@
   <button class="sort-btn" data-sort="name">Name ↑</button>
   <button class="sort-btn" data-sort="cost">Verbrauch ↓</button>
   <span id="student-count"></span>
+  <button id="lock-btn" title="Plenumsphase – Chat für Schüler sperren">🔒 Sperren</button>
+  <input type="number" id="lock-timer" min="0" max="120" value="0" title="Automatische Entsperrung nach N Minuten (0 = nie)">
+  <span style="font-size:13px">min</span>
+  <span id="lock-badge">🔒 Gesperrt</span>
 </div>
 
 <!-- Aktivitäts-Gesamtkosten (Issue #12) -->

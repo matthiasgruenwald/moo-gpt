@@ -122,6 +122,22 @@ function isOriginAllowed(req) {
 /** Map activityId → Set<ws>  für Live-Updates im Lehrer-Dashboard. */
 const dashboardClients = new Map();
 
+/** P3: activityId → { timerHandle? } für Plenum-Sperre. */
+const activityLocks = new Map();
+
+/** P3: activityId → Set<ws> für Chat-Clients (Schüler). */
+const activityChatClients = new Map();
+
+/** P3: Sendet ein Ereignis an alle Schüler-Chat-Clients einer Aktivität. */
+function notifyChatClients(activityId, payload) {
+  const clients = activityChatClients.get(String(activityId));
+  if (!clients) return;
+  const msg = JSON.stringify(payload);
+  for (const ws of clients) {
+    if (ws.readyState === ws.OPEN) ws.send(msg);
+  }
+}
+
 /**
  * Dashboard-Token-Verwaltung (Issue #5: Zugriffsschutz).
  * Token wird beim Lehrer-Login per WS erzeugt und 8 h gecacht.
@@ -848,6 +864,54 @@ app.patch('/api/criteria/:id/restore', (req, res) => {
   res.json({ ok: true, criteria: getCriteria(activityId), deletedCriteria: getDeletedCriteria(activityId) });
 });
 
+// ── P3: Plenum-Sperre ────────────────────────────────────────────────────────
+
+/** POST /api/activity/:activityId/lock?token= – Aktivität sperren */
+app.post('/api/activity/:activityId/lock', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.params;
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !validateDashboardToken(req.query.token, activityId))
+    return res.status(403).json({ error: 'Unauthorized' });
+
+  const existing = activityLocks.get(String(activityId));
+  if (existing?.timerHandle) clearTimeout(existing.timerHandle);
+
+  const entry = {};
+  const durationMinutes = Number(req.body.durationMinutes) || 0;
+  if (durationMinutes > 0) {
+    entry.timerHandle = setTimeout(() => {
+      activityLocks.delete(String(activityId));
+      notifyChatClients(activityId, { type: 'unlocked' });
+      notifyDashboard(activityId, { type: 'unlocked' });
+      console.log(`[Lock] Aktivität ${activityId} automatisch entsperrt nach ${durationMinutes} min`);
+    }, durationMinutes * 60 * 1000);
+  }
+
+  activityLocks.set(String(activityId), entry);
+  notifyChatClients(activityId, { type: 'locked' });
+  notifyDashboard(activityId, { type: 'locked' });
+  console.log(`[Lock] Aktivität ${activityId} gesperrt von ${userId}, Timer: ${durationMinutes} min`);
+  res.json({ ok: true, locked: true });
+});
+
+/** DELETE /api/activity/:activityId/lock?token= – Aktivität entsperren */
+app.delete('/api/activity/:activityId/lock', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.params;
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !validateDashboardToken(req.query.token, activityId))
+    return res.status(403).json({ error: 'Unauthorized' });
+
+  const existing = activityLocks.get(String(activityId));
+  if (existing?.timerHandle) clearTimeout(existing.timerHandle);
+  activityLocks.delete(String(activityId));
+  notifyChatClients(activityId, { type: 'unlocked' });
+  notifyDashboard(activityId, { type: 'unlocked' });
+  console.log(`[Lock] Aktivität ${activityId} entsperrt von ${userId}`);
+  res.json({ ok: true, locked: false });
+});
+
 // ── Issues #21 + #26: Simulation (SSE-Streaming) ─────────────────────────────
 
 /** POST /api/simulate?activityId=X&token= – SSE-Stream */
@@ -1000,6 +1064,7 @@ app.ws('/api/dashboard-ws', (ws, req) => {
       activityName: act?.activity_name,
       opener:       act?.opener,
       activityCost,
+      locked:       activityLocks.has(activityId),
     }));
   } catch (e) {
     console.error('[Dashboard] Initial-students error:', e);
@@ -1045,7 +1110,12 @@ app.ws("/api/chat", (ws, req) => {
         ws.ping();
       }
     }, 30000);
-    ws.on("close", () => clearInterval(keepalive));
+    ws.on("close", () => {
+      clearInterval(keepalive);
+      if (settings?.activityId) {
+        activityChatClients.get(String(settings.activityId))?.delete(ws);
+      }
+    });
 
     ws.on("message", (message) => {
       limitRequests(ws, req, message, () => {
@@ -1080,6 +1150,14 @@ app.ws("/api/chat", (ws, req) => {
                 if (settings.activityId && settings.hints) {
                   saveErfahrungsprompt(settings.activityId, settings.hints, settings.userId || 'moodle-import');
                   console.log(`[Settings] Aufgabenprompt (hints) für ${settings.activityId} automatisch gespeichert`);
+                }
+
+                // P3: Chat-Client registrieren + ggf. sofort sperren
+                if (settings.activityId) {
+                  const aid = String(settings.activityId);
+                  if (!activityChatClients.has(aid)) activityChatClients.set(aid, new Set());
+                  activityChatClients.get(aid).add(ws);
+                  if (activityLocks.has(aid)) ws.send(JSON.stringify({ type: 'locked' }));
                 }
 
                 // Issue #5: Dashboard-Token für Lehrer erzeugen und zurückschicken

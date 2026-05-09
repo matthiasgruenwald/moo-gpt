@@ -411,6 +411,16 @@ export class MMBBSBOT {
           return;
         }
 
+        // P3: Plenum-Sperre
+        if (messageObj.type === "locked") {
+          this._showLockOverlay();
+          return;
+        }
+        if (messageObj.type === "unlocked") {
+          this._hideLockOverlay();
+          return;
+        }
+
         let messageText = messageObj.messages;
 
         // Ersetzen von \[ durch $$
@@ -963,5 +973,40 @@ export class MMBBSBOT {
   _closeLightbox() {
     const lb = document.getElementById('mmb-lightbox');
     if (lb) lb.style.display = 'none';
+  }
+
+  // ── P3: Plenum-Overlay ────────────────────────────────────────────────────
+
+  _showLockOverlay() {
+    let overlay = document.getElementById('mmb-lock-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'mmb-lock-overlay';
+      overlay.style.cssText = [
+        'position:absolute', 'inset:0',
+        'background:rgba(0,51,102,0.92)', 'color:white',
+        'display:flex', 'flex-direction:column',
+        'align-items:center', 'justify-content:center',
+        'gap:12px', 'z-index:10',
+        'font-family:Arial,sans-serif', 'border-radius:inherit',
+      ].join(';');
+      overlay.innerHTML =
+        '<div style="font-size:36px">🔒</div>' +
+        '<div style="font-size:15px;font-weight:600;text-align:center;padding:0 24px">Plenumsphase aktiv</div>' +
+        '<div style="font-size:13px;opacity:0.8;text-align:center;padding:0 24px">Die Lehrperson hat den Chat vorübergehend gesperrt.</div>';
+      const container = document.getElementById('chat-container');
+      if (container) {
+        container.style.position = 'relative';
+        container.appendChild(overlay);
+      }
+    }
+    overlay.style.display = 'flex';
+    this._disableInput();
+  }
+
+  _hideLockOverlay() {
+    const overlay = document.getElementById('mmb-lock-overlay');
+    if (overlay) overlay.style.display = 'none';
+    this._enableInput();
   }
 }

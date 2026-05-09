@@ -50,6 +50,7 @@ let hasConnectedSuccessfully = false;      // war schon mal gültig verbunden?
 let fatalError              = false;       // kein Reconnect mehr
 let activityCost            = null;        // Issue #12: Aktivitäts-Gesamtkosten
 let currentThreadCost       = null;        // Issue #12: Kosten des aktuell geöffneten Chats
+let isLocked                = false;       // P3: Plenum-Sperre
 
 // ── DOM-Referenzen ───────────────────────────────────────────────────────────
 const statusDot      = document.getElementById('status-dot');
@@ -70,6 +71,9 @@ const costBar        = document.getElementById('cost-bar');
 const costBarInput   = document.getElementById('cost-bar-input');
 const costBarOutput  = document.getElementById('cost-bar-output');
 const costBarTotal   = document.getElementById('cost-bar-total');
+const lockBtn        = document.getElementById('lock-btn');
+const lockTimer      = document.getElementById('lock-timer');
+const lockBadge      = document.getElementById('lock-badge');
 
 // ── Initialisierung ───────────────────────────────────────────────────────────
 if (!activityId || !token) {
@@ -114,6 +118,35 @@ backBtn.addEventListener('click', () => {
   currentThreadCost = null;
   document.querySelectorAll('.student-item').forEach(el => el.classList.remove('active'));
   renderChatCost(null);
+});
+
+// ── P3: Plenum-Sperre ────────────────────────────────────────────────────────
+
+function renderLockState(locked) {
+  isLocked = locked;
+  lockBadge.classList.toggle('visible', locked);
+  lockBtn.classList.toggle('locked', locked);
+  lockBtn.textContent = locked ? '🔓 Entsperren' : '🔒 Sperren';
+}
+
+lockBtn.addEventListener('click', async () => {
+  lockBtn.disabled = true;
+  try {
+    if (isLocked) {
+      await fetch(`/api/activity/${encodeURIComponent(activityId)}/lock?token=${encodeURIComponent(token)}`, { method: 'DELETE' });
+    } else {
+      const durationMinutes = parseInt(lockTimer.value, 10) || 0;
+      await fetch(`/api/activity/${encodeURIComponent(activityId)}/lock?token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ durationMinutes }),
+      });
+    }
+  } catch (e) {
+    console.error('[Lock] Fehler:', e);
+  } finally {
+    lockBtn.disabled = false;
+  }
 });
 
 // ── Kosten-Formatierung (Issue #12) ──────────────────────────────────────────
@@ -222,6 +255,8 @@ function handleServerMessage(msg) {
       // Issue #12: Aktivitäts-Kosten
       activityCost = msg.activityCost || null;
       renderActivityCost(activityCost);
+      // P3: initiale Sperr-Status
+      renderLockState(msg.locked === true);
       renderStudentList();
       break;
 
@@ -238,6 +273,14 @@ function handleServerMessage(msg) {
 
     case 'configUpdated':
       handleConfigUpdated(msg);
+      break;
+
+    case 'locked':
+      renderLockState(true);
+      break;
+
+    case 'unlocked':
+      renderLockState(false);
       break;
 
     case 'error':
