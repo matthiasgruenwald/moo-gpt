@@ -58,7 +58,9 @@
       gap: 10px;
       flex-shrink: 0;
       font-size: 14px;
+      flex-wrap: wrap;
     }
+    #lock-group { display: flex; align-items: center; gap: 8px; }
     #toolbar label { font-size: 13px; }
     .sort-btn {
       background: #003366;
@@ -927,10 +929,12 @@
   <button class="sort-btn" data-sort="name">Name ↑</button>
   <button class="sort-btn" data-sort="cost">Verbrauch ↓</button>
   <span id="student-count"></span>
-  <button id="lock-btn" title="Plenumsphase – Chat für Schüler sperren">🔒 Sperren</button>
-  <input type="number" id="lock-timer" min="0" max="120" value="0" title="Automatische Entsperrung nach N Minuten (0 = nie)">
-  <span style="font-size:13px">min</span>
-  <span id="lock-badge">🔒 Gesperrt</span>
+  <div id="lock-group">
+    <button id="lock-btn" title="Plenumsphase – Chat für Schüler sperren">🔒 Sperren</button>
+    <input type="number" id="lock-timer" min="0" max="120" value="0" title="Automatische Entsperrung nach N Minuten (0 = nie)">
+    <span style="font-size:13px">min</span>
+    <span id="lock-badge">🔒 Gesperrt</span>
+  </div>
 </div>
 
 <!-- Aktivitäts-Gesamtkosten (Issue #12) -->
