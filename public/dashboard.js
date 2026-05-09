@@ -130,9 +130,11 @@ function renderLockState(locked) {
 }
 
 lockBtn.addEventListener('click', async () => {
+  const wasLocked = isLocked;
+  renderLockState(!wasLocked); // optimistisch, verhindert Doppelklick-Race
   lockBtn.disabled = true;
   try {
-    if (isLocked) {
+    if (wasLocked) {
       await fetch(`/api/activity/${encodeURIComponent(activityId)}/lock?token=${encodeURIComponent(token)}`, { method: 'DELETE' });
     } else {
       const durationMinutes = parseInt(lockTimer.value, 10) || 0;
@@ -144,6 +146,7 @@ lockBtn.addEventListener('click', async () => {
     }
   } catch (e) {
     console.error('[Lock] Fehler:', e);
+    renderLockState(wasLocked); // bei Fehler zurückrollen
   } finally {
     lockBtn.disabled = false;
   }

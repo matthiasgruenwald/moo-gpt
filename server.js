@@ -878,7 +878,7 @@ app.post('/api/activity/:activityId/lock', (req, res) => {
   if (existing?.timerHandle) clearTimeout(existing.timerHandle);
 
   const entry = {};
-  const durationMinutes = Number(req.body.durationMinutes) || 0;
+  const durationMinutes = Math.min(120, Math.max(0, Number(req.body.durationMinutes) || 0));
   if (durationMinutes > 0) {
     entry.timerHandle = setTimeout(() => {
       activityLocks.delete(String(activityId));
@@ -1152,8 +1152,8 @@ app.ws("/api/chat", (ws, req) => {
                   console.log(`[Settings] Aufgabenprompt (hints) für ${settings.activityId} automatisch gespeichert`);
                 }
 
-                // P3: Chat-Client registrieren + ggf. sofort sperren
-                if (settings.activityId) {
+                // P3: Chat-Client registrieren (nur Schüler) + ggf. sofort sperren
+                if (settings.activityId && !ws.isTeacher) {
                   const aid = String(settings.activityId);
                   if (!activityChatClients.has(aid)) activityChatClients.set(aid, new Set());
                   activityChatClients.get(aid).add(ws);
