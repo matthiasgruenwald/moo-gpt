@@ -8,7 +8,7 @@ import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-java.min.js";
 import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-python.min.js";
 import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-json.min.js";
 
-export class MMBBSBOT {
+export class MOOBOT {
   constructor(settings) {
     this.settings = settings;
     this.msgCount = 0;
