@@ -1,11 +1,11 @@
 /**
- * db.js – SQLite-Datenbankmodul für mmbbs-gpt (Issue #2)
- * Spiegelt alle Threads und Nachrichten lokal in /opt/mmbbs-gpt/chats.db
+ * db.js – SQLite-Datenbankmodul für moo-gpt
+ * Spiegelt alle Threads und Nachrichten lokal in /opt/moo-gpt/chats.db
  */
 
 import Database from 'better-sqlite3';
 
-const DB_PATH = process.env.DB_PATH || '/opt/mmbbs-gpt/chats.db';
+const DB_PATH = process.env.DB_PATH || '/opt/moo-gpt/chats.db';
 
 let db;
 

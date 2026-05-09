@@ -1,4 +1,4 @@
-# mmbbs-gpt – CLAUDE.md
+# moo-gpt – CLAUDE.md
 
 Kontext für Claude Code. Details in `docs/`.
 
@@ -33,7 +33,7 @@ KI-Chatbot-Widget für Moodle (IGS Mittelstufe, v.a. Jg. 9). Floating-Chat-Widge
 |-------|-------|
 | `server.js` | WebSocket-Server, OpenAI-Anbindung |
 | `db.js` | SQLite-Modul |
-| `public/mmbbs-bot.js` | Floating-Chat-Widget (ES-Modul) |
+| `public/moo-bot.js` | Floating-Chat-Widget (ES-Modul) |
 | `public/dashboard.html` / `dashboard.js` | Lehrer-Dashboard |
 | `public/chat.html` | Standalone-Chat (iframe) |
 | `snippets/abgpt.txt` | TinyMCE-Snippet Aufgaben |
@@ -47,7 +47,7 @@ KI-Chatbot-Widget für Moodle (IGS Mittelstufe, v.a. Jg. 9). Floating-Chat-Widge
 |-------|--------|
 | [`docs/db.md`](docs/db.md) | SQLite-Tabellen, db.js-Exports, better-sqlite3-Installation |
 | [`docs/server.md`](docs/server.md) | server.js-Konzepte: Origin, Token-System, Responses API, Endpunkte |
-| [`docs/bot.md`](docs/bot.md) | mmbbs-bot.js: Lazy-Init, Upload, Rollenerkennung, Cache |
+| [`docs/bot.md`](docs/bot.md) | moo-bot.js: Lazy-Init, Upload, Rollenerkennung, Cache |
 | [`docs/dashboard.md`](docs/dashboard.md) | Layout, Session-Gruppen, Kostenanzeige, Token-Fehler |
 | [`docs/snippets.md`](docs/snippets.md) | abgpt/tegpt TinyMCE-Snippets, Moodle-Rechte |
 | [`docs/system-prompt.md`](docs/system-prompt.md) | Aktueller System-Prompt, Bildverarbeitung |

@@ -41,9 +41,9 @@ npm start
 | `TEACHER_USER_IDS` | – | Kommagetrennte Moodle-User-IDs, die server-seitig als Lehrkraft eingestuft werden (unabhängig vom Client-Flag). |
 | `ALLOWED_ORIGIN` | – | Kommagetrennte Liste erlaubter Origins (z. B. `https://moodle.mm-bbs.de`). Ohne diese Variable ist jede Origin erlaubt. |
 | `MAX_REQUESTS` | – | Max. Anfragen pro IP und Tag (z. B. `4`) |
-| `DB_PATH` | – | Pfad zur SQLite-Datenbankdatei (Standard: `/opt/mmbbs-gpt/chats.db`) |
+| `DB_PATH` | – | Pfad zur SQLite-Datenbankdatei (Standard: `/opt/moo-gpt/chats.db`) |
 
-### Beispiel `/etc/mmbbs-gpt.env`
+### Beispiel `/etc/moo-gpt.env`
 
 ```env
 APIKEY=sk-proj-...
@@ -53,7 +53,7 @@ ADMIN_USER_IDS=12345,67890
 AVAILABLE_MODELS=gpt-5,gpt-4o,gpt-4.1-mini,gpt-4.1-nano
 TEACHER_USER_IDS=12345,67890
 ALLOWED_ORIGIN=https://moodle.beispiel.de
-DB_PATH=/opt/mmbbs-gpt/chats.db
+DB_PATH=/opt/moo-gpt/chats.db
 ```
 
 ## SQLite-Datenbank
@@ -98,7 +98,7 @@ Die DB-Datei wird beim ersten Start automatisch angelegt. Pfad per `DB_PATH`-Env
 ## Docker Container
 
 ```
-docker run -d -p 3000:3000 -e APIKEY=sk-proj-geheim -e AID=asst_uen-geheim service.joerg-tuttas.de:5555/root/mmbbs_gpt
+docker run -d -p 3000:3000 -e APIKEY=sk-proj-geheim -e AID=asst_uen-geheim service.joerg-tuttas.de:5555/root/moo_gpt
 ```
 
 **Volumes:**
@@ -115,7 +115,7 @@ Der Bot erkennt Bilder in der Aufgabenstellung automatisch und überträgt sie a
 
 - **Modell:** zwingend `gpt-4o` – `gpt-4o-mini` unterstützt keine Bilderkennung in der Assistants API und halluziniert stattdessen
 - **Bilder müssen im Moodle-Medienpool liegen** (kein CORS-Problem); sehr große Bilder oder fotografierte Schulbuchseiten können fehlschlagen – SVG oder komprimierte PNGs bevorzugen
-- Diagnose: `journalctl -u mmbbs-gpt -f` – fehlendes „Füge X Bild(er) zum Thread hinzu" bedeutet, das Bild kam nicht an
+- Diagnose: `journalctl -u moo-gpt -f` – fehlendes „Füge X Bild(er) zum Thread hinzu" bedeutet, das Bild kam nicht an
 
 Das Modell wird im OpenAI-Dashboard unter platform.openai.com/assistants gesetzt, nicht im Code.
 
@@ -135,7 +135,7 @@ Der einfachste Weg ist das TinyMCE-Snippet `abgpt` (→ `snippets/abgpt.txt`). E
 Manuell:
 
 ```html
-<script type="module" async="" id="mmbbs-bot">
+<script type="module" async="" id="moo-bot">
     const settings = {
         "host": "gpt.gruenwald.fun",
         "protocol": "https",
@@ -145,7 +145,7 @@ Manuell:
         "hints": "Du gibst nur Hinweise, keine fertigen Lösungen.",
         "task": document.querySelector('.activity-description')?.innerHTML || ""
     };
-    import { MMBBSBOT } from 'https://gpt.gruenwald.fun/mmbbs-bot.js';
+    import { MMBBSBOT } from 'https://gpt.gruenwald.fun/moo-bot.js';
     const bot = new MMBBSBOT(settings);
 </script>
 ```
@@ -156,7 +156,7 @@ Quiz-Fragen blockieren `<script>`-Tags → iframe-Variante via `tegpt`-Snippet (
 
 ### Rollenerkennung (ab v1.11.0)
 
-`mmbbs-bot.js` erkennt automatisch, ob der aktuelle Nutzer Trainer oder Teilnehmer ist, und sendet ein `isTeacher`-Flag mit dem Settings-Handshake an den Server. Dort steht es als `ws.isTeacher` bereit (Basis für Issue #5: Lehrer-Dashboard).
+`moo-bot.js` erkennt automatisch, ob der aktuelle Nutzer Trainer oder Teilnehmer ist, und sendet ein `isTeacher`-Flag mit dem Settings-Handshake an den Server. Dort steht es als `ws.isTeacher` bereit (Basis für Issue #5: Lehrer-Dashboard).
 
 **Erkennungslogik:**
 
@@ -198,7 +198,7 @@ Trainer sehen einen zusätzlichen Dashboard-Button (blaues Viereck-Icon) über d
 Schüler führen ihren Chat nach einem Seitenreload oder Reconnect nahtlos weiter – der vollständige Gesprächsverlauf wird beim Öffnen des Chat-Widgets wiederhergestellt.
 
 **Funktionsweise:**
-- `mmbbs-bot.js` liest beim Verbindungsaufbau `window.M.cfg.userId`, `window.M.cfg.fullname` und die Aktivitäts-ID (`?id=` aus URL) aus und sendet diese mit dem `settings`-Handshake
+- `moo-bot.js` liest beim Verbindungsaufbau `window.M.cfg.userId`, `window.M.cfg.fullname` und die Aktivitäts-ID (`?id=` aus URL) aus und sendet diese mit dem `settings`-Handshake
 - Der Server sucht in SQLite nach einem bestehenden Thread für userId + activityId. Falls gefunden, wird der OpenAI-Thread per `threads.retrieve()` wiederverwendet – kein Bildupload, keine neue Thread-Erstellung
 - Falls der Thread bei OpenAI nicht mehr existiert (Ablauf), wird automatisch ein neuer angelegt
 - Der Server sendet beim Reconnect den gespeicherten Chatverlauf als `type: "history"` an den Client

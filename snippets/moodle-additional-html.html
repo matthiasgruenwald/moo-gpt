@@ -8,7 +8,7 @@
 -->
 <script>
 window.addEventListener('message', function(e) {
-  if (!e.data || e.data.type !== 'mmbbs-update') return;
+  if (!e.data || e.data.type !== 'moo-update') return;
   var newSrc = e.data.src;
   if (typeof tinyMCE === 'undefined') return;
   var ed = tinyMCE.activeEditor;

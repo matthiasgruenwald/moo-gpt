@@ -1,16 +1,16 @@
 <!-- Snippet 1: KI-Chat (liest Aufgabentext+Bilder) -->
 <!-- Key: abgpt | Öffnen: Spinnennetz-Button in TinyMCE-Toolbar -->
-<div id="mmbbs-settings" style="background:#EEF2FF;border:2px dashed #4F46E5;border-radius:8px;padding:10px;margin:8px 0;font-size:13px;color:#1e1b4b;">
+<div id="moo-settings" style="background:#EEF2FF;border:2px dashed #4F46E5;border-radius:8px;padding:10px;margin:8px 0;font-size:13px;color:#1e1b4b;">
   <strong>⚙️ KI-Assistent – nur im Editor sichtbar, Schüler sehen dies nicht!</strong><br>
-  Titel: <span class="mmbbs-title">{{Titel}}</span><br>
-  Begrüßung: <span class="mmbbs-opener">{{Begrüßung}}</span><br>
-  Bild: <span class="mmbbs-icon">{{Bild}}</span><br>
-  Hinweise: <span class="mmbbs-hints">{{Hinweise}}</span>
+  Titel: <span class="moo-title">{{Titel}}</span><br>
+  Begrüßung: <span class="moo-opener">{{Begrüßung}}</span><br>
+  Bild: <span class="moo-icon">{{Bild}}</span><br>
+  Hinweise: <span class="moo-hints">{{Hinweise}}</span>
 </div>
-<script>document.getElementById("mmbbs-settings").style.display="none";</script>
-<script type="module" async id="mmbbs-bot">
-  const cfg = document.getElementById('mmbbs-settings');
-  const get = cls => cfg.querySelector('.mmbbs-' + cls)?.textContent.trim() || '';
+<script>document.getElementById("moo-settings").style.display="none";</script>
+<script type="module" async id="moo-bot">
+  const cfg = document.getElementById('moo-settings');
+  const get = cls => cfg.querySelector('.moo-' + cls)?.textContent.trim() || '';
   var element = document.querySelector('.activity-description');
   var htmlContent = element ? element.innerHTML : '';
   const settings = {
@@ -23,6 +23,6 @@
     "task":      htmlContent,
     "hints":     get("hints")
   };
-  import { MMBBSBOT } from 'https://gpt.gruenwald.fun/mmbbs-bot.js';
+  import { MMBBSBOT } from 'https://gpt.gruenwald.fun/moo-bot.js';
   const bot = new MMBBSBOT(settings);
 </script>

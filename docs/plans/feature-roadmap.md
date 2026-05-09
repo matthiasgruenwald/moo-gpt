@@ -97,7 +97,7 @@ ALTER TABLE erkenntnisse ADD COLUMN status TEXT DEFAULT 'active';
 
 **server.js:** `const activityLocks = new Map()` + Routen `POST/DELETE /api/activity/:activityId/lock?token=`
 
-**mmbbs-bot.js:** WS-Handler für `type === 'locked'` / `'unlocked'` → Overlay
+**moo-bot.js:** WS-Handler für `type === 'locked'` / `'unlocked'` → Overlay
 
 **dashboard.js:** Lock/Unlock-Button, Timer-Input, Status-Badge
 
