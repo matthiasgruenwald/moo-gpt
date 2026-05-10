@@ -7,3 +7,7 @@ Neue Dateien: `public/config.html`, `public/config.js`. Auth wie Dashboard. Feld
 ## Verification
 
 Config-Seite mit echtem Moodle-Token
+
+---
+
+> ⚠️ **Noch offen:** Vor Implementierung von P5a unbedingt `/grill-me`-Skill ausführen und Ergebnis in P5a einfließen lassen.
