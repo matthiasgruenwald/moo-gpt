@@ -1089,6 +1089,18 @@
 <!-- Settings-Panel (Issue #17) -->
 <div id="settings-panel">
 
+  <!-- Mein Modell (alle Lehrkräfte) -->
+  <div class="settings-card">
+    <h3>Mein Modell</h3>
+    <p style="font-size:13px;color:#555;margin:0">Persönliche Modell-Präferenz für deine Sitzungen (überschreibt den globalen Standard).</p>
+    <div class="settings-row">
+      <label for="my-model-select">Modell:</label>
+      <select id="my-model-select"></select>
+      <button class="settings-btn" id="save-my-model-btn">Speichern</button>
+    </div>
+    <div class="status-msg" id="my-model-status"></div>
+  </div>
+
   <!-- Systemvorlage (nur Admins) -->
   <div class="settings-card" id="system-template-card" style="display:none">
     <h3>Systemvorlage</h3>
@@ -1127,18 +1139,6 @@
       </div>
       <div class="status-msg" id="st-save-status"></div>
     </div>
-  </div>
-
-  <!-- Mein Modell (alle Lehrkräfte) -->
-  <div class="settings-card">
-    <h3>Mein Modell</h3>
-    <p style="font-size:13px;color:#555;margin:0">Persönliche Modell-Präferenz für deine Sitzungen (überschreibt den globalen Standard).</p>
-    <div class="settings-row">
-      <label for="my-model-select">Modell:</label>
-      <select id="my-model-select"></select>
-      <button class="settings-btn" id="save-my-model-btn">Speichern</button>
-    </div>
-    <div class="status-msg" id="my-model-status"></div>
   </div>
 
   <!-- Systemprompt (alle lesen, Admins schreiben) -->
