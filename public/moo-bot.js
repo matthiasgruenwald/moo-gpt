@@ -60,11 +60,9 @@ export class MOOBOT {
     const isTeacher = hasEditMode && !isSwitchedRole;
     this.settings.isTeacher = isTeacher;
 
-    // Create chat icon
+    // Create chat icon — P5a: Dateiname kommt via _applyConfig, Fallback grw.png
     const chatIcon = document.createElement("div");
-    const icon =
-      this.settings.chat_icon ||
-      `${this.settings.protocol}://${this.settings.host}:${this.settings.port}/chat-icon.png`;
+    const icon = this._iconUrl('grw');
     chatIcon.id = "chat-icon";
     chatIcon.className = "chat-icon";
     chatIcon.innerHTML = '<img src="' + icon + '" alt="Chat Icon">';
@@ -260,6 +258,10 @@ export class MOOBOT {
     if (overlay) overlay.style.display = 'none';
   }
 
+  _iconUrl(name) {
+    return `${this.settings.protocol}://${this.settings.host}:${this.settings.port}/${name || 'grw'}.png`;
+  }
+
   // ── P5a: Config vom Server anwenden ──────────────────────────────────────
 
   _applyConfig(config) {
@@ -270,6 +272,10 @@ export class MOOBOT {
     this.settings.botIcon    = botIcon    ?? 'grw';
     this.settings.opener     = opener     ?? null;
     this.settings.uploadMode = uploadMode ?? 'off';
+
+    // Bot-Icon in allen Bildelementen aktualisieren
+    const iconUrl = this._iconUrl(botIcon || 'grw');
+    document.querySelectorAll('#chat-icon img, .chat-header-icon').forEach(img => { img.src = iconUrl; });
 
     // Titel im Chat-Header setzen
     const h1 = document.querySelector('#chat-container .chat-header h1');
