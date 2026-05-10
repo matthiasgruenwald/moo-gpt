@@ -10,7 +10,12 @@ import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-json.min.js";
 
 export class MOOBOT {
   constructor(settings) {
-    this.settings = settings;
+    // P5a: nur host/protocol/port aus dem Snippet verwenden
+    this.settings = {
+      host:     settings.host,
+      protocol: settings.protocol,
+      port:     settings.port,
+    };
     this.msgCount = 0;
     this.ws = null;
     this.wsInitialized = false;
@@ -18,6 +23,7 @@ export class MOOBOT {
     this.pendingDashboardOpen    = false; // Issue #5: Dashboard-Tab nach Token-Empfang öffnen
     this.pendingDashboardWindow  = null;  // Issue #5: vorab geöffnetes about:blank-Fenster
     this._pendingConfigOpen      = false; // P5: Config-Overlay nach Token-Empfang öffnen
+    this._pasteListenerAdded     = false; // P5a: Paste-Listener nur einmal registrieren
     this.marked = marked;
     this.katex = katex;
     this.renderMathInElement = renderMathInElement;
@@ -30,6 +36,9 @@ export class MOOBOT {
     try {
       this.loadExternalLibraries();
       this.createChatInterface();
+      // P5a: WS sofort verbinden, damit Config + Badge vor Chat-Öffnen ankommen
+      this.setupWebSocket();
+      this.wsInitialized = true;
     } catch (error) {
       console.error("Error loading libraries:", error);
     }
@@ -68,73 +77,28 @@ export class MOOBOT {
 
     // Create chat header
     const chatHeader = document.createElement("div");
-    const title = this.settings.title || "MMBbS GPT";
-
     chatHeader.className = "chat-header";
     chatHeader.innerHTML = `
         <div class="chat-header-icon-container">
             <img src="${icon}" alt="Chat Icon" class="chat-header-icon">
         </div>
-        <h1>${title}</h1>
+        <h1>MMBbS GPT</h1>
         <div class="header-icon" onclick="toggleChat()">
             <img src="${this.settings.protocol}://${this.settings.host}:${this.settings.port}/close-icon.png" alt="Close Icon">
         </div>`;
     chatContainer.appendChild(chatHeader);
 
-    // Create chat window
-    const opener = this.settings.opener || "Hallo, wie kann ich Ihnen helfen?";
+    // Create chat window — P5a: Opener wird durch _applyConfig gesetzt
     const chatWindow = document.createElement("div");
     chatWindow.id = "chat-window";
     chatWindow.className = "chat-window";
-    chatWindow.innerHTML = `
-        <div class="message received">
-            <p>${opener}</p>
-        </div>`;
     chatContainer.appendChild(chatWindow);
 
-    // Create input container
-    const uploadMode = this.settings.uploadMode || 'off';
+    // Create input container — P5a: Upload-Modus wird durch _applyConfig gesetzt
     const inputContainer = document.createElement("div");
     inputContainer.className = "input-container";
-    inputContainer.innerHTML = this._buildInputHTML(uploadMode);
+    inputContainer.innerHTML = this._buildInputHTML('off');
     chatContainer.appendChild(inputContainer);
-
-    // Upload-Logik anhängen (nach DOM-Einfügen)
-    if (uploadMode !== 'off') {
-      // Upload-Button → File-Input öffnen
-      inputContainer.querySelector('#upload-button')?.addEventListener('click', () => {
-        inputContainer.querySelector('#file-input')?.click();
-      });
-      // File-Input versteckt
-      const fileInput = inputContainer.querySelector('#file-input');
-      fileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) this.handleFileUpload(file);
-        e.target.value = '';
-      });
-      // Drag & Drop auf Chat-Container
-      chatContainer.addEventListener('dragover', (e) => { e.preventDefault(); chatContainer.classList.add('drag-over'); });
-      chatContainer.addEventListener('dragleave', () => chatContainer.classList.remove('drag-over'));
-      chatContainer.addEventListener('drop', (e) => {
-        e.preventDefault();
-        chatContainer.classList.remove('drag-over');
-        const file = e.dataTransfer.files[0];
-        if (file) this.handleFileUpload(file);
-      });
-      // Paste
-      document.addEventListener('paste', (e) => {
-        if (document.getElementById('chat-container')?.style.display === 'flex') {
-          const items = e.clipboardData?.items;
-          if (!items) return;
-          for (const item of items) {
-            if (item.kind === 'file') {
-              const file = item.getAsFile();
-              if (file) { this.handleFileUpload(file); e.preventDefault(); break; }
-            }
-          }
-        }
-      });
-    }
 
     // Privacy notice
     const privacyNotice = document.createElement("div");
@@ -291,6 +255,92 @@ export class MOOBOT {
     if (overlay) overlay.style.display = 'none';
   }
 
+  // ── P5a: Config vom Server anwenden ──────────────────────────────────────
+
+  _applyConfig(config) {
+    const { title, botIcon, opener, uploadMode, needsConfig } = config;
+
+    // Settings-Objekt aktualisieren (renderHistory, handleFileUpload etc. lesen daraus)
+    this.settings.title      = title      ?? null;
+    this.settings.botIcon    = botIcon    ?? 'grw';
+    this.settings.opener     = opener     ?? null;
+    this.settings.uploadMode = uploadMode ?? 'off';
+
+    // Titel im Chat-Header setzen
+    const h1 = document.querySelector('#chat-container .chat-header h1');
+    if (h1 && title) h1.textContent = title;
+
+    // Opener im Chat-Window setzen (nur wenn noch keine Nachrichten)
+    const chatWindow = document.getElementById('chat-window');
+    if (chatWindow && chatWindow.children.length === 0) {
+      const openerText = opener || 'Hallo, wie kann ich dir helfen?';
+      const div = document.createElement('div');
+      div.className = 'message received';
+      div.innerHTML = `<p>${openerText}</p>`;
+      chatWindow.appendChild(div);
+    }
+
+    // Input-Container mit korrektem Upload-Modus aufbauen
+    const mode = uploadMode || 'off';
+    const inputContainer = document.querySelector('.input-container');
+    if (inputContainer && mode !== 'off') {
+      inputContainer.innerHTML = this._buildInputHTML(mode);
+      inputContainer.querySelector('#upload-button')?.addEventListener('click', () => {
+        inputContainer.querySelector('#file-input')?.click();
+      });
+      inputContainer.querySelector('#file-input')?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) this.handleFileUpload(file);
+        e.target.value = '';
+      });
+      const chatContainer = document.getElementById('chat-container');
+      if (chatContainer) {
+        chatContainer.addEventListener('dragover', (e) => { e.preventDefault(); chatContainer.classList.add('drag-over'); });
+        chatContainer.addEventListener('dragleave', () => chatContainer.classList.remove('drag-over'));
+        chatContainer.addEventListener('drop', (e) => {
+          e.preventDefault();
+          chatContainer.classList.remove('drag-over');
+          const file = e.dataTransfer.files[0];
+          if (file) this.handleFileUpload(file);
+        });
+      }
+      if (!this._pasteListenerAdded) {
+        document.addEventListener('paste', (e) => {
+          if (document.getElementById('chat-container')?.style.display === 'flex') {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            for (const item of items) {
+              if (item.kind === 'file') {
+                const file = item.getAsFile();
+                if (file) { this.handleFileUpload(file); e.preventDefault(); break; }
+              }
+            }
+          }
+        });
+        this._pasteListenerAdded = true;
+      }
+    }
+
+    // Badge auf Config-Button wenn needsConfig && isTeacher
+    const cfgBtn = document.getElementById('config-icon');
+    if (cfgBtn) {
+      const existing = cfgBtn.querySelector('.cfg-badge');
+      if (needsConfig && this.settings.isTeacher) {
+        if (!existing) {
+          const badge = document.createElement('span');
+          badge.className = 'cfg-badge';
+          badge.style.cssText = 'position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;background:#e53935;pointer-events:none';
+          cfgBtn.style.position = 'relative';
+          cfgBtn.appendChild(badge);
+        }
+      } else {
+        existing?.remove();
+      }
+    }
+
+    console.log(`[Bot] Config angewendet: title="${title}", uploadMode=${uploadMode}, needsConfig=${needsConfig}`);
+  }
+
   _openConfigOverlay(token, activityId) {
     const base = `${this.settings.protocol}://${this.settings.host}:${this.settings.port}`;
     const url  = `${base}/config.html?activityId=${encodeURIComponent(activityId)}&token=${encodeURIComponent(token)}`;
@@ -399,10 +449,14 @@ export class MOOBOT {
         || document.querySelector('h1.h2')?.textContent?.trim()
         || document.title?.split('|')[0]?.trim()
         || null;
+      // P5a: task aus Moodle-DOM lesen (nicht mehr aus Constructor)
+      const task = document.querySelector('.activity-description')?.innerHTML?.trim() || null;
+
       if (userId)        this.settings.userId       = userId;
       if (userName)      this.settings.userName     = userName;
       if (activityId)    this.settings.activityId   = activityId;
       if (activityName)  this.settings.activityName = activityName;
+      if (task)          this.settings.task         = task;
       console.log(`[Bot] userId=${userId}, userName=${userName}, activityId=${activityId}, activityName=${activityName}`);
 
       // Rollenerkennung (Issue #4):
@@ -452,6 +506,12 @@ export class MOOBOT {
         // Chatverlauf beim Reconnect anzeigen (Issue #3)
         if (messageObj.type === "history") {
           this.renderHistory(messageObj.messages);
+          return;
+        }
+
+        // P5a: Aktivitäts-Config vom Server empfangen
+        if (messageObj.type === "config") {
+          this._applyConfig(messageObj.config);
           return;
         }
 
@@ -594,6 +654,7 @@ export class MOOBOT {
       chatContainer.style.display === "none" ||
       chatContainer.style.display === ""
     ) {
+      // P5a: WS wurde durch init() gestartet; hier nur Reconnect bei Drop
       if (!this.wsInitialized) {
         this.setupWebSocket();
         this.wsInitialized = true;

@@ -101,6 +101,21 @@
     <div class="cfg-activity-name" id="cfg-activity-name"></div>
 
     <div class="cfg-field">
+      <label class="cfg-label" for="cfg-title">Bot-Titel</label>
+      <input class="cfg-input" type="text" id="cfg-title" placeholder="z.&nbsp;B. Lern-Assistent">
+      <div class="cfg-hint">Name des Bots im Chat-Fenster (leer = kein Titel gesetzt, Badge erscheint)</div>
+    </div>
+
+    <div class="cfg-field">
+      <label class="cfg-label" for="cfg-bot-icon">Bot-Icon</label>
+      <select class="cfg-select" id="cfg-bot-icon">
+        <option value="grw">grw (Standard)</option>
+        <option value="grw2">grw2</option>
+        <option value="weiblich">weiblich</option>
+      </select>
+    </div>
+
+    <div class="cfg-field">
       <label class="cfg-label" for="cfg-opener">Begrüßung (Opener)</label>
       <textarea class="cfg-textarea" id="cfg-opener" rows="3"></textarea>
       <div class="cfg-hint">Erste Nachricht des Bots beim Öffnen des Chats</div>
@@ -131,6 +146,7 @@
 
     <div class="cfg-save-row">
       <button class="cfg-save-btn" id="cfg-save-btn">Speichern</button>
+      <button class="cfg-save-btn" id="cfg-defaults-btn" style="background:#555;font-size:12px;padding:10px 14px;" title="Aktuelle Werte als Voreinstellung für neue Aktivitäten speichern">Als meine Voreinstellung speichern</button>
       <span class="cfg-status" id="cfg-status"></span>
     </div>
   </div>

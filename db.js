@@ -41,6 +41,16 @@ export function initDb() {
       updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS teacher_defaults (
+      moodle_user_id TEXT PRIMARY KEY,
+      title          TEXT,
+      bot_icon       TEXT DEFAULT 'grw',
+      opener         TEXT,
+      upload_mode    TEXT DEFAULT 'off',
+      hints_template TEXT,
+      updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS token_log (
       id                 INTEGER PRIMARY KEY AUTOINCREMENT,
       thread_id          INTEGER,
@@ -108,6 +118,9 @@ export function initDb() {
   // Migrationen für bestehende DBs
   try { db.exec(`ALTER TABLE activities ADD COLUMN opener TEXT`); } catch (_) {}
   try { db.exec(`ALTER TABLE activities ADD COLUMN upload_mode TEXT DEFAULT 'off'`); } catch (_) {}
+  // P5a: Aktivitäts-Config aus DB
+  try { db.exec(`ALTER TABLE activities ADD COLUMN title TEXT`); } catch (_) {}
+  try { db.exec(`ALTER TABLE activities ADD COLUMN bot_icon TEXT DEFAULT 'grw'`); } catch (_) {}
   try { db.exec(`ALTER TABLE messages ADD COLUMN content_type TEXT DEFAULT 'text'`); } catch (_) {}
   // Issue #12: message_id in token_log für Kostenanzeige pro Nachrichtenrunde
   try { db.exec(`ALTER TABLE token_log ADD COLUMN message_id INTEGER`); } catch (_) {}
@@ -248,37 +261,42 @@ export function updateThreadName(thread_db_id, moodle_user_name) {
 }
 
 /**
- * Speichert oder aktualisiert Aufgabentitel, Opener und Upload-Modus (Issue #5/#10).
+ * Speichert oder aktualisiert Aufgabentitel, Opener, Upload-Modus, Titel und Bot-Icon (P5a).
  * upload_mode: 'off' | 'images' | 'files'
+ * NULL-Werte überschreiben bestehende DB-Werte nicht (COALESCE).
  */
-export function upsertActivity(activity_id, activity_name, opener, upload_mode) {
+export function upsertActivity(activity_id, activity_name, opener, upload_mode, title, botIcon) {
   if (!activity_id || !activity_name) return;
   db.prepare(`
-    INSERT INTO activities (activity_id, activity_name, opener, upload_mode, updated_at)
-    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+    INSERT INTO activities (activity_id, activity_name, opener, upload_mode, title, bot_icon, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(activity_id) DO UPDATE SET
       activity_name = excluded.activity_name,
       opener        = COALESCE(excluded.opener, activities.opener),
       upload_mode   = COALESCE(excluded.upload_mode, activities.upload_mode, 'off'),
+      title         = COALESCE(excluded.title, activities.title),
+      bot_icon      = COALESCE(excluded.bot_icon, activities.bot_icon, 'grw'),
       updated_at    = CURRENT_TIMESTAMP
-  `).run(activity_id, activity_name, opener || null, upload_mode || 'off');
+  `).run(activity_id, activity_name, opener ?? null, upload_mode ?? null, title ?? null, botIcon ?? null);
 }
 
-/** Gibt activity_name, opener und upload_mode zurück (oder null). */
+/** Gibt activity_name, opener, upload_mode, title und bot_icon zurück (oder null). */
 export function getActivity(activity_id) {
-  return db.prepare('SELECT activity_name, opener, upload_mode FROM activities WHERE activity_id = ?').get(activity_id) || null;
+  return db.prepare('SELECT activity_name, opener, upload_mode, title, bot_icon FROM activities WHERE activity_id = ?').get(activity_id) || null;
 }
 
-/** Aktualisiert opener und/oder upload_mode einer Aktivität ohne activity_name zu überschreiben. */
-export function setActivityConfig(activity_id, opener, uploadMode) {
+/** Aktualisiert opener, upload_mode, title und bot_icon ohne activity_name zu überschreiben. */
+export function setActivityConfig(activity_id, opener, uploadMode, title, botIcon) {
   db.prepare(`
-    INSERT INTO activities (activity_id, opener, upload_mode, updated_at)
-    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    INSERT INTO activities (activity_id, opener, upload_mode, title, bot_icon, updated_at)
+    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(activity_id) DO UPDATE SET
       opener      = COALESCE(excluded.opener, activities.opener),
       upload_mode = COALESCE(excluded.upload_mode, activities.upload_mode),
+      title       = COALESCE(excluded.title, activities.title),
+      bot_icon    = COALESCE(excluded.bot_icon, activities.bot_icon),
       updated_at  = CURRENT_TIMESTAMP
-  `).run(activity_id, opener ?? null, uploadMode ?? null);
+  `).run(activity_id, opener ?? null, uploadMode ?? null, title ?? null, botIcon ?? null);
 }
 
 /**
@@ -408,6 +426,27 @@ export function setTeacherPreference(userId, preferredModel) {
     INSERT INTO teacher_preferences (moodle_user_id, preferred_model) VALUES (?, ?)
     ON CONFLICT(moodle_user_id) DO UPDATE SET preferred_model = excluded.preferred_model
   `).run(userId, preferredModel || null);
+}
+
+// ── P5a: Lehrer-Voreinstellungen für neue Aktivitäten ────────────────────────
+
+export function getTeacherDefaults(userId) {
+  if (!userId) return null;
+  return db.prepare('SELECT * FROM teacher_defaults WHERE moodle_user_id = ?').get(userId) || null;
+}
+
+export function setTeacherDefaults(userId, { title, botIcon, opener, uploadMode, hintsTemplate } = {}) {
+  db.prepare(`
+    INSERT INTO teacher_defaults (moodle_user_id, title, bot_icon, opener, upload_mode, hints_template, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(moodle_user_id) DO UPDATE SET
+      title          = excluded.title,
+      bot_icon       = excluded.bot_icon,
+      opener         = excluded.opener,
+      upload_mode    = excluded.upload_mode,
+      hints_template = excluded.hints_template,
+      updated_at     = CURRENT_TIMESTAMP
+  `).run(userId, title ?? null, botIcon ?? 'grw', opener ?? null, uploadMode ?? 'off', hintsTemplate ?? null);
 }
 
 // ── Feedback-Bewertung (Issue #19) ────────────────────────────────────────────

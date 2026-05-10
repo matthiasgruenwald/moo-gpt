@@ -7,7 +7,7 @@ import expressWs from "express-ws";
 import http from "http";
 import https from "https";
 import cors from "cors";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getPersonas, upsertPersona, deletePersona, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, getTeacherDefaults, setTeacherDefaults, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getPersonas, upsertPersona, deletePersona, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
 import crypto from "crypto";
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
@@ -404,10 +404,12 @@ app.get('/api/activity-config/:activityId', (req, res) => {
   const pref = getTeacherPreference(userId);
   res.json({
     activityId,
-    activityName:     act?.activity_name  || '',
-    opener:           act?.opener         || '',
-    uploadMode:       act?.upload_mode    || 'off',
-    erfahrungsprompt: erf?.content        || '',
+    activityName:     act?.activity_name   || '',
+    title:            act?.title           ?? '',
+    botIcon:          act?.bot_icon        ?? 'grw',
+    opener:           act?.opener          || '',
+    uploadMode:       act?.upload_mode     || 'off',
+    erfahrungsprompt: erf?.content         || '',
     myModel:          pref?.preferred_model || null,
     availableModels:  AVAILABLE_MODELS,
   });
@@ -420,11 +422,14 @@ app.put('/api/activity-config/:activityId', (req, res) => {
   const userId = getUserIdFromToken(req.query.token);
   if (!userId || !validateDashboardToken(req.query.token, activityId))
     return res.status(403).json({ error: 'Unauthorized' });
-  const { opener, uploadMode } = req.body;
+  const { opener, uploadMode, title, botIcon } = req.body;
   const validModes = ['off', 'images', 'files'];
+  const validIcons = ['grw', 'grw2', 'weiblich'];
   if (uploadMode !== undefined && !validModes.includes(uploadMode))
     return res.status(400).json({ error: 'Ungültiger uploadMode' });
-  setActivityConfig(activityId, opener ?? null, uploadMode ?? null);
+  if (botIcon !== undefined && botIcon !== '' && !validIcons.includes(botIcon))
+    return res.status(400).json({ error: 'Ungültiges botIcon' });
+  setActivityConfig(activityId, opener ?? null, uploadMode ?? null, title ?? null, botIcon ?? null);
   console.log(`[Config] Aktivität ${activityId} aktualisiert von ${userId}`);
   res.json({ ok: true });
 });
@@ -576,6 +581,39 @@ app.put('/api/teacher/preferences', (req, res) => {
   setTeacherPreference(userId, validModel);
   console.log(`[Teacher] ${userId} setzt Modell-Präferenz: ${validModel || 'Standard'}`);
   res.json({ ok: true, myModel: validModel });
+});
+
+// ── P5a: Lehrer-Voreinstellungen ─────────────────────────────────────────────
+
+/** GET /api/teacher/defaults?token= – Voreinstellungen der Lehrkraft lesen */
+app.get('/api/teacher/defaults', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+  const defaults = getTeacherDefaults(userId);
+  res.json({
+    title:      defaults?.title       ?? '',
+    botIcon:    defaults?.bot_icon    ?? 'grw',
+    opener:     defaults?.opener      ?? '',
+    uploadMode: defaults?.upload_mode ?? 'off',
+  });
+});
+
+/** PUT /api/teacher/defaults?token= – Voreinstellungen speichern */
+app.put('/api/teacher/defaults', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+  const { title, botIcon, opener, uploadMode } = req.body;
+  const validModes = ['off', 'images', 'files'];
+  const validIcons = ['grw', 'grw2', 'weiblich'];
+  if (uploadMode !== undefined && !validModes.includes(uploadMode))
+    return res.status(400).json({ error: 'Ungültiger uploadMode' });
+  if (botIcon !== undefined && botIcon !== '' && !validIcons.includes(botIcon))
+    return res.status(400).json({ error: 'Ungültiges botIcon' });
+  setTeacherDefaults(userId, { title: title ?? null, botIcon: botIcon ?? 'grw', opener: opener ?? null, uploadMode: uploadMode ?? 'off' });
+  console.log(`[P5a] Teacher-Defaults gespeichert für ${userId}`);
+  res.json({ ok: true });
 });
 
 // ── Issue #20: Erfahrungsprompt-Verwaltung + Prompt-Optimierung ──────────────
@@ -1180,15 +1218,41 @@ app.ws("/api/chat", (ws, req) => {
                   console.log(`[Auth] isTeacher=${ws.isTeacher} (client=${settings.isTeacher}, env=${isTeacherByEnv})`);
                 }
 
-                // Issue #5/#10: Aufgabentitel + upload_mode in DB speichern
-                if (settings.activityId && settings.activityName) {
-                  upsertActivity(settings.activityId, settings.activityName, settings.opener || null, settings.uploadMode || null);
-                }
+                // P5a: Aktivitäts-Config aus DB laden; bei neuer Aktivität Defaults anlegen
+                if (settings.activityId) {
+                  let act = getActivity(settings.activityId);
+                  if (!act) {
+                    const defaults = ws.isTeacher && ws.userId ? getTeacherDefaults(ws.userId) : null;
+                    upsertActivity(
+                      settings.activityId,
+                      settings.activityName || settings.activityId,
+                      defaults?.opener      ?? null,
+                      defaults?.upload_mode ?? 'off',
+                      defaults?.title       ?? null,
+                      defaults?.bot_icon    ?? 'grw',
+                    );
+                    act = getActivity(settings.activityId);
+                  } else if (settings.activityName && settings.activityName !== act.activity_name) {
+                    upsertActivity(settings.activityId, settings.activityName, null, null, null, null);
+                  }
 
-                // AUTOMATISCHES SPEICHERN DES AUFGABENPROMPTS (hints)
-                if (settings.activityId && settings.hints) {
-                  saveErfahrungsprompt(settings.activityId, settings.hints, settings.userId || 'moodle-import');
-                  console.log(`[Settings] Aufgabenprompt (hints) für ${settings.activityId} automatisch gespeichert`);
+                  // Backward-Compat: hints aus altem Snippet importieren (nur wenn noch kein Erfahrungsprompt)
+                  if (settings.hints && !getActiveErfahrungsprompt(settings.activityId)) {
+                    saveErfahrungsprompt(settings.activityId, settings.hints, settings.userId || 'moodle-import');
+                    console.log(`[Settings] Aufgabenprompt (hints) für ${settings.activityId} aus Snippet importiert`);
+                  }
+
+                  // Config an Client senden
+                  const actConfig = {
+                    title:      act?.title       ?? null,
+                    botIcon:    act?.bot_icon    ?? 'grw',
+                    opener:     act?.opener      ?? null,
+                    uploadMode: act?.upload_mode ?? 'off',
+                    needsConfig: act?.title === null || act?.title === undefined,
+                  };
+                  ws.activityConfig = actConfig;
+                  ws.send(JSON.stringify({ type: 'config', activityId: settings.activityId, config: actConfig }));
+                  console.log(`[P5a] Config für ${settings.activityId} gesendet, needsConfig=${actConfig.needsConfig}`);
                 }
 
                 // P3: Chat-Client registrieren (nur Schüler) + ggf. sofort sperren
@@ -1296,8 +1360,8 @@ app.ws("/api/chat", (ws, req) => {
                 streamResponse(ws, settings, threadDbId);
                 break;
               case "filemsg": {
-                // Issue #10: Dateiupload (Bilder & PDF)
-                const uploadMode = settings?.uploadMode || 'off';
+                // Issue #10: Dateiupload (Bilder & PDF) — P5a: uploadMode aus DB-Config
+                const uploadMode = ws.activityConfig?.uploadMode || settings?.uploadMode || 'off';
                 if (uploadMode === 'off') {
                   ws.send(JSON.stringify({ end: true, messages: '⚠️ Upload ist für diese Aufgabe nicht aktiviert.' }));
                   return;
