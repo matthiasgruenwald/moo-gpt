@@ -22,7 +22,7 @@ body {
 .dashboard-icon {
     position: fixed;
     bottom: 122px; /* über dem Chat-Icon (110px + 5px + 7px Abstand) */
-    right: 10px;
+    right: 68px; /* links neben dem Config-Button (10px + 50px + 8px Gap) */
     width: 50px;
     height: 50px;
     border-radius: 50%;
@@ -250,8 +250,8 @@ button:hover {
 /* ── P5: Config-Button + Overlay ─────────────────────────────────────────── */
 .config-icon {
     position: fixed;
-    bottom: 180px; /* über dashboard-icon (122px + 50px + 8px Abstand) */
-    right: 10px;
+    bottom: 122px; /* gleiche Höhe wie dashboard-icon */
+    right: 10px; /* rechts vom Dashboard-Button */
     width: 50px;
     height: 50px;
     border-radius: 50%;
