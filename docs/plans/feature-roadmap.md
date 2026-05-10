@@ -5,8 +5,8 @@
 ```
 P1 (Bugs) ─────┐
 P2 (UX)  ──────┤
-P3 (Plenum) ───┤──► P4 (Rename Code) ──► P4a (Rename Infra) ──► P5 (Config) ──► P5a (Snippet-Refactoring) ──► P10 (OSS)
-                │                                              └──► P6 (Personas) ──► P7 (One-Click) ──────────┘
+P3 (Plenum) ───┤──► P4 (Rename Code) ──► P4a (Rename Infra) ──► P5 (Config) ──► P5a (Snippet-Refactoring) ──► P5b (Vorlagen) ──► P10 (OSS)
+                │                                              └──► P6 (Personas) ──► P7 (One-Click) ──────────────────────────────────┘
 P8 (Debug) ────┘ (eigenständig)
 P9 (Grafik) ─────── (eigenständig, parallel zu P5a–P7)
 ```
@@ -30,7 +30,8 @@ P9 (Grafik) ─────── (eigenständig, parallel zu P5a–P7)
 | P4 | Umbenennung Code: mmbbs-gpt → moo-gpt | ✓ done | [steps/p4-umbenennung-code.md](steps/p4-umbenennung-code.md) |
 | P4a | Umbenennung Infra: mmbbs-gpt → moo-gpt | ✓ done | [steps/p4a-umbenennung-infra.md](steps/p4a-umbenennung-infra.md) |
 | P5 | Konfig-Seite | ✓ done | [steps/p5-konfig-seite.md](steps/p5-konfig-seite.md) |
-| P5a | Snippet-Refactoring: DB-gesteuerte Konfiguration | ⚠️ /grill-me zuerst! | [steps/p5a-snippet-refactoring.md](steps/p5a-snippet-refactoring.md) |
+| P5a | Snippet-Refactoring: DB-gesteuerte Konfiguration | ✓ done | [steps/p5a-snippet-refactoring.md](steps/p5a-snippet-refactoring.md) |
+| P5b | Lehrer-Vorlagen-Bibliothek | | [steps/p5b-lehrer-vorlagen.md](steps/p5b-lehrer-vorlagen.md) |
 | P6 | Personas-Umbau | | [steps/p6-personas-umbau.md](steps/p6-personas-umbau.md) |
 | P7 | One-Click Optimierung | | [steps/p7-one-click-optimierung.md](steps/p7-one-click-optimierung.md) |
 | P8 | Debugging-Zugriff Admin-only | | [steps/p8-debugging-admin-only.md](steps/p8-debugging-admin-only.md) |
