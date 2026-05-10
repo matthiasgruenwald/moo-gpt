@@ -32,7 +32,7 @@ P9 (Grafik) ─────── (eigenständig, parallel zu P5a–P7)
 | P5 | Konfig-Seite | ✓ done | [steps/p5-konfig-seite.md](steps/p5-konfig-seite.md) |
 | P5a | Snippet-Refactoring: DB-gesteuerte Konfiguration | ✓ done | [steps/p5a-snippet-refactoring.md](steps/p5a-snippet-refactoring.md) |
 | P5b | Lehrer-Vorlagen-Bibliothek | ✓ done | [steps/p5b-lehrer-vorlagen.md](steps/p5b-lehrer-vorlagen.md) |
-| P6 | Personas-Umbau | | [steps/p6-personas-umbau.md](steps/p6-personas-umbau.md) |
+| P6 | Personas-Umbau | ✓ done | [steps/p6-personas-umbau.md](steps/p6-personas-umbau.md) |
 | P7 | One-Click Optimierung | | [steps/p7-one-click-optimierung.md](steps/p7-one-click-optimierung.md) |
 | P8 | Debugging-Zugriff Admin-only | | [steps/p8-debugging-admin-only.md](steps/p8-debugging-admin-only.md) |
 | P9 | Grafische Darstellung | | [steps/p9-grafische-darstellung.md](steps/p9-grafische-darstellung.md) |

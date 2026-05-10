@@ -7,7 +7,7 @@ import expressWs from "express-ws";
 import http from "http";
 import https from "https";
 import cors from "cors";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getPersonas, upsertPersona, deletePersona, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser, createPersona, deletePersona, promotePersonaToGlobal, getAllTeacherPersonasGrouped, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
 import crypto from "crypto";
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
@@ -143,12 +143,12 @@ function notifyChatClients(activityId, payload) {
  * Token wird beim Lehrer-Login per WS erzeugt und 8 h gecacht.
  * Ohne gültigen Token → WS-Verbindung wird abgelehnt.
  */
-const dashboardTokens = new Map(); // token → { activityId, userId, expires }
+const dashboardTokens = new Map(); // token → { activityId, userId, userName, expires }
 
-function generateDashboardToken(activityId, userId) {
+function generateDashboardToken(activityId, userId, userName = null) {
   const token   = crypto.randomBytes(32).toString('hex');
   const expires = Date.now() + 8 * 60 * 60 * 1000; // 8 Stunden
-  dashboardTokens.set(token, { activityId: String(activityId), userId, expires });
+  dashboardTokens.set(token, { activityId: String(activityId), userId, userName, expires });
   return token;
 }
 
@@ -187,14 +187,16 @@ function notifyAllDashboards(payload) {
   }
 }
 
-/** Gibt die userId eines gültigen Dashboard-Tokens zurück (ohne activityId-Bindung). */
-function getUserIdFromToken(token) {
+function getTokenData(token) {
   if (!token) return null;
   const entry = dashboardTokens.get(token);
   if (!entry) return null;
   if (Date.now() > entry.expires) { dashboardTokens.delete(token); return null; }
-  return entry.userId;
+  return entry;
 }
+
+function getUserIdFromToken(token)   { return getTokenData(token)?.userId  ?? null; }
+function getUserNameFromToken(token) { return getTokenData(token)?.userName ?? null; }
 
 /** Gibt das effektive Modell zurück: persönliche Präferenz > globaler DB-Wert. */
 function getEffectiveModel(isTeacher, userId) {
@@ -820,13 +822,25 @@ app.post('/api/erkenntnisse', (req, res) => {
 
 function stripAndParseJson(text) {
   const raw = (text || '').replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+
+  // Attempt 1: parse as-is
+  try { return JSON.parse(raw); } catch (_) {}
+
+  // Attempt 2: strip invalid escape sequences (e.g. \' or \,)
   try {
-    return JSON.parse(raw);
-  } catch {
-    // LLMs sometimes produce invalid escape sequences (e.g. \' or \,); strip them
-    const repaired = raw.replace(/\\([^"\\\/bfnrtu])/g, (_, c) => c);
-    return JSON.parse(repaired);
-  }
+    return JSON.parse(raw.replace(/\\([^"\\\/bfnrtu])/g, (_, c) => c));
+  } catch (_) {}
+
+  // Attempt 3: LLMs sometimes embed literal control characters (newline, tab) inside
+  // JSON string values. Escape them within string literals only.
+  const fixedControls = raw.replace(/"(?:[^"\\]|\\.)*"/gs, match =>
+    match
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r')
+      .replace(/\t/g, '\\t')
+      .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F]/g, ' ')
+  );
+  return JSON.parse(fixedControls.replace(/\\([^"\\\/bfnrtu])/g, (_, c) => c));
 }
 
 async function aiJsonCall(instructions, userMessage, model = GEN_MODEL) {
@@ -881,24 +895,45 @@ Wähle nur Highlights deren Wortlaut EXAKT so in der KI-Antwort steht.`,
   );
 }
 
-// ── Issue #21: Personas-Endpunkte ────────────────────────────────────────────
+// ── P6: Personas ─────────────────────────────────────────────────────────────
 
-/** GET /api/personas/:activityId?token= */
-app.get('/api/personas/:activityId', (req, res) => {
+/** GET /api/personas?token= – globale + lehrer-eigene Personas */
+app.get('/api/personas', (req, res) => {
   if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.params;
-  if (!validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
-  res.json({ personas: getPersonas(activityId) });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+  res.json({ global: getGlobalPersonas(), own: getTeacherPersonas(userId) });
 });
 
-/** POST /api/personas-suggest/:activityId?token= – KI schlägt Personas vor */
-app.post('/api/personas-suggest/:activityId', async (req, res) => {
+/** POST /api/personas?token= – lehrer-eigene Persona speichern */
+app.post('/api/personas', (req, res) => {
   if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.params;
-  if (!validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+  const { name, description, example_msgs } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'name fehlt' });
+  const teacherName = getUserNameFromToken(req.query.token);
+  createPersona({ teacherId: userId, teacherName, name: name.trim(), description, example_msgs, createdBy: userId });
+  res.json({ ok: true, own: getTeacherPersonas(userId) });
+});
+
+/** DELETE /api/personas/:id?token= – eigene Persona löschen */
+app.delete('/api/personas/:id', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+  deletePersona(parseInt(req.params.id), userId, false);
+  res.json({ ok: true, own: getTeacherPersonas(userId) });
+});
+
+/** POST /api/personas-suggest?activityId=X&token= – KI schlägt Personas vor */
+app.post('/api/personas-suggest', async (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId, token } = req.query;
+  if (!activityId || !validateDashboardToken(token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
   try {
     const { genModel } = req.body;
-    const msgs = getStudentMessages(activityId);
+    const msgs   = getStudentMessages(activityId);
     const sample = msgs.slice(0, 60).map(m => m.content).join('\n---\n');
     const result = await aiJsonCall(
       `Du analysierst Schüleräußerungen aus einer Lernaktivität und leitest typische Schüler-Personas ab.
@@ -915,25 +950,43 @@ Leite 3–5 gut unterscheidbare Personas ab. Wenn keine Äußerungen vorliegen, 
   }
 });
 
-/** POST /api/personas/:activityId?token= – Persona speichern/aktualisieren */
-app.post('/api/personas/:activityId', (req, res) => {
+// ── P6: Admin Personas ────────────────────────────────────────────────────────
+
+/** GET /api/admin/personas?token= – alle Lehrer-Personas sortiert nach Name */
+app.get('/api/admin/personas', (req, res) => {
   if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.params;
   const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
-  const { id, name, description, example_msgs } = req.body;
-  if (!name) return res.status(400).json({ error: 'name fehlt' });
-  upsertPersona({ id: id || null, activityId, name, description, example_msgs, createdBy: userId });
-  res.json({ ok: true, personas: getPersonas(activityId) });
+  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+  res.json({ personas: getAllTeacherPersonasGrouped() });
 });
 
-/** DELETE /api/personas/:activityId/:id?token= */
-app.delete('/api/personas/:activityId/:id', (req, res) => {
+/** POST /api/admin/personas?token= – globale Persona erstellen */
+app.post('/api/admin/personas', (req, res) => {
   if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.params;
-  if (!validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
-  deletePersona(parseInt(req.params.id));
-  res.json({ ok: true, personas: getPersonas(activityId) });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+  const { name, description, example_msgs } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'name fehlt' });
+  createPersona({ teacherId: null, teacherName: null, name: name.trim(), description, example_msgs, createdBy: userId });
+  res.json({ ok: true, global: getGlobalPersonas() });
+});
+
+/** DELETE /api/admin/personas/:id?token= – beliebige Persona löschen */
+app.delete('/api/admin/personas/:id', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+  deletePersona(parseInt(req.params.id), null, true);
+  res.json({ ok: true });
+});
+
+/** PUT /api/admin/personas/:id/promote?token= – Lehrer-Persona zu global machen */
+app.put('/api/admin/personas/:id/promote', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+  promotePersonaToGlobal(parseInt(req.params.id), userId);
+  res.json({ ok: true, global: getGlobalPersonas() });
 });
 
 // ── Issue #21: Kriterien-Endpunkte ───────────────────────────────────────────
@@ -1060,7 +1113,8 @@ app.post('/api/simulate', async (req, res) => {
   if (!activityId || !validateDashboardToken(token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
 
   const { personaId, utteranceModel, evalModel } = req.body;
-  const personas = getPersonas(activityId);
+  const userId   = getUserIdFromToken(token);
+  const personas = userId ? getAllPersonasForUser(userId) : getGlobalPersonas();
   const persona  = personas.find(p => p.id === parseInt(personaId));
   if (!persona) return res.status(400).json({ error: 'Persona nicht gefunden' });
 
@@ -1328,7 +1382,7 @@ app.ws("/api/chat", (ws, req) => {
 
                 // Issue #5: Dashboard-Token für Lehrer erzeugen und zurückschicken
                 if (ws.isTeacher && settings.activityId) {
-                  const token = generateDashboardToken(settings.activityId, settings.userId);
+                  const token = generateDashboardToken(settings.activityId, settings.userId, settings.userName || null);
                   ws.send(JSON.stringify({ type: 'dashboardToken', token, activityId: settings.activityId }));
                   console.log(`[Dashboard] Token für Lehrer ${settings.userId} / Aufgabe ${settings.activityId} erzeugt`);
                 }

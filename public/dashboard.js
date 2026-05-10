@@ -978,8 +978,10 @@ function applySettingsData(data) {
   adminBadge.classList.add('visible');
   document.getElementById('sp-admin-section').style.display     = 'flex';
   document.getElementById('sp-history-details').style.display   = '';
+  document.getElementById('admin-personas-card').style.display  = '';
   document.getElementById('admin-mgmt-card').style.display      = '';
   document.getElementById('system-template-card').style.display = '';
+  loadAdminPersonas();
 
   // Admin-Formular
   document.getElementById('sp-edit').value = data.systemPrompt || '';
@@ -1256,20 +1258,39 @@ document.getElementById('criteria-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('criteria-add-btn').click();
 });
 
-// ── Personas ──────────────────────────────────────────────────────────────────
+// ── Personas (P6) ─────────────────────────────────────────────────────────────
+
+let cachedGlobalPersonas = [];
 
 async function loadPersonas() {
   try {
-    const data = await apiFetch(`/api/personas/${encodeURIComponent(activityId)}`);
-    renderPersonas(data.personas || []);
+    const data = await apiFetch('/api/personas');
+    cachedGlobalPersonas = data.global || [];
+    renderGlobalPersonas(cachedGlobalPersonas);
+    renderOwnPersonas(data.own || []);
+    populatePersonaSelect(cachedGlobalPersonas, data.own || []);
   } catch (e) { console.warn('[Simulate] Personas Ladefehler:', e); }
 }
 
-function renderPersonas(personas) {
-  const list   = document.getElementById('personas-list');
-  const select = document.getElementById('sim-persona-select');
-  list.innerHTML = personas.length ? '' : '<p style="font-size:13px;color:#aaa;margin:4px 0">Noch keine Personas – KI vorschlagen lassen.</p>';
-  select.innerHTML = '<option value="">– Persona auswählen –</option>';
+function renderGlobalPersonas(personas) {
+  const container = document.getElementById('personas-global');
+  container.innerHTML = personas.length
+    ? ''
+    : '<span style="font-size:12px;color:#aaa">Noch keine globalen Typen.</span>';
+  for (const p of personas) {
+    const pill = document.createElement('span');
+    pill.title = p.description || '';
+    pill.style.cssText = 'display:inline-block;padding:3px 10px;border-radius:20px;background:#e8edf4;color:#003366;font-size:12px;cursor:default';
+    pill.textContent = p.name;
+    container.appendChild(pill);
+  }
+}
+
+function renderOwnPersonas(personas) {
+  const list = document.getElementById('personas-own');
+  list.innerHTML = personas.length
+    ? ''
+    : '<p style="font-size:13px;color:#aaa;margin:4px 0">Noch keine eigenen Personas – KI vorschlagen lassen.</p>';
 
   for (const p of personas) {
     const item = document.createElement('div');
@@ -1282,21 +1303,44 @@ function renderPersonas(personas) {
         <button class="fb-btn" data-pid="${p.id}" style="padding:2px 6px;font-size:12px;border-color:#e74c3c;color:#e74c3c">Löschen</button>
       </div>`;
     list.appendChild(item);
-
-    const opt = document.createElement('option');
-    opt.value = p.id;
-    opt.textContent = p.name;
-    select.appendChild(opt);
   }
 
   list.querySelectorAll('[data-pid]').forEach(btn => {
     btn.addEventListener('click', async () => {
       try {
-        const data = await apiFetch(`/api/personas/${encodeURIComponent(activityId)}/${btn.dataset.pid}`, { method: 'DELETE' });
-        renderPersonas(data.personas || []);
+        const data = await apiFetch(`/api/personas/${btn.dataset.pid}`, { method: 'DELETE' });
+        renderOwnPersonas(data.own || []);
+        populatePersonaSelect(cachedGlobalPersonas, data.own || []);
       } catch (e) { console.warn('[Simulate] Persona löschen:', e); }
     });
   });
+}
+
+function populatePersonaSelect(globalPersonas, ownPersonas) {
+  const select = document.getElementById('sim-persona-select');
+  select.innerHTML = '<option value="">– Persona auswählen –</option>';
+  if (ownPersonas.length) {
+    const grp = document.createElement('optgroup');
+    grp.label = 'Meine Personas';
+    for (const p of ownPersonas) {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      grp.appendChild(opt);
+    }
+    select.appendChild(grp);
+  }
+  if (globalPersonas.length) {
+    const grp = document.createElement('optgroup');
+    grp.label = 'Globale Typen';
+    for (const p of globalPersonas) {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      grp.appendChild(opt);
+    }
+    select.appendChild(grp);
+  }
 }
 
 document.getElementById('personas-suggest-btn').addEventListener('click', async () => {
@@ -1307,7 +1351,7 @@ document.getElementById('personas-suggest-btn').addEventListener('click', async 
   loading.classList.add('visible');
   sugg.style.display = 'none';
   try {
-    const data = await apiFetch(`/api/personas-suggest/${encodeURIComponent(activityId)}`, {
+    const data = await apiFetch(`/api/personas-suggest?activityId=${encodeURIComponent(activityId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ genModel: getGenModel('personas') }),
@@ -1323,7 +1367,7 @@ document.getElementById('personas-suggest-btn').addEventListener('click', async 
 
 function renderPersonaSuggestions(suggestions) {
   const sugg = document.getElementById('personas-suggestions');
-  sugg.innerHTML = '<div style="font-size:12px;color:#888;margin-bottom:6px">KI-Vorschläge – klicken zum Übernehmen:</div>';
+  sugg.innerHTML = '<div style="font-size:12px;color:#888;margin-bottom:6px">KI-Vorschläge – klicken zum Speichern als eigene Persona:</div>';
   sugg.style.display = 'block';
   for (const s of suggestions) {
     const btn = document.createElement('button');
@@ -1332,12 +1376,9 @@ function renderPersonaSuggestions(suggestions) {
     btn.innerHTML = `<strong>${escHtml(s.name)}</strong><br><span style="font-size:12px">${escHtml(s.description || '')}</span>`;
     btn.addEventListener('click', async () => {
       try {
-        const data = await apiFetch(`/api/personas/${encodeURIComponent(activityId)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: s.name, description: s.description, example_msgs: s.example_msgs }),
-        });
-        renderPersonas(data.personas || []);
+        const data = await apiPost('/api/personas', { name: s.name, description: s.description, example_msgs: s.example_msgs });
+        renderOwnPersonas(data.own || []);
+        populatePersonaSelect(cachedGlobalPersonas, data.own || []);
         btn.remove();
         if (!sugg.querySelector('button')) sugg.style.display = 'none';
       } catch (e) { console.warn(e); }
@@ -1345,6 +1386,84 @@ function renderPersonaSuggestions(suggestions) {
     sugg.appendChild(btn);
   }
 }
+
+// ── Admin: Lehrer-Personas (P6) ───────────────────────────────────────────────
+
+let cachedAdminPersonas = [];
+
+async function loadAdminPersonas() {
+  try {
+    const data = await apiGet('/api/admin/personas');
+    cachedAdminPersonas = data.personas || [];
+    renderAdminPersonas(cachedAdminPersonas);
+  } catch (e) { console.warn('[Admin] Personas Ladefehler:', e); }
+}
+
+function renderAdminPersonas(personas) {
+  const list   = document.getElementById('admin-personas-list');
+  const filter = document.getElementById('admin-personas-filter');
+
+  const selectedName = filter.value;
+  const names = [...new Set(personas.map(p => p.teacher_name || p.teacher_id).filter(Boolean))].sort();
+  filter.innerHTML = '<option value="">– Alle Lehrkräfte –</option>';
+  for (const n of names) {
+    const opt = document.createElement('option');
+    opt.value = n;
+    opt.textContent = n;
+    if (n === selectedName) opt.selected = true;
+    filter.appendChild(opt);
+  }
+
+  const filtered = selectedName ? personas.filter(p => (p.teacher_name || p.teacher_id) === selectedName) : personas;
+  list.innerHTML = filtered.length ? '' : '<p style="font-size:13px;color:#aaa;margin:4px 0">Keine Lehrer-Personas vorhanden.</p>';
+
+  for (const p of filtered) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #eef0f3;font-size:13px';
+    row.innerHTML = `
+      <span style="flex:2;font-weight:600;color:#003366">${escHtml(p.name)}</span>
+      <span style="flex:3;color:#555;font-size:12px">${escHtml(p.description || '')}</span>
+      <span style="flex:1;color:#888;font-size:11px">${escHtml(p.teacher_name || p.teacher_id || '–')}</span>
+      <button class="fb-btn" data-apid="${p.id}" data-action="promote" style="font-size:11px;padding:2px 6px;border-color:#2980b9;color:#2980b9">Global</button>
+      <button class="fb-btn" data-apid="${p.id}" data-action="delete" style="font-size:11px;padding:2px 6px;border-color:#e74c3c;color:#e74c3c">Löschen</button>`;
+    list.appendChild(row);
+  }
+
+  list.querySelectorAll('[data-apid]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id     = btn.dataset.apid;
+      const action = btn.dataset.action;
+      try {
+        if (action === 'promote') {
+          await apiFetch(`/api/admin/personas/${id}/promote`, { method: 'PUT' });
+        } else {
+          await apiFetch(`/api/admin/personas/${id}`, { method: 'DELETE' });
+        }
+        await loadAdminPersonas();
+        await loadPersonas();
+      } catch (e) { console.warn('[Admin] Persona-Aktion Fehler:', e); }
+    });
+  });
+}
+
+document.getElementById('admin-personas-filter').addEventListener('change', () => {
+  renderAdminPersonas(cachedAdminPersonas);
+});
+
+document.getElementById('admin-persona-add-btn').addEventListener('click', async () => {
+  const name = document.getElementById('admin-persona-name').value.trim();
+  const desc = document.getElementById('admin-persona-desc').value.trim();
+  if (!name) return;
+  try {
+    await apiPost('/api/admin/personas', { name, description: desc });
+    document.getElementById('admin-persona-name').value = '';
+    document.getElementById('admin-persona-desc').value = '';
+    setStatus(document.getElementById('admin-personas-status'), '✓ Globale Persona gespeichert');
+    await loadPersonas();
+  } catch (e) {
+    setStatus(document.getElementById('admin-personas-status'), `Fehler: ${e.message}`, true);
+  }
+});
 
 // ── Simulation starten ────────────────────────────────────────────────────────
 

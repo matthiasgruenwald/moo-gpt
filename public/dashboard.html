@@ -978,9 +978,12 @@
   <!-- Personas -->
   <div class="settings-card">
     <h3>Schüler-Personas</h3>
-    <p style="font-size:13px;color:#555;margin:0">Typische Schülertypen für die Simulation. Die KI leitet sie aus realen Schüleräußerungen ab.</p>
-    <div id="personas-list"></div>
-    <div class="settings-row">
+    <p style="font-size:13px;color:#555;margin:0 0 10px">Typische Schülertypen für die Simulation.</p>
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-bottom:4px">Globale Typen</div>
+    <div id="personas-global" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-bottom:4px">Meine Personas</div>
+    <div id="personas-own"></div>
+    <div class="settings-row" style="margin-top:8px">
       <button class="suggest-btn" id="personas-suggest-btn">KI schlägt Personas vor</button>
       <span class="opt-loading" id="personas-loading">Analysiere Schüleräußerungen…</span>
     </div>
@@ -1173,6 +1176,26 @@
       <summary>Versionshistorie</summary>
       <div id="sp-history-list" style="margin-top:8px"></div>
     </details>
+  </div>
+
+  <!-- Admin-Personas (nur Admins) -->
+  <div class="settings-card" id="admin-personas-card" style="display:none">
+    <h3>Lehrer-Personas verwalten</h3>
+    <p style="font-size:12px;color:#888;margin-bottom:10px">Alle von Lehrkräften angelegten Personas. Hier kannst du sie zu globalen Typen machen oder löschen.</p>
+    <div class="settings-row" style="margin-bottom:8px">
+      <label for="admin-personas-filter" style="font-size:13px;min-width:80px">Filtern:</label>
+      <select id="admin-personas-filter" style="font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
+        <option value="">– Alle Lehrkräfte –</option>
+      </select>
+    </div>
+    <div id="admin-personas-list" style="margin-bottom:12px"></div>
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-bottom:6px">Neue globale Persona</div>
+    <div class="settings-row">
+      <input type="text" id="admin-persona-name" placeholder="Name" style="flex:1;font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
+      <input type="text" id="admin-persona-desc" placeholder="Beschreibung" style="flex:2;font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
+      <button class="settings-btn" id="admin-persona-add-btn">Hinzufügen</button>
+    </div>
+    <div class="status-msg" id="admin-personas-status"></div>
   </div>
 
   <!-- Admin-Verwaltung (nur Admins) -->

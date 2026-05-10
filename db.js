@@ -111,7 +111,8 @@ export function initDb() {
 
     CREATE TABLE IF NOT EXISTS personas (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
-      activity_id  TEXT NOT NULL,
+      teacher_id   TEXT,
+      teacher_name TEXT,
       name         TEXT NOT NULL,
       description  TEXT,
       example_msgs TEXT,
@@ -162,6 +163,28 @@ export function initDb() {
       console.log('[DB] Migration: openai_thread_id ist jetzt nullable');
     }
   }
+
+  // P6: Personas-Umbau – alte activity_id-Struktur durch teacher_id-Struktur ersetzen
+  {
+    const cols = db.pragma('table_info(personas)').map(c => c.name);
+    if (cols.includes('activity_id')) {
+      db.exec(`
+        DROP TABLE IF EXISTS personas;
+        CREATE TABLE personas (
+          id           INTEGER PRIMARY KEY AUTOINCREMENT,
+          teacher_id   TEXT,
+          teacher_name TEXT,
+          name         TEXT NOT NULL,
+          description  TEXT,
+          example_msgs TEXT,
+          created_by   TEXT,
+          created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('[DB] Migration P6: personas-Tabelle auf teacher_id-Schema migriert');
+    }
+  }
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_personas_teacher_id ON personas (teacher_id)`); } catch (_) {}
 
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;
@@ -556,28 +579,48 @@ export function saveErkenntnisse(activityId, content, source) {
   `).run(activityId || null, content, source || 'ai');
 }
 
-// ── Personas & Simulation (Issue #21) ────────────────────────────────────────
+// ── Personas & Simulation (P6) ───────────────────────────────────────────────
 
-export function getPersonas(activityId) {
-  return db.prepare('SELECT * FROM personas WHERE activity_id = ? ORDER BY created_at ASC').all(activityId);
+export function getGlobalPersonas() {
+  return db.prepare('SELECT * FROM personas WHERE teacher_id IS NULL ORDER BY name ASC').all();
 }
 
-export function upsertPersona({ id, activityId, name, description, example_msgs, createdBy }) {
-  if (id) {
-    db.prepare(`
-      UPDATE personas SET name = ?, description = ?, example_msgs = ?, created_by = ?
-      WHERE id = ? AND activity_id = ?
-    `).run(name, description || null, example_msgs || null, createdBy || null, id, activityId);
+export function getTeacherPersonas(userId) {
+  return db.prepare('SELECT * FROM personas WHERE teacher_id = ? ORDER BY name ASC').all(userId);
+}
+
+export function getAllPersonasForUser(userId) {
+  return db.prepare(`
+    SELECT * FROM personas
+    WHERE teacher_id IS NULL OR teacher_id = ?
+    ORDER BY (teacher_id IS NULL) DESC, name ASC
+  `).all(userId);
+}
+
+export function createPersona({ teacherId, teacherName, name, description, example_msgs, createdBy }) {
+  const result = db.prepare(`
+    INSERT INTO personas (teacher_id, teacher_name, name, description, example_msgs, created_by)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(teacherId || null, teacherName || null, name, description || null, example_msgs || null, createdBy || null);
+  return result.lastInsertRowid;
+}
+
+export function deletePersona(id, userId, adminOverride = false) {
+  if (adminOverride) {
+    db.prepare('DELETE FROM personas WHERE id = ?').run(id);
   } else {
-    db.prepare(`
-      INSERT INTO personas (activity_id, name, description, example_msgs, created_by)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(activityId, name, description || null, example_msgs || null, createdBy || null);
+    db.prepare('DELETE FROM personas WHERE id = ? AND teacher_id = ?').run(id, userId);
   }
 }
 
-export function deletePersona(id) {
-  db.prepare('DELETE FROM personas WHERE id = ?').run(id);
+export function promotePersonaToGlobal(id, adminId) {
+  db.prepare('UPDATE personas SET teacher_id = NULL, teacher_name = NULL, created_by = ? WHERE id = ?').run(adminId, id);
+}
+
+export function getAllTeacherPersonasGrouped() {
+  return db.prepare(`
+    SELECT * FROM personas WHERE teacher_id IS NOT NULL ORDER BY COALESCE(teacher_name, teacher_id) ASC, name ASC
+  `).all();
 }
 
 export function getCriteria(activityId) {
