@@ -154,9 +154,12 @@ export class MOOBOT {
     window.sendMessage = this.sendMessage.bind(this);
     window.handleKeyDown = this.handleKeyDown.bind(this);
 
-    // P5a: Config-Overlay nach erfolgreichem Speichern schließen
+    // P5a: Config-Overlay nach erfolgreichem Speichern schließen + Badge entfernen
     window.addEventListener('message', (e) => {
-      if (e.data?.type === 'moogpt:configSaved') this.closeConfig();
+      if (e.data?.type === 'moogpt:configSaved') {
+        this.closeConfig();
+        document.getElementById('config-icon')?.querySelector('.cfg-badge')?.remove();
+      }
     });
 
     // Issue #15: Lightbox initialisieren

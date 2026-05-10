@@ -937,6 +937,13 @@ async function loadSettings() {
     if (settingsData.isAdmin) {
       loadAdmins();
       loadPromptHistory();
+      apiGet('/api/admin/system-template').then(st => {
+        document.getElementById('st-title').value       = st.title         || '';
+        document.getElementById('st-bot-icon').value    = st.botIcon       || 'grw';
+        document.getElementById('st-opener').value      = st.opener        || '';
+        document.getElementById('st-upload-mode').value = st.uploadMode    || 'off';
+        document.getElementById('st-hints').value       = st.hintsTemplate || '';
+      }).catch(() => {});
     }
   } catch (e) {
     settingsLoaded = false;
@@ -973,16 +980,6 @@ function applySettingsData(data) {
   document.getElementById('sp-history-details').style.display   = '';
   document.getElementById('admin-mgmt-card').style.display      = '';
   document.getElementById('system-template-card').style.display = '';
-
-  // Systemvorlage laden
-  try {
-    const st = await apiGet('/api/admin/system-template');
-    document.getElementById('st-title').value       = st.title         || '';
-    document.getElementById('st-bot-icon').value    = st.botIcon       || 'grw';
-    document.getElementById('st-opener').value      = st.opener        || '';
-    document.getElementById('st-upload-mode').value = st.uploadMode    || 'off';
-    document.getElementById('st-hints').value       = st.hintsTemplate || '';
-  } catch (_) {}
 
   // Admin-Formular
   document.getElementById('sp-edit').value = data.systemPrompt || '';
