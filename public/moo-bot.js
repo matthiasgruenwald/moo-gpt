@@ -23,7 +23,8 @@ export class MOOBOT {
     this.pendingDashboardOpen    = false; // Issue #5: Dashboard-Tab nach Token-Empfang öffnen
     this.pendingDashboardWindow  = null;  // Issue #5: vorab geöffnetes about:blank-Fenster
     this._pendingConfigOpen      = false; // P5: Config-Overlay nach Token-Empfang öffnen
-    this._pasteListenerAdded     = false; // P5a: Paste-Listener nur einmal registrieren
+    this._pasteListenerAdded     = false;
+    this._dragListenerAdded      = false;
     this.marked = marked;
     this.katex = katex;
     this.renderMathInElement = renderMathInElement;
@@ -50,7 +51,7 @@ export class MOOBOT {
     // Load CSS
     const head = document.querySelector("head");
     const css = document.createElement("link");
-    css.href = `${this.settings.protocol}://${this.settings.host}:${this.settings.port}/styles.css`;
+    css.href = `${this._baseUrl()}/styles.css`;
     css.rel = "stylesheet";
     head.appendChild(css);
 
@@ -82,7 +83,7 @@ export class MOOBOT {
         </div>
         <h1>MMBbS GPT</h1>
         <div class="header-icon" onclick="toggleChat()">
-            <img src="${this.settings.protocol}://${this.settings.host}:${this.settings.port}/close-icon.png" alt="Close Icon">
+            <img src="${this._baseUrl()}/close-icon.png" alt="Close Icon">
         </div>`;
     chatContainer.appendChild(chatHeader);
 
@@ -226,8 +227,7 @@ export class MOOBOT {
 
   /** Öffnet den Dashboard-Tab mit Token (oder navigiert ein pending-Fenster). */
   _openDashboardTab(token, activityId) {
-    const base = `${this.settings.protocol}://${this.settings.host}:${this.settings.port}`;
-    const url  = `${base}/dashboard.html?activityId=${encodeURIComponent(activityId)}&token=${encodeURIComponent(token)}`;
+    const url = `${this._baseUrl()}/dashboard.html?activityId=${encodeURIComponent(activityId)}&token=${encodeURIComponent(token)}`;
     if (this.pendingDashboardWindow && !this.pendingDashboardWindow.closed) {
       this.pendingDashboardWindow.location.href = url;
       this.pendingDashboardWindow = null;
@@ -258,8 +258,12 @@ export class MOOBOT {
     if (overlay) overlay.style.display = 'none';
   }
 
+  _baseUrl() {
+    return `${this.settings.protocol}://${this.settings.host}:${this.settings.port}`;
+  }
+
   _iconUrl(name) {
-    return `${this.settings.protocol}://${this.settings.host}:${this.settings.port}/${name || 'grw'}.png`;
+    return `${this._baseUrl()}/${name || 'grw'}.png`;
   }
 
   // ── P5a: Config vom Server anwenden ──────────────────────────────────────
@@ -267,21 +271,17 @@ export class MOOBOT {
   _applyConfig(config) {
     const { title, botIcon, opener, uploadMode, needsConfig } = config;
 
-    // Settings-Objekt aktualisieren (renderHistory, handleFileUpload etc. lesen daraus)
     this.settings.title      = title      ?? null;
     this.settings.botIcon    = botIcon    ?? 'grw';
     this.settings.opener     = opener     ?? null;
     this.settings.uploadMode = uploadMode ?? 'off';
 
-    // Bot-Icon in allen Bildelementen aktualisieren
     const iconUrl = this._iconUrl(botIcon || 'grw');
     document.querySelectorAll('#chat-icon img, .chat-header-icon').forEach(img => { img.src = iconUrl; });
 
-    // Titel im Chat-Header setzen
     const h1 = document.querySelector('#chat-container .chat-header h1');
     if (h1 && title) h1.textContent = title;
 
-    // Opener im Chat-Window setzen (nur wenn noch keine Nachrichten)
     const chatWindow = document.getElementById('chat-window');
     if (chatWindow && chatWindow.children.length === 0) {
       const openerText = opener || 'Hallo, wie kann ich dir helfen?';
@@ -291,7 +291,6 @@ export class MOOBOT {
       chatWindow.appendChild(div);
     }
 
-    // Input-Container mit korrektem Upload-Modus aufbauen
     const mode = uploadMode || 'off';
     const inputContainer = document.querySelector('.input-container');
     if (inputContainer && mode !== 'off') {
@@ -305,7 +304,7 @@ export class MOOBOT {
         e.target.value = '';
       });
       const chatContainer = document.getElementById('chat-container');
-      if (chatContainer) {
+      if (chatContainer && !this._dragListenerAdded) {
         chatContainer.addEventListener('dragover', (e) => { e.preventDefault(); chatContainer.classList.add('drag-over'); });
         chatContainer.addEventListener('dragleave', () => chatContainer.classList.remove('drag-over'));
         chatContainer.addEventListener('drop', (e) => {
@@ -314,6 +313,7 @@ export class MOOBOT {
           const file = e.dataTransfer.files[0];
           if (file) this.handleFileUpload(file);
         });
+        this._dragListenerAdded = true;
       }
       if (!this._pasteListenerAdded) {
         document.addEventListener('paste', (e) => {
@@ -332,7 +332,6 @@ export class MOOBOT {
       }
     }
 
-    // Badge auf Config-Button wenn needsConfig && isTeacher
     const cfgBtn = document.getElementById('config-icon');
     if (cfgBtn) {
       const existing = cfgBtn.querySelector('.cfg-badge');
@@ -340,8 +339,6 @@ export class MOOBOT {
         if (!existing) {
           const badge = document.createElement('span');
           badge.className = 'cfg-badge';
-          badge.style.cssText = 'position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;background:#e53935;pointer-events:none';
-          cfgBtn.style.position = 'relative';
           cfgBtn.appendChild(badge);
         }
       } else {
@@ -353,8 +350,7 @@ export class MOOBOT {
   }
 
   _openConfigOverlay(token, activityId) {
-    const base = `${this.settings.protocol}://${this.settings.host}:${this.settings.port}`;
-    const url  = `${base}/config.html?activityId=${encodeURIComponent(activityId)}&token=${encodeURIComponent(token)}`;
+    const url = `${this._baseUrl()}/config.html?activityId=${encodeURIComponent(activityId)}&token=${encodeURIComponent(token)}`;
     const iframe  = document.getElementById('config-overlay-iframe');
     const overlay = document.getElementById('config-overlay');
     if (!iframe || !overlay) return;
@@ -642,7 +638,7 @@ export class MOOBOT {
       const loading = document.createElement("div");
       loading.className = "message_loading";
       loading.id = "loading";
-      loading.innerHTML = `<img src="${this.settings.protocol}://${this.settings.host}:${this.settings.port}/loading.gif" alt="Loading...">`;
+      loading.innerHTML = `<img src="${this._baseUrl()}/loading.gif" alt="Loading...">`;
       chatWindow.appendChild(loading);
       chatWindow.scrollTop = chatWindow.scrollHeight;
       this.msgCount = 0;
@@ -831,7 +827,7 @@ export class MOOBOT {
       const loading = document.createElement("div");
       loading.className = "message_loading";
       loading.id = "loading";
-      loading.innerHTML = `<img src="${this.settings.protocol}://${this.settings.host}:${this.settings.port}/loading.gif" alt="Loading...">`;
+      loading.innerHTML = `<img src="${this._baseUrl()}/loading.gif" alt="Loading...">`;
       chatWindow.appendChild(loading);
       chatWindow.scrollTop = chatWindow.scrollHeight;
       this.msgCount = 0;

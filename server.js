@@ -390,6 +390,9 @@ initDb();
 }
 
 
+const VALID_UPLOAD_MODES = ['off', 'images', 'files'];
+const VALID_BOT_ICONS    = ['grw', 'grw2', 'weiblich'];
+
 // ── P5: Aktivitäts-Konfig-Endpoints ─────────────────────────────────────────
 
 /** GET /api/activity-config/:activityId?token= – Konfig für config.html lesen */
@@ -423,11 +426,9 @@ app.put('/api/activity-config/:activityId', (req, res) => {
   if (!userId || !validateDashboardToken(req.query.token, activityId))
     return res.status(403).json({ error: 'Unauthorized' });
   const { opener, uploadMode, title, botIcon } = req.body;
-  const validModes = ['off', 'images', 'files'];
-  const validIcons = ['grw', 'grw2', 'weiblich'];
-  if (uploadMode !== undefined && !validModes.includes(uploadMode))
+  if (uploadMode !== undefined && !VALID_UPLOAD_MODES.includes(uploadMode))
     return res.status(400).json({ error: 'Ungültiger uploadMode' });
-  if (botIcon !== undefined && botIcon !== '' && !validIcons.includes(botIcon))
+  if (botIcon !== undefined && botIcon !== '' && !VALID_BOT_ICONS.includes(botIcon))
     return res.status(400).json({ error: 'Ungültiges botIcon' });
   setActivityConfig(activityId, opener ?? null, uploadMode ?? null, title ?? null, botIcon ?? null);
   console.log(`[Config] Aktivität ${activityId} aktualisiert von ${userId}`);
@@ -605,11 +606,9 @@ app.put('/api/teacher/defaults', (req, res) => {
   const userId = getUserIdFromToken(req.query.token);
   if (!userId) return res.status(403).json({ error: 'Unauthorized' });
   const { title, botIcon, opener, uploadMode } = req.body;
-  const validModes = ['off', 'images', 'files'];
-  const validIcons = ['grw', 'grw2', 'weiblich'];
-  if (uploadMode !== undefined && !validModes.includes(uploadMode))
+  if (uploadMode !== undefined && !VALID_UPLOAD_MODES.includes(uploadMode))
     return res.status(400).json({ error: 'Ungültiger uploadMode' });
-  if (botIcon !== undefined && botIcon !== '' && !validIcons.includes(botIcon))
+  if (botIcon !== undefined && botIcon !== '' && !VALID_BOT_ICONS.includes(botIcon))
     return res.status(400).json({ error: 'Ungültiges botIcon' });
   setTeacherDefaults(userId, { title: title ?? null, botIcon: botIcon ?? 'grw', opener: opener ?? null, uploadMode: uploadMode ?? 'off' });
   console.log(`[P5a] Teacher-Defaults gespeichert für ${userId}`);
@@ -1242,13 +1241,12 @@ app.ws("/api/chat", (ws, req) => {
                     console.log(`[Settings] Aufgabenprompt (hints) für ${settings.activityId} aus Snippet importiert`);
                   }
 
-                  // Config an Client senden
                   const actConfig = {
                     title:      act?.title       ?? null,
                     botIcon:    act?.bot_icon    ?? 'grw',
                     opener:     act?.opener      ?? null,
                     uploadMode: act?.upload_mode ?? 'off',
-                    needsConfig: act?.title === null || act?.title === undefined,
+                    needsConfig: act?.title == null,
                   };
                   ws.activityConfig = actConfig;
                   ws.send(JSON.stringify({ type: 'config', activityId: settings.activityId, config: actConfig }));
