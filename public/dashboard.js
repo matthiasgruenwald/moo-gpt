@@ -969,9 +969,20 @@ function applySettingsData(data) {
 
   // Admin-Bereiche einblenden
   adminBadge.classList.add('visible');
-  document.getElementById('sp-admin-section').style.display = 'flex';
-  document.getElementById('sp-history-details').style.display = '';
-  document.getElementById('admin-mgmt-card').style.display   = '';
+  document.getElementById('sp-admin-section').style.display     = 'flex';
+  document.getElementById('sp-history-details').style.display   = '';
+  document.getElementById('admin-mgmt-card').style.display      = '';
+  document.getElementById('system-template-card').style.display = '';
+
+  // Systemvorlage laden
+  try {
+    const st = await apiGet('/api/admin/system-template');
+    document.getElementById('st-title').value       = st.title         || '';
+    document.getElementById('st-bot-icon').value    = st.botIcon       || 'grw';
+    document.getElementById('st-opener').value      = st.opener        || '';
+    document.getElementById('st-upload-mode').value = st.uploadMode    || 'off';
+    document.getElementById('st-hints').value       = st.hintsTemplate || '';
+  } catch (_) {}
 
   // Admin-Formular
   document.getElementById('sp-edit').value = data.systemPrompt || '';
@@ -1737,5 +1748,20 @@ document.getElementById('add-admin-btn').addEventListener('click', async () => {
     renderAdminList(data.admins);
     input.value = '';
     setStatus(status, `${uid} als Admin eingetragen.`);
+  } catch (e) { setStatus(status, e.message, true); }
+});
+
+document.getElementById('st-save-btn').addEventListener('click', async () => {
+  const status = document.getElementById('st-save-status');
+  const body   = {
+    title:         document.getElementById('st-title').value,
+    botIcon:       document.getElementById('st-bot-icon').value,
+    opener:        document.getElementById('st-opener').value,
+    uploadMode:    document.getElementById('st-upload-mode').value,
+    hintsTemplate: document.getElementById('st-hints').value,
+  };
+  try {
+    await apiPut('/api/admin/system-template', body);
+    setStatus(status, '✓ Systemvorlage gespeichert');
   } catch (e) { setStatus(status, e.message, true); }
 });

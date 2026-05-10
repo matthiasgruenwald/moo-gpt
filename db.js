@@ -41,8 +41,21 @@ export function initDb() {
       updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE IF NOT EXISTS teacher_defaults (
-      moodle_user_id TEXT PRIMARY KEY,
+    CREATE TABLE IF NOT EXISTS teacher_templates (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      moodle_user_id TEXT NOT NULL,
+      name           TEXT NOT NULL,
+      title          TEXT,
+      bot_icon       TEXT DEFAULT 'grw',
+      opener         TEXT,
+      upload_mode    TEXT DEFAULT 'off',
+      hints_template TEXT,
+      is_default     INTEGER DEFAULT 0,
+      created_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS system_template (
+      id             INTEGER PRIMARY KEY CHECK (id = 1),
       title          TEXT,
       bot_icon       TEXT DEFAULT 'grw',
       opener         TEXT,
@@ -428,25 +441,61 @@ export function setTeacherPreference(userId, preferredModel) {
   `).run(userId, preferredModel || null);
 }
 
-// ── P5a: Lehrer-Voreinstellungen für neue Aktivitäten ────────────────────────
+// ── P5b: Lehrer-Vorlagen-Bibliothek ──────────────────────────────────────────
 
-export function getTeacherDefaults(userId) {
-  if (!userId) return null;
-  return db.prepare('SELECT * FROM teacher_defaults WHERE moodle_user_id = ?').get(userId) || null;
+export function getTeacherTemplates(userId) {
+  if (!userId) return [];
+  return db.prepare('SELECT * FROM teacher_templates WHERE moodle_user_id = ? ORDER BY created_at ASC').all(userId);
 }
 
-export function setTeacherDefaults(userId, { title, botIcon, opener, uploadMode, hintsTemplate } = {}) {
+export function getTeacherDefaultTemplate(userId) {
+  if (!userId) return null;
+  return db.prepare('SELECT * FROM teacher_templates WHERE moodle_user_id = ? AND is_default = 1 LIMIT 1').get(userId) || null;
+}
+
+export function createTeacherTemplate(userId, { name, title, botIcon, opener, uploadMode, hintsTemplate } = {}) {
+  const result = db.prepare(`
+    INSERT INTO teacher_templates (moodle_user_id, name, title, bot_icon, opener, upload_mode, hints_template)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(userId, name, title ?? null, botIcon ?? 'grw', opener ?? null, uploadMode ?? 'off', hintsTemplate ?? null);
+  return result.lastInsertRowid;
+}
+
+export function updateTeacherTemplate(id, userId, { name, title, botIcon, opener, uploadMode, hintsTemplate } = {}) {
   db.prepare(`
-    INSERT INTO teacher_defaults (moodle_user_id, title, bot_icon, opener, upload_mode, hints_template, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(moodle_user_id) DO UPDATE SET
+    UPDATE teacher_templates
+    SET name = ?, title = ?, bot_icon = ?, opener = ?, upload_mode = ?, hints_template = ?
+    WHERE id = ? AND moodle_user_id = ?
+  `).run(name, title ?? null, botIcon ?? 'grw', opener ?? null, uploadMode ?? 'off', hintsTemplate ?? null, id, userId);
+}
+
+export function deleteTeacherTemplate(id, userId) {
+  db.prepare('DELETE FROM teacher_templates WHERE id = ? AND moodle_user_id = ?').run(id, userId);
+}
+
+export function setTeacherTemplateDefault(id, userId) {
+  db.prepare('UPDATE teacher_templates SET is_default = 0 WHERE moodle_user_id = ?').run(userId);
+  db.prepare('UPDATE teacher_templates SET is_default = 1 WHERE id = ? AND moodle_user_id = ?').run(id, userId);
+}
+
+// ── P5b: Systemvorlage (Admin) ────────────────────────────────────────────────
+
+export function getSystemTemplate() {
+  return db.prepare('SELECT * FROM system_template WHERE id = 1').get() || null;
+}
+
+export function setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTemplate } = {}) {
+  db.prepare(`
+    INSERT INTO system_template (id, title, bot_icon, opener, upload_mode, hints_template, updated_at)
+    VALUES (1, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(id) DO UPDATE SET
       title          = excluded.title,
       bot_icon       = excluded.bot_icon,
       opener         = excluded.opener,
       upload_mode    = excluded.upload_mode,
       hints_template = excluded.hints_template,
       updated_at     = CURRENT_TIMESTAMP
-  `).run(userId, title ?? null, botIcon ?? 'grw', opener ?? null, uploadMode ?? 'off', hintsTemplate ?? null);
+  `).run(title ?? null, botIcon ?? 'grw', opener ?? null, uploadMode ?? 'off', hintsTemplate ?? null);
 }
 
 // ── Feedback-Bewertung (Issue #19) ────────────────────────────────────────────

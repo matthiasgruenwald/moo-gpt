@@ -7,7 +7,7 @@ import expressWs from "express-ws";
 import http from "http";
 import https from "https";
 import cors from "cors";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, getTeacherDefaults, setTeacherDefaults, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getPersonas, upsertPersona, deletePersona, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getPersonas, upsertPersona, deletePersona, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
 import crypto from "crypto";
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
@@ -584,34 +584,99 @@ app.put('/api/teacher/preferences', (req, res) => {
   res.json({ ok: true, myModel: validModel });
 });
 
-// ── P5a: Lehrer-Voreinstellungen ─────────────────────────────────────────────
+// ── P5b: Lehrer-Vorlagen-Bibliothek ──────────────────────────────────────────
 
-/** GET /api/teacher/defaults?token= – Voreinstellungen der Lehrkraft lesen */
-app.get('/api/teacher/defaults', (req, res) => {
+/** GET /api/teacher/templates?token= – alle Vorlagen der Lehrkraft */
+app.get('/api/teacher/templates', (req, res) => {
   if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
   const userId = getUserIdFromToken(req.query.token);
   if (!userId) return res.status(403).json({ error: 'Unauthorized' });
-  const defaults = getTeacherDefaults(userId);
-  res.json({
-    title:      defaults?.title       ?? '',
-    botIcon:    defaults?.bot_icon    ?? 'grw',
-    opener:     defaults?.opener      ?? '',
-    uploadMode: defaults?.upload_mode ?? 'off',
-  });
+  res.json({ templates: getTeacherTemplates(userId) });
 });
 
-/** PUT /api/teacher/defaults?token= – Voreinstellungen speichern */
-app.put('/api/teacher/defaults', (req, res) => {
+/** POST /api/teacher/templates?token= – neue Vorlage anlegen */
+app.post('/api/teacher/templates', (req, res) => {
   if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
   const userId = getUserIdFromToken(req.query.token);
   if (!userId) return res.status(403).json({ error: 'Unauthorized' });
-  const { title, botIcon, opener, uploadMode } = req.body;
+  const { name, title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
   if (uploadMode !== undefined && !VALID_UPLOAD_MODES.includes(uploadMode))
     return res.status(400).json({ error: 'Ungültiger uploadMode' });
   if (botIcon !== undefined && botIcon !== '' && !VALID_BOT_ICONS.includes(botIcon))
     return res.status(400).json({ error: 'Ungültiges botIcon' });
-  setTeacherDefaults(userId, { title: title ?? null, botIcon: botIcon ?? 'grw', opener: opener ?? null, uploadMode: uploadMode ?? 'off' });
-  console.log(`[P5a] Teacher-Defaults gespeichert für ${userId}`);
+  const id = createTeacherTemplate(userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate });
+  res.json({ ok: true, id });
+});
+
+/** PUT /api/teacher/templates/:id?token= – Vorlage aktualisieren */
+app.put('/api/teacher/templates/:id', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+  const id = parseInt(req.params.id, 10);
+  if (!id) return res.status(400).json({ error: 'Ungültige ID' });
+  const { name, title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
+  if (uploadMode !== undefined && !VALID_UPLOAD_MODES.includes(uploadMode))
+    return res.status(400).json({ error: 'Ungültiger uploadMode' });
+  if (botIcon !== undefined && botIcon !== '' && !VALID_BOT_ICONS.includes(botIcon))
+    return res.status(400).json({ error: 'Ungültiges botIcon' });
+  updateTeacherTemplate(id, userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate });
+  res.json({ ok: true });
+});
+
+/** DELETE /api/teacher/templates/:id?token= – Vorlage löschen */
+app.delete('/api/teacher/templates/:id', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+  const id = parseInt(req.params.id, 10);
+  if (!id) return res.status(400).json({ error: 'Ungültige ID' });
+  deleteTeacherTemplate(id, userId);
+  res.json({ ok: true });
+});
+
+/** PUT /api/teacher/templates/:id/set-default?token= – als Standard markieren */
+app.put('/api/teacher/templates/:id/set-default', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+  const id = parseInt(req.params.id, 10);
+  if (!id) return res.status(400).json({ error: 'Ungültige ID' });
+  setTeacherTemplateDefault(id, userId);
+  res.json({ ok: true });
+});
+
+// ── P5b: Systemvorlage (Admin) ────────────────────────────────────────────────
+
+/** GET /api/admin/system-template?token= – Systemvorlage lesen */
+app.get('/api/admin/system-template', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+  const tpl = getSystemTemplate();
+  res.json({
+    title:         tpl?.title         ?? '',
+    botIcon:       tpl?.bot_icon      ?? 'grw',
+    opener:        tpl?.opener        ?? '',
+    uploadMode:    tpl?.upload_mode   ?? 'off',
+    hintsTemplate: tpl?.hints_template ?? '',
+  });
+});
+
+/** PUT /api/admin/system-template?token= – Systemvorlage speichern (nur Admin) */
+app.put('/api/admin/system-template', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+  const { title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
+  if (uploadMode !== undefined && !VALID_UPLOAD_MODES.includes(uploadMode))
+    return res.status(400).json({ error: 'Ungültiger uploadMode' });
+  if (botIcon !== undefined && botIcon !== '' && !VALID_BOT_ICONS.includes(botIcon))
+    return res.status(400).json({ error: 'Ungültiges botIcon' });
+  setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTemplate });
+  console.log(`[P5b] Systemvorlage gespeichert von ${userId}`);
   res.json({ ok: true });
 });
 
@@ -1217,11 +1282,13 @@ app.ws("/api/chat", (ws, req) => {
                   console.log(`[Auth] isTeacher=${ws.isTeacher} (client=${settings.isTeacher}, env=${isTeacherByEnv})`);
                 }
 
-                // P5a: Aktivitäts-Config aus DB laden; bei neuer Aktivität Defaults anlegen
+                // P5b: Aktivitäts-Config aus DB laden; bei neuer Aktivität Vorlage anwenden
                 if (settings.activityId) {
                   let act = getActivity(settings.activityId);
                   if (!act) {
-                    const defaults = ws.isTeacher && ws.userId ? getTeacherDefaults(ws.userId) : null;
+                    const defaults = ws.isTeacher && ws.userId
+                      ? (getTeacherDefaultTemplate(ws.userId) ?? getSystemTemplate())
+                      : null;
                     upsertActivity(
                       settings.activityId,
                       settings.activityName || settings.activityId,

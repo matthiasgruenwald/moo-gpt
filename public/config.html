@@ -62,6 +62,33 @@
 
     .cfg-hint { font-size: 11px; color: #888; margin-top: 3px; }
 
+    .cfg-divider {
+      border: none;
+      border-top: 1px solid #e0e0e0;
+      margin: 14px 0;
+    }
+
+    .cfg-template-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .cfg-template-row .cfg-select { flex: 1; }
+
+    .cfg-tpl-btn {
+      flex-shrink: 0;
+      background: none;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.15s;
+      line-height: 1;
+    }
+    .cfg-tpl-btn:hover { background: #f0f0f0; }
+
     .cfg-save-row {
       display: flex;
       align-items: center;
@@ -99,6 +126,19 @@
   <div id="cfg-form"                         style="display:none" class="cfg-body">
 
     <div class="cfg-activity-name" id="cfg-activity-name"></div>
+
+    <div class="cfg-field">
+      <label class="cfg-label">Vorlage</label>
+      <div class="cfg-template-row">
+        <select class="cfg-select" id="cfg-template-select">
+          <option value="">— Vorlage laden —</option>
+        </select>
+        <button class="cfg-tpl-btn" id="cfg-tpl-default-btn" title="Als Standard setzen" style="display:none">&#11088;</button>
+        <button class="cfg-tpl-btn" id="cfg-tpl-delete-btn"  title="Vorlage löschen"    style="display:none">&#128465;</button>
+      </div>
+    </div>
+
+    <hr class="cfg-divider">
 
     <div class="cfg-field">
       <label class="cfg-label" for="cfg-title">Bot-Titel</label>
@@ -146,7 +186,7 @@
 
     <div class="cfg-save-row">
       <button class="cfg-save-btn" id="cfg-save-btn">Speichern &amp; Schlie&szlig;en</button>
-      <button class="cfg-save-btn" id="cfg-defaults-btn" style="background:#555;font-size:12px;padding:10px 14px;" title="Aktuelle Werte als Voreinstellung für neue Aktivitäten speichern">Als meine Voreinstellung speichern</button>
+      <button class="cfg-save-btn" id="cfg-tpl-save-btn" style="background:#555;font-size:12px;padding:10px 14px;">Als Vorlage speichern</button>
       <span class="cfg-status" id="cfg-status"></span>
     </div>
   </div>
