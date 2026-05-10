@@ -474,8 +474,10 @@ export function deleteTeacherTemplate(id, userId) {
 }
 
 export function setTeacherTemplateDefault(id, userId) {
-  db.prepare('UPDATE teacher_templates SET is_default = 0 WHERE moodle_user_id = ?').run(userId);
-  db.prepare('UPDATE teacher_templates SET is_default = 1 WHERE id = ? AND moodle_user_id = ?').run(id, userId);
+  db.transaction(() => {
+    db.prepare('UPDATE teacher_templates SET is_default = 0 WHERE moodle_user_id = ?').run(userId);
+    db.prepare('UPDATE teacher_templates SET is_default = 1 WHERE id = ? AND moodle_user_id = ?').run(id, userId);
+  })();
 }
 
 // ── P5b: Systemvorlage (Admin) ────────────────────────────────────────────────

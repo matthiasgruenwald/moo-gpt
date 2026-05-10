@@ -11,8 +11,6 @@
   let templates        = [];
   let loadedTemplateId = null;
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
-
   function showError(msg) {
     elLoading.style.display = 'none';
     elError.style.display   = '';
@@ -36,13 +34,15 @@
     };
   }
 
+  function getLoadedTemplate() {
+    return loadedTemplateId === null ? null : (templates.find(t => t.id === loadedTemplateId) ?? null);
+  }
+
   function tplOptionLabel(tpl) {
     return (tpl.is_default ? '★ ' : '') + tpl.name;
   }
 
-  // ── Template dropdown ─────────────────────────────────────────────────────
-
-  function rebuildTemplateDropdown() {
+  function updateTemplateUI() {
     const sel = document.getElementById('cfg-template-select');
     sel.innerHTML = '<option value="">— Vorlage laden —</option>';
     for (const tpl of templates) {
@@ -53,17 +53,13 @@
       sel.appendChild(opt);
     }
     sel.style.fontStyle = '';
-  }
-
-  function updateContextButtons() {
     const hasLoaded = loadedTemplateId !== null;
     document.getElementById('cfg-tpl-default-btn').style.display = hasLoaded ? '' : 'none';
     document.getElementById('cfg-tpl-delete-btn').style.display  = hasLoaded ? '' : 'none';
   }
 
   function computeDirty() {
-    if (loadedTemplateId === null) return false;
-    const tpl = templates.find(t => t.id === loadedTemplateId);
+    const tpl = getLoadedTemplate();
     if (!tpl) return false;
     const f = getFields();
     return (
@@ -76,8 +72,7 @@
   }
 
   function updateDirtyState() {
-    if (loadedTemplateId === null) return;
-    const tpl = templates.find(t => t.id === loadedTemplateId);
+    const tpl = getLoadedTemplate();
     if (!tpl) return;
     const sel         = document.getElementById('cfg-template-select');
     const selectedOpt = sel.options[sel.selectedIndex];
@@ -91,26 +86,21 @@
     }
   }
 
-  // ── Load templates from API ───────────────────────────────────────────────
-
   async function loadTemplates() {
     try {
       const res = await fetch(`/api/teacher/templates?token=${encodeURIComponent(token)}`);
       if (!res.ok) return;
       const data = await res.json();
       templates = data.templates || [];
-      rebuildTemplateDropdown();
-      updateContextButtons();
+      updateTemplateUI();
     } catch (_) {}
   }
-
-  // ── Template select changed ───────────────────────────────────────────────
 
   document.getElementById('cfg-template-select').addEventListener('change', function () {
     const id = this.value ? parseInt(this.value, 10) : null;
     loadedTemplateId = id;
-    if (!id) { updateContextButtons(); return; }
-    const tpl = templates.find(t => t.id === id);
+    if (!id) { updateTemplateUI(); return; }
+    const tpl = getLoadedTemplate();
     if (!tpl) return;
     document.getElementById('cfg-title').value       = tpl.title          ?? '';
     document.getElementById('cfg-bot-icon').value    = tpl.bot_icon       ?? 'grw';
@@ -118,18 +108,14 @@
     document.getElementById('cfg-upload-mode').value = tpl.upload_mode    ?? 'off';
     document.getElementById('cfg-hints').value       = tpl.hints_template ?? '';
     this.style.fontStyle = '';
-    updateContextButtons();
+    updateTemplateUI();
   });
-
-  // ── Field change → dirty tracking ────────────────────────────────────────
 
   ['cfg-title', 'cfg-bot-icon', 'cfg-opener', 'cfg-upload-mode', 'cfg-hints'].forEach(id => {
     const el = document.getElementById(id);
     el.addEventListener('input',  updateDirtyState);
     el.addEventListener('change', updateDirtyState);
   });
-
-  // ── Set default ───────────────────────────────────────────────────────────
 
   document.getElementById('cfg-tpl-default-btn').addEventListener('click', async () => {
     if (!loadedTemplateId) return;
@@ -139,7 +125,7 @@
     );
     if (res.ok) {
       templates = templates.map(t => ({ ...t, is_default: t.id === loadedTemplateId ? 1 : 0 }));
-      rebuildTemplateDropdown();
+      updateTemplateUI();
       updateDirtyState();
       showStatus('✓ Als Standard gesetzt', 'ok');
     } else {
@@ -147,11 +133,8 @@
     }
   });
 
-  // ── Delete ────────────────────────────────────────────────────────────────
-
   document.getElementById('cfg-tpl-delete-btn').addEventListener('click', async () => {
-    if (!loadedTemplateId) return;
-    const tpl = templates.find(t => t.id === loadedTemplateId);
+    const tpl = getLoadedTemplate();
     if (!tpl) return;
     if (!confirm(`Vorlage "${tpl.name}" wirklich löschen? Das kann nicht rückgängig gemacht werden.`)) return;
     const res = await fetch(
@@ -161,14 +144,11 @@
     if (res.ok) {
       templates        = templates.filter(t => t.id !== loadedTemplateId);
       loadedTemplateId = null;
-      rebuildTemplateDropdown();
-      updateContextButtons();
+      updateTemplateUI();
     } else {
       showStatus('Fehler beim Löschen', 'err');
     }
   });
-
-  // ── Overwrite dialog ──────────────────────────────────────────────────────
 
   function showOverwriteDialog(name) {
     return new Promise(resolve => {
@@ -190,8 +170,6 @@
     });
   }
 
-  // ── Save as template ──────────────────────────────────────────────────────
-
   async function saveNewTemplate(f) {
     const name = prompt('Name der neuen Vorlage:');
     if (!name || !name.trim()) return;
@@ -204,10 +182,15 @@
       }
     );
     if (!res.ok) { showStatus('Fehler beim Speichern', 'err'); return; }
-    const data       = await res.json();
+    const data = await res.json();
+    templates.push({
+      id: data.id, moodle_user_id: null, name: name.trim(),
+      title: f.title || null, bot_icon: f.botIcon, opener: f.opener || null,
+      upload_mode: f.uploadMode, hints_template: f.hintsTemplate || null,
+      is_default: 0, created_at: new Date().toISOString(),
+    });
     loadedTemplateId = data.id;
-    await loadTemplates();
-    updateContextButtons();
+    updateTemplateUI();
     showStatus('✓ Vorlage gespeichert', 'ok');
   }
 
@@ -224,19 +207,19 @@
     templates = templates.map(t => t.id === id
       ? { ...t, title: f.title, bot_icon: f.botIcon, opener: f.opener, upload_mode: f.uploadMode, hints_template: f.hintsTemplate }
       : t);
-    rebuildTemplateDropdown();
+    updateTemplateUI();
     updateDirtyState();
     showStatus('✓ Vorlage gespeichert', 'ok');
   }
 
   document.getElementById('cfg-tpl-save-btn').addEventListener('click', async () => {
-    const f = getFields();
-    if (loadedTemplateId !== null && computeDirty()) {
-      const tpl    = templates.find(t => t.id === loadedTemplateId);
+    const f   = getFields();
+    const tpl = getLoadedTemplate();
+    if (tpl && computeDirty()) {
       const choice = await showOverwriteDialog(tpl.name);
       if (!choice) return;
       if (choice === 'overwrite') {
-        await overwriteTemplate(loadedTemplateId, tpl.name, f);
+        await overwriteTemplate(tpl.id, tpl.name, f);
       } else {
         await saveNewTemplate(f);
       }
@@ -244,8 +227,6 @@
       await saveNewTemplate(f);
     }
   });
-
-  // ── Load config ───────────────────────────────────────────────────────────
 
   async function loadConfig() {
     if (!activityId || !token) return showError('Fehlende Parameter (activityId oder token).');
@@ -291,8 +272,6 @@
       showError('Netzwerkfehler: ' + e.message);
     }
   }
-
-  // ── Save config (nur Aktivitäts-Konfig, keine Vorlage) ────────────────────
 
   async function saveConfig() {
     const btn    = document.getElementById('cfg-save-btn');

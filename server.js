@@ -393,6 +393,12 @@ initDb();
 const VALID_UPLOAD_MODES = ['off', 'images', 'files'];
 const VALID_BOT_ICONS    = ['grw', 'grw2', 'weiblich'];
 
+function validateTemplateFields(uploadMode, botIcon) {
+  if (uploadMode !== undefined && !VALID_UPLOAD_MODES.includes(uploadMode)) return 'Ungültiger uploadMode';
+  if (botIcon !== undefined && botIcon !== '' && !VALID_BOT_ICONS.includes(botIcon)) return 'Ungültiges botIcon';
+  return null;
+}
+
 // ── P5: Aktivitäts-Konfig-Endpoints ─────────────────────────────────────────
 
 /** GET /api/activity-config/:activityId?token= – Konfig für config.html lesen */
@@ -426,10 +432,8 @@ app.put('/api/activity-config/:activityId', (req, res) => {
   if (!userId || !validateDashboardToken(req.query.token, activityId))
     return res.status(403).json({ error: 'Unauthorized' });
   const { opener, uploadMode, title, botIcon } = req.body;
-  if (uploadMode !== undefined && !VALID_UPLOAD_MODES.includes(uploadMode))
-    return res.status(400).json({ error: 'Ungültiger uploadMode' });
-  if (botIcon !== undefined && botIcon !== '' && !VALID_BOT_ICONS.includes(botIcon))
-    return res.status(400).json({ error: 'Ungültiges botIcon' });
+  const validErr = validateTemplateFields(uploadMode, botIcon);
+  if (validErr) return res.status(400).json({ error: validErr });
   setActivityConfig(activityId, opener ?? null, uploadMode ?? null, title ?? null, botIcon ?? null);
   console.log(`[Config] Aktivität ${activityId} aktualisiert von ${userId}`);
   res.json({ ok: true });
@@ -601,10 +605,8 @@ app.post('/api/teacher/templates', (req, res) => {
   if (!userId) return res.status(403).json({ error: 'Unauthorized' });
   const { name, title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
-  if (uploadMode !== undefined && !VALID_UPLOAD_MODES.includes(uploadMode))
-    return res.status(400).json({ error: 'Ungültiger uploadMode' });
-  if (botIcon !== undefined && botIcon !== '' && !VALID_BOT_ICONS.includes(botIcon))
-    return res.status(400).json({ error: 'Ungültiges botIcon' });
+  const validErr1 = validateTemplateFields(uploadMode, botIcon);
+  if (validErr1) return res.status(400).json({ error: validErr1 });
   const id = createTeacherTemplate(userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate });
   res.json({ ok: true, id });
 });
@@ -618,10 +620,8 @@ app.put('/api/teacher/templates/:id', (req, res) => {
   if (!id) return res.status(400).json({ error: 'Ungültige ID' });
   const { name, title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
-  if (uploadMode !== undefined && !VALID_UPLOAD_MODES.includes(uploadMode))
-    return res.status(400).json({ error: 'Ungültiger uploadMode' });
-  if (botIcon !== undefined && botIcon !== '' && !VALID_BOT_ICONS.includes(botIcon))
-    return res.status(400).json({ error: 'Ungültiges botIcon' });
+  const validErr2 = validateTemplateFields(uploadMode, botIcon);
+  if (validErr2) return res.status(400).json({ error: validErr2 });
   updateTeacherTemplate(id, userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate });
   res.json({ ok: true });
 });
@@ -671,10 +671,8 @@ app.put('/api/admin/system-template', (req, res) => {
   const userId = getUserIdFromToken(req.query.token);
   if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
   const { title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
-  if (uploadMode !== undefined && !VALID_UPLOAD_MODES.includes(uploadMode))
-    return res.status(400).json({ error: 'Ungültiger uploadMode' });
-  if (botIcon !== undefined && botIcon !== '' && !VALID_BOT_ICONS.includes(botIcon))
-    return res.status(400).json({ error: 'Ungültiges botIcon' });
+  const validErr3 = validateTemplateFields(uploadMode, botIcon);
+  if (validErr3) return res.status(400).json({ error: validErr3 });
   setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTemplate });
   console.log(`[P5b] Systemvorlage gespeichert von ${userId}`);
   res.json({ ok: true });

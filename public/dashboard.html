@@ -456,6 +456,15 @@
       line-height: 1.5;
     }
     .settings-textarea[readonly] { background: #f4f6f8; color: #444; }
+    .st-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 3px;
+    }
     .settings-btn {
       background: #004085;
       color: white;
@@ -1080,6 +1089,46 @@
 <!-- Settings-Panel (Issue #17) -->
 <div id="settings-panel">
 
+  <!-- Systemvorlage (nur Admins) -->
+  <div class="settings-card" id="system-template-card" style="display:none">
+    <h3>Systemvorlage</h3>
+    <p style="font-size:12px;color:#888;margin-bottom:12px">Startwerte für neue Aktivitäten, wenn eine Lehrkraft noch keine eigene Vorlage gesetzt hat.</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div>
+        <label class="st-label">Bot-Titel</label>
+        <input type="text" id="st-title" class="settings-input" style="width:100%" placeholder="z. B. Lern-Assistent">
+      </div>
+      <div>
+        <label class="st-label">Bot-Icon</label>
+        <select id="st-bot-icon" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px">
+          <option value="grw">grw (Standard)</option>
+          <option value="grw2">grw2</option>
+          <option value="weiblich">weiblich</option>
+        </select>
+      </div>
+      <div>
+        <label class="st-label">Begrüßung (Opener)</label>
+        <textarea id="st-opener" class="settings-textarea" rows="3" style="width:100%" placeholder="Erste Nachricht des Bots…"></textarea>
+      </div>
+      <div>
+        <label class="st-label">Upload-Modus</label>
+        <select id="st-upload-mode" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px">
+          <option value="off">Kein Upload (off)</option>
+          <option value="images">Bilder erlaubt (images)</option>
+          <option value="files">Bilder + PDF erlaubt (files)</option>
+        </select>
+      </div>
+      <div>
+        <label class="st-label">Aufgaben-Hinweise (Prompt-Ergänzung)</label>
+        <textarea id="st-hints" class="settings-textarea" rows="4" style="width:100%" placeholder="Ergänzung zum System-Prompt…"></textarea>
+      </div>
+      <div class="settings-row">
+        <button class="settings-btn" id="st-save-btn">Systemvorlage speichern</button>
+      </div>
+      <div class="status-msg" id="st-save-status"></div>
+    </div>
+  </div>
+
   <!-- Mein Modell (alle Lehrkräfte) -->
   <div class="settings-card">
     <h3>Mein Modell</h3>
@@ -1136,46 +1185,6 @@
       <button class="settings-btn" id="add-admin-btn">Hinzufügen</button>
     </div>
     <div class="status-msg" id="admin-status"></div>
-  </div>
-
-  <!-- Systemvorlage (nur Admins) -->
-  <div class="settings-card" id="system-template-card" style="display:none">
-    <h3>Systemvorlage</h3>
-    <p style="font-size:12px;color:#888;margin-bottom:12px">Startwerte für neue Aktivitäten, wenn eine Lehrkraft noch keine eigene Vorlage gesetzt hat.</p>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <div>
-        <label style="display:block;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Bot-Titel</label>
-        <input type="text" id="st-title" class="settings-input" style="width:100%" placeholder="z. B. Lern-Assistent">
-      </div>
-      <div>
-        <label style="display:block;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Bot-Icon</label>
-        <select id="st-bot-icon" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px">
-          <option value="grw">grw (Standard)</option>
-          <option value="grw2">grw2</option>
-          <option value="weiblich">weiblich</option>
-        </select>
-      </div>
-      <div>
-        <label style="display:block;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Begrüßung (Opener)</label>
-        <textarea id="st-opener" class="settings-textarea" rows="3" style="width:100%" placeholder="Erste Nachricht des Bots…"></textarea>
-      </div>
-      <div>
-        <label style="display:block;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Upload-Modus</label>
-        <select id="st-upload-mode" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px">
-          <option value="off">Kein Upload (off)</option>
-          <option value="images">Bilder erlaubt (images)</option>
-          <option value="files">Bilder + PDF erlaubt (files)</option>
-        </select>
-      </div>
-      <div>
-        <label style="display:block;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Aufgaben-Hinweise (Prompt-Ergänzung)</label>
-        <textarea id="st-hints" class="settings-textarea" rows="4" style="width:100%" placeholder="Ergänzung zum System-Prompt…"></textarea>
-      </div>
-      <div class="settings-row">
-        <button class="settings-btn" id="st-save-btn">Systemvorlage speichern</button>
-      </div>
-      <div class="status-msg" id="st-save-status"></div>
-    </div>
   </div>
 
 </div>
