@@ -155,6 +155,11 @@ export class MOOBOT {
     window.sendMessage = this.sendMessage.bind(this);
     window.handleKeyDown = this.handleKeyDown.bind(this);
 
+    // P5a: Config-Overlay nach erfolgreichem Speichern schließen
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === 'moogpt:configSaved') this.closeConfig();
+    });
+
     // Issue #15: Lightbox initialisieren
     this._initLightbox();
   }

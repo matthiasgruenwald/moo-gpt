@@ -131,9 +131,7 @@
         status.className   = 'cfg-status err';
         status.textContent = errors.join(' ');
       } else {
-        status.className   = 'cfg-status ok';
-        status.textContent = '✓ Gespeichert';
-        setTimeout(() => { status.textContent = ''; }, 3000);
+        window.parent.postMessage({ type: 'moogpt:configSaved' }, '*');
       }
     } catch (e) {
       status.className   = 'cfg-status err';
