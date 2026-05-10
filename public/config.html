@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aktivitäts-Einstellungen</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f8f9fa;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .cfg-body { padding: 16px 20px; }
+
+    .cfg-activity-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: #003366;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #003366;
+    }
+
+    .cfg-field { margin-bottom: 14px; }
+
+    .cfg-label {
+      display: block;
+      font-weight: 700;
+      font-size: 11px;
+      color: #555;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .cfg-input,
+    .cfg-textarea,
+    .cfg-select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+      background: white;
+      color: #333;
+    }
+
+    .cfg-textarea { resize: vertical; min-height: 72px; }
+
+    .cfg-input:focus,
+    .cfg-textarea:focus,
+    .cfg-select:focus {
+      outline: none;
+      border-color: #003366;
+      box-shadow: 0 0 0 2px rgba(0,51,102,0.12);
+    }
+
+    .cfg-hint { font-size: 11px; color: #888; margin-top: 3px; }
+
+    .cfg-save-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 20px;
+      padding-top: 14px;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .cfg-save-btn {
+      background: #003366;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 26px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .cfg-save-btn:hover { background: #004085; }
+    .cfg-save-btn:disabled { background: #aaa; cursor: default; }
+
+    .cfg-status { font-size: 13px; }
+    .cfg-status.ok  { color: #28a745; }
+    .cfg-status.err { color: #dc3545; }
+
+    .cfg-loading { padding: 40px 20px; text-align: center; color: #888; }
+    .cfg-error   { padding: 30px 20px; text-align: center; color: #dc3545; }
+  </style>
+</head>
+<body>
+  <div id="cfg-loading" class="cfg-loading">Lädt&hellip;</div>
+  <div id="cfg-error"   class="cfg-error"   style="display:none"></div>
+  <div id="cfg-form"                         style="display:none" class="cfg-body">
+
+    <div class="cfg-activity-name" id="cfg-activity-name"></div>
+
+    <div class="cfg-field">
+      <label class="cfg-label" for="cfg-opener">Begrüßung (Opener)</label>
+      <textarea class="cfg-textarea" id="cfg-opener" rows="3"></textarea>
+      <div class="cfg-hint">Erste Nachricht des Bots beim Öffnen des Chats</div>
+    </div>
+
+    <div class="cfg-field">
+      <label class="cfg-label" for="cfg-upload-mode">Upload-Modus</label>
+      <select class="cfg-select" id="cfg-upload-mode">
+        <option value="off">Kein Upload (off)</option>
+        <option value="images">Bilder erlaubt (images)</option>
+        <option value="files">Bilder + PDF erlaubt (files)</option>
+      </select>
+    </div>
+
+    <div class="cfg-field">
+      <label class="cfg-label" for="cfg-hints">Aufgaben-Hinweise (Prompt-Ergänzung)</label>
+      <textarea class="cfg-textarea" id="cfg-hints" rows="5"></textarea>
+      <div class="cfg-hint">Ergänzung zum System-Prompt für diese Aufgabe (z.&nbsp;B. Fach, Thema, Jahrgang)</div>
+    </div>
+
+    <div class="cfg-field">
+      <label class="cfg-label" for="cfg-model">Modell-Präferenz</label>
+      <select class="cfg-select" id="cfg-model">
+        <option value="">Globales Standardmodell</option>
+      </select>
+      <div class="cfg-hint">Gilt nur für dich; Schüler nutzen das globale Modell</div>
+    </div>
+
+    <div class="cfg-save-row">
+      <button class="cfg-save-btn" id="cfg-save-btn">Speichern</button>
+      <span class="cfg-status" id="cfg-status"></span>
+    </div>
+  </div>
+
+  <script src="/config.js"></script>
+</body>
+</html>

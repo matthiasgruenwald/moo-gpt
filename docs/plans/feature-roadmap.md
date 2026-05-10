@@ -24,9 +24,9 @@ P9 (Grafik) ─────── (eigenständig, parallel zu P5–P7)
 
 | Paket | Titel | Status | Datei |
 |-------|-------|--------|-------|
-| P1 | Bugs (3 Issues) | | [steps/p1-bugs.md](steps/p1-bugs.md) |
-| P2 | UX: Button-States + Gelöschte Vorschläge | | [steps/p2-ux-button-states-soft-delete.md](steps/p2-ux-button-states-soft-delete.md) |
-| P3 | Plenumsphase | | [steps/p3-plenumsphase.md](steps/p3-plenumsphase.md) |
+| P1 | Bugs (3 Issues) | ✓ done | [steps/p1-bugs.md](steps/p1-bugs.md) |
+| P2 | UX: Button-States + Gelöschte Vorschläge | ✓ done | [steps/p2-ux-button-states-soft-delete.md](steps/p2-ux-button-states-soft-delete.md) |
+| P3 | Plenumsphase | ✓ done | [steps/p3-plenumsphase.md](steps/p3-plenumsphase.md) |
 | P4 | Umbenennung Code: mmbbs-gpt → moo-gpt | ✓ done | [steps/p4-umbenennung-code.md](steps/p4-umbenennung-code.md) |
 | P4a | Umbenennung Infra: mmbbs-gpt → moo-gpt | ✓ done | [steps/p4a-umbenennung-infra.md](steps/p4a-umbenennung-infra.md) |
 | P5 | Konfig-Seite | | [steps/p5-konfig-seite.md](steps/p5-konfig-seite.md) |

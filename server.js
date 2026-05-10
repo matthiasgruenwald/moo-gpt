@@ -7,7 +7,7 @@ import expressWs from "express-ws";
 import http from "http";
 import https from "https";
 import cors from "cors";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getPersonas, upsertPersona, deletePersona, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getPersonas, upsertPersona, deletePersona, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
 import crypto from "crypto";
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
@@ -389,6 +389,45 @@ initDb();
   }
 }
 
+
+// ── P5: Aktivitäts-Konfig-Endpoints ─────────────────────────────────────────
+
+/** GET /api/activity-config/:activityId?token= – Konfig für config.html lesen */
+app.get('/api/activity-config/:activityId', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.params;
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !validateDashboardToken(req.query.token, activityId))
+    return res.status(403).json({ error: 'Unauthorized' });
+  const act  = getActivity(activityId);
+  const erf  = getActiveErfahrungsprompt(activityId);
+  const pref = getTeacherPreference(userId);
+  res.json({
+    activityId,
+    activityName:     act?.activity_name  || '',
+    opener:           act?.opener         || '',
+    uploadMode:       act?.upload_mode    || 'off',
+    erfahrungsprompt: erf?.content        || '',
+    myModel:          pref?.preferred_model || null,
+    availableModels:  AVAILABLE_MODELS,
+  });
+});
+
+/** PUT /api/activity-config/:activityId?token= – Opener + Upload-Modus speichern */
+app.put('/api/activity-config/:activityId', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId } = req.params;
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !validateDashboardToken(req.query.token, activityId))
+    return res.status(403).json({ error: 'Unauthorized' });
+  const { opener, uploadMode } = req.body;
+  const validModes = ['off', 'images', 'files'];
+  if (uploadMode !== undefined && !validModes.includes(uploadMode))
+    return res.status(400).json({ error: 'Ungültiger uploadMode' });
+  setActivityConfig(activityId, opener ?? null, uploadMode ?? null);
+  console.log(`[Config] Aktivität ${activityId} aktualisiert von ${userId}`);
+  res.json({ ok: true });
+});
 
 // ── Issue #5: Teacher-Dashboard REST-Endpoints ──────────────────────────────
 

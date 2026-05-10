@@ -269,6 +269,18 @@ export function getActivity(activity_id) {
   return db.prepare('SELECT activity_name, opener, upload_mode FROM activities WHERE activity_id = ?').get(activity_id) || null;
 }
 
+/** Aktualisiert opener und/oder upload_mode einer Aktivität ohne activity_name zu überschreiben. */
+export function setActivityConfig(activity_id, opener, uploadMode) {
+  db.prepare(`
+    INSERT INTO activities (activity_id, opener, upload_mode, updated_at)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(activity_id) DO UPDATE SET
+      opener      = COALESCE(excluded.opener, activities.opener),
+      upload_mode = COALESCE(excluded.upload_mode, activities.upload_mode),
+      updated_at  = CURRENT_TIMESTAMP
+  `).run(activity_id, opener ?? null, uploadMode ?? null);
+}
+
 /**
  * Speichert Token-Verbrauch nach einem Run (Issue #11).
  * usage: { prompt_tokens, completion_tokens, total_tokens } aus OpenAI-Response

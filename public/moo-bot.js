@@ -17,6 +17,7 @@ export class MOOBOT {
     this.dashboardToken          = null;  // Issue #5: vom Server zugewiesen
     this.pendingDashboardOpen    = false; // Issue #5: Dashboard-Tab nach Token-Empfang öffnen
     this.pendingDashboardWindow  = null;  // Issue #5: vorab geöffnetes about:blank-Fenster
+    this._pendingConfigOpen      = false; // P5: Config-Overlay nach Token-Empfang öffnen
     this.marked = marked;
     this.katex = katex;
     this.renderMathInElement = renderMathInElement;
@@ -144,7 +145,7 @@ export class MOOBOT {
     // Check if main-inner exists
     const mainInner = document.querySelector(".main-inner");
 
-    // Issue #5: Dashboard-Button für Lehrer (erscheint über dem Chat-Button)
+    // Issue #5 + P5: Lehrer-Buttons (Dashboard + Config) über dem Chat-Button
     if (isTeacher) {
       const dashBtn = document.createElement("div");
       dashBtn.id = "dashboard-icon";
@@ -158,6 +159,28 @@ export class MOOBOT {
       </svg>`;
       dashBtn.onclick = () => this.openDashboard();
       document.body.appendChild(dashBtn);
+
+      const cfgBtn = document.createElement("div");
+      cfgBtn.id = "config-icon";
+      cfgBtn.className = "config-icon";
+      cfgBtn.title = "Aktivitäts-Einstellungen";
+      cfgBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="26" height="26">
+        <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96a7.07 7.07 0 00-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87a.49.49 0 00.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+      </svg>`;
+      cfgBtn.onclick = () => this.openConfig();
+      document.body.appendChild(cfgBtn);
+
+      const cfgOverlay = document.createElement("div");
+      cfgOverlay.id = "config-overlay";
+      cfgOverlay.className = "config-overlay";
+      cfgOverlay.innerHTML = `
+        <div class="config-overlay-header">
+          <h2>&#9881; Aktivit&auml;ts-Einstellungen</h2>
+          <button class="config-overlay-close" id="config-overlay-close">&#x2715;</button>
+        </div>
+        <iframe id="config-overlay-iframe" class="config-overlay-iframe" src=""></iframe>`;
+      document.body.appendChild(cfgOverlay);
+      cfgOverlay.querySelector('#config-overlay-close').onclick = () => this.closeConfig();
     }
 
     document.body.appendChild(chatIcon);
@@ -244,6 +267,38 @@ export class MOOBOT {
     } else {
       window.open(url, '_blank');
     }
+  }
+
+  // ── P5: Config-Overlay ────────────────────────────────────────────────────
+
+  openConfig() {
+    const activityId = this.settings.activityId
+      || new URLSearchParams(window.location.search).get('id')
+      || '';
+    if (this.dashboardToken) {
+      this._openConfigOverlay(this.dashboardToken, activityId);
+    } else {
+      this._pendingConfigOpen = true;
+      if (!this.wsInitialized) {
+        this.setupWebSocket();
+        this.wsInitialized = true;
+      }
+    }
+  }
+
+  closeConfig() {
+    const overlay = document.getElementById('config-overlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  _openConfigOverlay(token, activityId) {
+    const base = `${this.settings.protocol}://${this.settings.host}:${this.settings.port}`;
+    const url  = `${base}/config.html?activityId=${encodeURIComponent(activityId)}&token=${encodeURIComponent(token)}`;
+    const iframe  = document.getElementById('config-overlay-iframe');
+    const overlay = document.getElementById('config-overlay');
+    if (!iframe || !overlay) return;
+    if (iframe.src !== url) iframe.src = url;
+    overlay.style.display = 'flex';
   }
 
   loadExternalLibraries() {
@@ -407,6 +462,10 @@ export class MOOBOT {
           if (this.pendingDashboardOpen) {
             this.pendingDashboardOpen = false;
             this._openDashboardTab(messageObj.token, messageObj.activityId);
+          }
+          if (this._pendingConfigOpen) {
+            this._pendingConfigOpen = false;
+            this._openConfigOverlay(messageObj.token, messageObj.activityId);
           }
           return;
         }

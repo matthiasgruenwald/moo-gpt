@@ -247,6 +247,77 @@ button:hover {
     cursor: default;
 }
 
+/* ── P5: Config-Button + Overlay ─────────────────────────────────────────── */
+.config-icon {
+    position: fixed;
+    bottom: 180px; /* über dashboard-icon (122px + 50px + 8px Abstand) */
+    right: 10px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #4a5568;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    transition: background-color 0.2s;
+}
+.config-icon:hover { background-color: #2d3748; }
+
+.config-overlay {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(50vw, 800px);
+    min-width: 340px;
+    height: 100%;
+    background: white;
+    z-index: 9999;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.2);
+    display: none;
+    flex-direction: column;
+    border-left: 1px solid #ddd;
+}
+
+@media (max-width: 768px) {
+    .config-overlay {
+        width: 90vw;
+        min-width: 0;
+    }
+}
+
+.config-overlay-header {
+    background: #003366;
+    color: white;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+
+.config-overlay-header h2 { font-size: 15px; margin: 0; font-weight: 600; }
+
+.config-overlay-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: 4px;
+    line-height: 1;
+}
+.config-overlay-close:hover { background: rgba(255,255,255,0.2); }
+
+.config-overlay-iframe {
+    flex: 1;
+    border: none;
+    width: 100%;
+}
+
 /* ── Lightbox (Issue #15) ────────────────────────────────────────────────── */
 #mmb-lightbox {
     display: none;
