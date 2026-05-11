@@ -18,7 +18,7 @@ graph TD
     Server -->|HTTP Antworten| Dashboard
     Server --- DB
     Server -->|openai SDK| OpenAI
-    OpenAI -->|Text-Chunks| Server
+    OpenAI -->|Text Chunks| Server
 ```
 
 ## Chat-Nachrichtenfluss
