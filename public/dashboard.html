@@ -1330,9 +1330,9 @@
       <button class="settings-btn" id="server-restart-btn"
               style="margin-left:auto;background:#c0392b;color:white;border-color:#c0392b">Dienst neu starten</button>
     </div>
-    <pre id="log-output"
-         style="background:#111;color:#ccc;font-size:11px;padding:10px;border-radius:4px;
-                max-height:400px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;margin:0"></pre>
+    <textarea id="log-output" class="settings-textarea" readonly
+              style="font-family:monospace;font-size:11px;max-height:400px;overflow-y:auto;
+                     white-space:pre;resize:none;margin:0"></textarea>
     <div class="status-msg" id="debug-status"></div>
   </div>
 

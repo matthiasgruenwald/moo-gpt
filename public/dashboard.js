@@ -2051,6 +2051,7 @@ function initAdminDebug() {
       setTimeout(() => location.reload(), 5000);
     } catch (e) { setStatus(status, e.message, true); }
   });
+  attachExpandBtn(document.getElementById('log-output'), 'Server-Logs');
   loadLogs();
 }
 
@@ -2060,7 +2061,7 @@ async function loadLogs() {
   const status = document.getElementById('debug-status');
   try {
     const data = await apiFetch(`/api/admin/logs?n=${n}`);
-    out.textContent = data.lines.join('\n');
+    out.value = data.lines.join('\n');
     out.scrollTop = out.scrollHeight;
     setStatus(status, `${data.lines.length} Zeilen geladen`);
   } catch (e) { setStatus(status, e.message, true); }
