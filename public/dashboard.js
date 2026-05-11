@@ -910,21 +910,20 @@ let mermaidReady = false;
 async function initMermaidOnce() {
   if (mermaidReady) return;
   mermaidReady = true;
-  const els = document.querySelectorAll('pre.mermaid');
-  console.log('[mermaid] Elemente:', els.length);
-  let idx = 0;
-  for (const el of els) {
-    if (el.dataset.processed) { console.log(`[mermaid] #${idx} bereits gerendert, skip`); idx++; continue; }
-    const text = el.textContent.trim();
-    console.log(`[mermaid] #${idx} len=${text.length} "${text.slice(0,50).replace(/\n/g,'↵')}"`);
+  const els = [...document.querySelectorAll('pre.mermaid')];
+  for (let i = 0; i < els.length; i++) {
+    const el = els[i];
+    const source = el.textContent.trim();
     try {
-      await mermaid.parse(text, { suppressErrors: false });
+      const { svg } = await mermaid.render('mermaid-diag-' + i, source);
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = svg;
+      el.replaceWith(wrapper);
     } catch(e) {
-      console.error(`[mermaid] #${idx} Syntaxfehler: ${e.message ?? e}`);
+      console.error('[mermaid] #' + i + ' Fehler:', e?.message ?? String(e));
+      console.log('[mermaid] #' + i + ' Quelle:\n' + source);
     }
-    idx++;
   }
-  mermaid.run();
 }
 
 // configUpdated vom Server (anderer Admin hat etwas geändert)
