@@ -871,7 +871,8 @@ const toolbarEl      = document.getElementById('toolbar');
 const mainEl         = document.getElementById('main');
 const settingsPanel  = document.getElementById('settings-panel');
 const optimizePanel  = document.getElementById('optimize-panel');
-const adminBadge     = document.getElementById('admin-badge');
+const adminPanel     = document.getElementById('admin-panel');
+const adminTabBtn    = document.getElementById('admin-tab-btn');
 
 tabBtns.forEach(btn => {
   btn.addEventListener('click', () => {
@@ -884,7 +885,8 @@ tabBtns.forEach(btn => {
     mainEl.style.display    = isStudents ? '' : 'none';
     settingsPanel.classList.toggle('visible', tab === 'settings');
     optimizePanel.classList.toggle('visible', tab === 'optimize');
-    if (tab === 'settings')  loadSettings();
+    adminPanel.classList.toggle('visible', tab === 'admin');
+    if (tab === 'settings' || tab === 'admin')  loadSettings();
     if (tab === 'optimize')  { loadOptimizePanel(); loadSimulatePanel(); }
   });
 });
@@ -972,13 +974,11 @@ function applySettingsData(data) {
   if (!data.isAdmin) return;
 
   // Admin-Bereiche einblenden
-  adminBadge.classList.add('visible');
+  adminTabBtn.style.display = '';
   document.getElementById('sp-admin-section').style.display     = 'flex';
   document.getElementById('sp-history-details').style.display   = '';
   document.getElementById('admin-personas-card').style.display  = '';
-  document.getElementById('admin-mgmt-card').style.display      = '';
   document.getElementById('system-template-card').style.display = '';
-  document.getElementById('admin-debug-card').style.display     = '';
   loadAdminPersonas();
   initAdminDebug();
 

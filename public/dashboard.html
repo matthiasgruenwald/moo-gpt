@@ -390,18 +390,7 @@
     }
     .tab-btn:hover { color: rgba(255,255,255,0.85); }
     .tab-btn.active { color: white; border-bottom-color: #5599ff; }
-    #admin-badge {
-      margin-left: auto;
-      font-size: 11px;
-      background: #e67e22;
-      color: white;
-      padding: 2px 8px;
-      border-radius: 10px;
-      display: none;
-    }
-    #admin-badge.visible { display: inline-block; }
-
-    /* ── Settings-Panel (Issue #17) ──────────────────────────────────────── */
+/* ── Settings-Panel (Issue #17) ──────────────────────────────────────── */
     #settings-panel {
       display: none;
       flex: 1;
@@ -412,6 +401,16 @@
       flex-direction: column;
     }
     #settings-panel.visible { display: flex; }
+    #admin-panel {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: #f0f4f8;
+      gap: 16px;
+      flex-direction: column;
+    }
+    #admin-panel.visible { display: flex; }
     .settings-card {
       background: white;
       border-radius: 8px;
@@ -1020,7 +1019,7 @@
   <button class="tab-btn active" data-tab="students">Schüler</button>
   <button class="tab-btn" data-tab="optimize">Optimierung</button>
   <button class="tab-btn" data-tab="settings">Einstellungen</button>
-  <span id="admin-badge">Admin</span>
+  <button class="tab-btn" id="admin-tab-btn" data-tab="admin" style="display:none;margin-left:auto">Admin</button>
 </div>
 
 <div id="toolbar">
@@ -1300,8 +1299,13 @@
     <div class="status-msg" id="admin-personas-status"></div>
   </div>
 
-  <!-- Admin-Verwaltung (nur Admins) -->
-  <div class="settings-card" id="admin-mgmt-card" style="display:none">
+
+</div>
+
+<div id="admin-panel">
+
+  <!-- Admin-Verwaltung -->
+  <div class="settings-card" id="admin-mgmt-card">
     <h3>Admin-Verwaltung</h3>
     <div id="admin-list"></div>
     <div class="settings-row" style="margin-top:4px">
@@ -1312,8 +1316,8 @@
     <div class="status-msg" id="admin-status"></div>
   </div>
 
-  <!-- Server-Debug (nur Admins) -->
-  <div class="settings-card" id="admin-debug-card" style="display:none">
+  <!-- Server-Debug -->
+  <div class="settings-card" id="admin-debug-card">
     <h3>Server-Logs</h3>
     <div class="settings-row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
       <label for="log-n-input" style="font-size:13px">Zeilen:</label>

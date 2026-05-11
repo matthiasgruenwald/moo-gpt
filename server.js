@@ -999,7 +999,7 @@ app.get('/api/admin/logs', (req, res) => {
   if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
   const n = Math.min(Math.max(parseInt(req.query.n) || 100, 1), 2000);
   try {
-    const out = execFileSync('journalctl', ['-u', 'moo-gpt', '-n', String(n), '--no-pager', '--output=short-iso'], { encoding: 'utf8' });
+    const out = execFileSync('journalctl', ['-u', 'moo-gpt', '-n', String(n), '--no-pager', '--output=short-iso'], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
     res.json({ lines: out.split('\n').filter(l => l.length > 0) });
   } catch (e) {
     res.status(500).json({ error: e.message });
