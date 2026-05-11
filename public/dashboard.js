@@ -1669,7 +1669,7 @@ function renderSimSuggestion(ev, container) {
 
   wrapper.appendChild(h4);
   wrapper.appendChild(ta);
-  attachExpandBtn(ta);
+  attachExpandBtn(ta, 'Erfahrungsprompt-Vorschlag');
   wrapper.appendChild(btnRow);
   container.appendChild(wrapper);
 }
@@ -1958,14 +1958,32 @@ document.getElementById('st-save-btn').addEventListener('click', async () => {
 
 // ── Textarea-Vollbild-Overlay ─────────────────────────────────────────────────
 
-const _overlay   = document.getElementById('textarea-overlay');
-const _overlayTa = document.getElementById('overlay-textarea');
-let   _sourceTa  = null;
+const _overlay      = document.getElementById('textarea-overlay');
+const _overlayTa    = document.getElementById('overlay-textarea');
+const _overlayLabel = document.getElementById('overlay-label');
+let   _sourceTa     = null;
 
-function _openOverlay(ta) {
-  _sourceTa           = ta;
-  _overlayTa.value    = ta.value;
-  _overlayTa.readOnly = ta.readOnly;
+function _getLabelForTextarea(ta) {
+  // Nearest .opt-diff-label sibling (for opt-alt / opt-neu)
+  let el = ta.previousElementSibling;
+  while (el) {
+    if (el.classList.contains('opt-diff-label')) return el.textContent.trim();
+    el = el.previousElementSibling;
+  }
+  // h3 of the closest .settings-card
+  const card = ta.closest('.settings-card');
+  if (card) {
+    const h3 = card.querySelector('h3');
+    if (h3) return h3.textContent.trim();
+  }
+  return ta.placeholder || 'Textfeld';
+}
+
+function _openOverlay(ta, label) {
+  _sourceTa                 = ta;
+  _overlayTa.value          = ta.value;
+  _overlayTa.readOnly       = ta.readOnly;
+  _overlayLabel.textContent = label || _getLabelForTextarea(ta);
   _overlay.classList.add('visible');
   _overlayTa.focus();
   const len = _overlayTa.value.length;
@@ -1978,7 +1996,7 @@ function _closeOverlay() {
   _sourceTa = null;
 }
 
-function attachExpandBtn(ta) {
+function attachExpandBtn(ta, label) {
   const wrapper = document.createElement('div');
   wrapper.className = 'ta-wrapper';
   ta.parentNode.insertBefore(wrapper, ta);
@@ -1989,7 +2007,7 @@ function attachExpandBtn(ta) {
   btn.type        = 'button';
   btn.title       = 'Vollbild';
   btn.textContent = '⛶';
-  btn.addEventListener('click', e => { e.preventDefault(); _openOverlay(ta); });
+  btn.addEventListener('click', e => { e.preventDefault(); _openOverlay(ta, label); });
   wrapper.appendChild(btn);
 }
 
@@ -1998,4 +2016,4 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && _overlay.classList.contains('visible')) _closeOverlay();
 });
 
-document.querySelectorAll('.settings-textarea').forEach(attachExpandBtn);
+document.querySelectorAll('.settings-textarea').forEach(ta => attachExpandBtn(ta));
