@@ -1442,8 +1442,7 @@ flowchart TD
     Moodle -->|Snippet| Widget
     Widget -->|WebSocket| Server
     Server -->|Antwort-Stream| Widget
-    Dashboard -->|HTTP REST| Server
-    Server -->|Antworten| Dashboard
+    Dashboard <-->|HTTP REST| Server
     Server -->|Datenbank| DB
     Server -->|openai SDK| OpenAI
     OpenAI -->|Chunks| Server

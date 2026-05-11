@@ -920,8 +920,7 @@ async function initMermaidOnce() {
       wrapper.innerHTML = svg;
       el.replaceWith(wrapper);
     } catch(e) {
-      console.error('[mermaid] #' + i + ' Fehler:', e?.message ?? String(e));
-      console.log('[mermaid] #' + i + ' Quelle:\n' + source);
+      el.textContent = 'Diagramm konnte nicht gerendert werden.';
     }
   }
 }

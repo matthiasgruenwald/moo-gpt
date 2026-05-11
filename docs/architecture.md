@@ -3,22 +3,21 @@
 ## Systemkomponenten
 
 ```mermaid
-graph TD
-    Moodle[Moodle TinyMCE-Snippet]
-    Widget[Chat-Widget]
-    Dashboard[Lehrer-Dashboard]
-    Server[Express-Server]
-    DB[SQLite-Datenbank]
-    OpenAI[OpenAI API]
+flowchart TD
+    Moodle["Moodle TinyMCE"]
+    Widget["Chat-Widget"]
+    Dashboard["Lehrer-Dashboard"]
+    Server["Express-Server"]
+    DB["SQLite"]
+    OpenAI["OpenAI API"]
 
-    Moodle -->|Snippet eingebettet| Widget
-    Widget -->|WebSocket Anfragen| Server
-    Server -->|WebSocket Antworten| Widget
-    Dashboard -->|HTTP REST| Server
-    Server -->|HTTP Antworten| Dashboard
-    Server --- DB
+    Moodle -->|Snippet| Widget
+    Widget -->|WebSocket| Server
+    Server -->|Antwort-Stream| Widget
+    Dashboard <-->|HTTP REST| Server
+    Server -->|Datenbank| DB
     Server -->|openai SDK| OpenAI
-    OpenAI -->|Text Chunks| Server
+    OpenAI -->|Chunks| Server
 ```
 
 ## Chat-Nachrichtenfluss
