@@ -2034,27 +2034,27 @@ document.addEventListener('keydown', e => {
 
 // ── Admin-Debug: Logs + Restart ───────────────────────────────────────────────
 
-let logAutoInterval = null;
-
 function initAdminDebug() {
-  document.getElementById('log-refresh-btn').addEventListener('click', loadLogs);
-  document.getElementById('log-auto-refresh').addEventListener('change', e => {
-    clearInterval(logAutoInterval);
-    if (e.target.checked) logAutoInterval = setInterval(loadLogs, 30_000);
-  });
-  document.getElementById('server-restart-btn').addEventListener('click', async () => {
-    if (!confirm('Server wirklich neu starten?')) return;
-    const status = document.getElementById('debug-status');
-    try {
-      await apiPost('/api/admin/restart', {});
-      setStatus(status, 'Neustart eingeleitet – Seite lädt in 5s neu…');
-      setTimeout(() => location.reload(), 5000);
-    } catch (e) { setStatus(status, e.message, true); }
-  });
   const logOut        = document.getElementById('log-output');
   const logOverlay    = document.getElementById('log-overlay');
   const logOverlayPre = document.getElementById('log-overlay-pre');
+  const logStatus     = document.getElementById('debug-status');
+  const wrapBtn       = document.getElementById('log-wrap-btn');
+  const ovWrapBtn     = document.getElementById('log-overlay-wrap-btn');
   let logWrap = true;
+  let autoInterval = null;
+
+  async function loadLogs() {
+    const n = Math.min(Math.max(parseInt(document.getElementById('log-n-input').value) || 100, 1), 2000);
+    try {
+      const data = await apiFetch(`/api/admin/logs?n=${n}`);
+      const text = data.lines.join('\n');
+      logOut.textContent = text;
+      if (logOverlay.classList.contains('visible')) logOverlayPre.textContent = text;
+      requestAnimationFrame(() => { logOut.scrollTop = logOut.scrollHeight; });
+      setStatus(logStatus, `${data.lines.length} Zeilen geladen`);
+    } catch (e) { setStatus(logStatus, e.message, true); }
+  }
 
   function applyWrap(on) {
     logWrap = on;
@@ -2064,13 +2064,17 @@ function initAdminDebug() {
     logOut.style.wordBreak         = wb;
     logOverlayPre.style.whiteSpace = ws;
     logOverlayPre.style.wordBreak  = wb;
-    document.getElementById('log-wrap-btn').textContent        = on ? '↵' : '→';
-    document.getElementById('log-overlay-wrap-btn').textContent = on ? '↵ an' : '→ aus';
+    wrapBtn.textContent   = on ? '↵' : '→';
+    ovWrapBtn.textContent = on ? '↵ an' : '→ aus';
   }
 
-  document.getElementById('log-wrap-btn').addEventListener('click', () => applyWrap(!logWrap));
-  document.getElementById('log-overlay-wrap-btn').addEventListener('click', () => applyWrap(!logWrap));
-
+  document.getElementById('log-refresh-btn').addEventListener('click', loadLogs);
+  document.getElementById('log-auto-refresh').addEventListener('change', e => {
+    clearInterval(autoInterval);
+    if (e.target.checked) autoInterval = setInterval(loadLogs, 30_000);
+  });
+  wrapBtn.addEventListener('click',   () => applyWrap(!logWrap));
+  ovWrapBtn.addEventListener('click', () => applyWrap(!logWrap));
   document.getElementById('log-expand-btn').addEventListener('click', () => {
     logOverlayPre.textContent = logOut.textContent;
     logOverlay.classList.add('visible');
@@ -2082,24 +2086,16 @@ function initAdminDebug() {
     if (e.key === 'Escape' && logOverlay.classList.contains('visible'))
       logOverlay.classList.remove('visible');
   });
+  document.getElementById('server-restart-btn').addEventListener('click', async () => {
+    if (!confirm('Server wirklich neu starten?')) return;
+    try {
+      await apiPost('/api/admin/restart', {});
+      setStatus(logStatus, 'Neustart eingeleitet – Seite lädt in 5s neu…');
+      setTimeout(() => location.reload(), 5000);
+    } catch (e) { setStatus(logStatus, e.message, true); }
+  });
 
   loadLogs();
-}
-
-async function loadLogs() {
-  const n = parseInt(document.getElementById('log-n-input').value) || 100;
-  const out = document.getElementById('log-output');
-  const overlayPre = document.getElementById('log-overlay-pre');
-  const status = document.getElementById('debug-status');
-  try {
-    const data = await apiFetch(`/api/admin/logs?n=${n}`);
-    const text = data.lines.join('\n');
-    out.textContent = text;
-    if (document.getElementById('log-overlay').classList.contains('visible'))
-      overlayPre.textContent = text;
-    requestAnimationFrame(() => { out.scrollTop = out.scrollHeight; });
-    setStatus(status, `${data.lines.length} Zeilen geladen`);
-  } catch (e) { setStatus(status, e.message, true); }
 }
 
 document.querySelectorAll('.settings-textarea').forEach(ta => attachExpandBtn(ta));
