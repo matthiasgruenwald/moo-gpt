@@ -1304,12 +1304,24 @@ app.post('/api/one-click-optimize', async (req, res) => {
 
     sendEvent('sim_start', { total });
 
-    await Promise.all(personas.map(async (persona) => {
-      const utterances = await generateSimulatedUtterances(persona, 4);
+    await Promise.allSettled(personas.map(async (persona) => {
+      let utterances;
+      try {
+        utterances = await generateSimulatedUtterances(persona, 4);
+      } catch (e) {
+        console.warn(`[OneClick] Utterances fehlgeschlagen für ${persona.name}:`, e.message);
+        return;
+      }
       for (let i = 0; i < utterances.length; i++) {
-        const aiResponse = await generateAIResponse(
-          cachedConfig.content, erfahrungsprompt?.content || '', utterances[i]
-        );
+        let aiResponse;
+        try {
+          aiResponse = await generateAIResponse(
+            cachedConfig.content, erfahrungsprompt?.content || '', utterances[i]
+          );
+        } catch (e) {
+          console.warn(`[OneClick] AI-Antwort fehlgeschlagen (${persona.name} #${i}):`, e.message);
+          continue;
+        }
         let evaluation;
         try {
           evaluation = await evaluateResponse(utterances[i], aiResponse, currentCriteria);
@@ -1323,6 +1335,7 @@ app.post('/api/one-click-optimize', async (req, res) => {
       }
     }));
 
+    if (allPairs.length === 0) throw new Error('Alle Simulationen fehlgeschlagen – bitte erneut versuchen.');
     console.log(`[OneClick] ${allPairs.length} Paare simuliert, generiere Vorschlag`);
 
     // Phase 4: Optimierungsvorschlag
