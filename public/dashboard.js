@@ -910,19 +910,20 @@ let mermaidReady = false;
 async function initMermaidOnce() {
   if (mermaidReady) return;
   mermaidReady = true;
-  console.log('[mermaid] initialize');
   mermaid.initialize({ startOnLoad: false, theme: 'default' });
   const els = document.querySelectorAll('pre.mermaid');
-  console.log('[mermaid] Elemente gefunden:', els.length);
+  console.log('[mermaid] Elemente:', els.length);
   let idx = 0;
   for (const el of els) {
     const text = el.textContent.trim();
-    console.log(`[mermaid] parse #${idx} (${text.slice(0,40).replace(/\n/g,' ')})`);
-    const ok = await mermaid.parse(text, { suppressErrors: true });
-    if (!ok) console.error(`[mermaid] FEHLER in Diagramm #${idx}:\n` + text);
+    console.log(`[mermaid] #${idx} processed=${el.dataset.processed ?? 'nein'} len=${text.length} "${text.slice(0,50).replace(/\n/g,'↵')}"`);
+    try {
+      await mermaid.parse(text, { suppressErrors: false });
+    } catch(e) {
+      console.error(`[mermaid] #${idx} Syntaxfehler: ${e.message ?? e}`);
+    }
     idx++;
   }
-  console.log('[mermaid] run()');
   mermaid.run();
 }
 

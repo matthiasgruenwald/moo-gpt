@@ -6,6 +6,7 @@
   <title>Schüler-Dashboard – MMBbS GPT</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css" crossorigin="anonymous">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script>window.mermaid = { startOnLoad: false };</script>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1430,7 +1431,7 @@
     <div class="settings-card">
       <h3>Systemkomponenten</h3>
       <pre class="mermaid">
-graph TD
+flowchart TD
     Moodle["Moodle TinyMCE"]
     Widget["Chat-Widget"]
     Dashboard["Lehrer-Dashboard"]
