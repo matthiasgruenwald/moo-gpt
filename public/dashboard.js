@@ -1954,3 +1954,47 @@ document.getElementById('st-save-btn').addEventListener('click', async () => {
     setStatus(status, '✓ Systemvorlage gespeichert');
   } catch (e) { setStatus(status, e.message, true); }
 });
+
+// ── Textarea-Vollbild-Overlay ─────────────────────────────────────────────────
+
+(function initTextareaOverlay() {
+  const overlay   = document.getElementById('textarea-overlay');
+  const overlayTa = document.getElementById('overlay-textarea');
+  let   sourceTa  = null;
+
+  function open(ta) {
+    sourceTa           = ta;
+    overlayTa.value    = ta.value;
+    overlayTa.readOnly = ta.readOnly;
+    overlay.classList.add('visible');
+    overlayTa.focus();
+    const len = overlayTa.value.length;
+    overlayTa.setSelectionRange(len, len);
+  }
+
+  function close() {
+    if (sourceTa && !sourceTa.readOnly) sourceTa.value = overlayTa.value;
+    overlay.classList.remove('visible');
+    sourceTa = null;
+  }
+
+  document.getElementById('overlay-close').addEventListener('click', close);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && overlay.classList.contains('visible')) close();
+  });
+
+  document.querySelectorAll('.settings-textarea').forEach(ta => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'ta-wrapper';
+    ta.parentNode.insertBefore(wrapper, ta);
+    wrapper.appendChild(ta);
+
+    const btn = document.createElement('button');
+    btn.className = 'ta-expand-btn';
+    btn.type      = 'button';
+    btn.title     = 'Vollbild';
+    btn.textContent = '⛶';
+    btn.addEventListener('click', e => { e.preventDefault(); open(ta); });
+    wrapper.appendChild(btn);
+  });
+})();
