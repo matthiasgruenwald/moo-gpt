@@ -895,12 +895,12 @@ tabBtns.forEach(btn => {
 });
 
 // ── Info-Tab: Sub-Tabs + Mermaid ──────────────────────────────────────────────
-document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+infoPanel.querySelectorAll('.sub-tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const subtab = btn.dataset.subtab;
-    document.querySelectorAll('.sub-tab-content').forEach(el => { el.style.display = 'none'; });
-    document.getElementById(`subtab-${subtab}`).style.display = '';
-    document.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+    infoPanel.querySelectorAll('.sub-tab-content').forEach(el => { el.style.display = 'none'; });
+    infoPanel.querySelector(`#subtab-${subtab}`).style.display = '';
+    infoPanel.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     if (subtab === 'architektur') initMermaidOnce();
   });
