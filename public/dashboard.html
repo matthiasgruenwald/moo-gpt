@@ -761,8 +761,17 @@
       flex-shrink: 0;
     }
     #overlay-close:hover { color: #000; }
-    #overlay-textarea {
+    #overlay-body {
       flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+    }
+    #overlay-body::-webkit-scrollbar { width: 5px; }
+    #overlay-body::-webkit-scrollbar-track { background: #f0f4f8; }
+    #overlay-body::-webkit-scrollbar-thumb { background: #b0bec5; border-radius: 3px; }
+    #overlay-body::-webkit-scrollbar-thumb:hover { background: #78909c; }
+    #overlay-textarea {
+      display: block;
       width: 100%;
       padding: 16px;
       border: none;
@@ -772,12 +781,8 @@
       resize: none;
       line-height: 1.6;
       box-sizing: border-box;
-      overflow-y: scroll;
+      overflow: hidden;
     }
-    #overlay-textarea::-webkit-scrollbar { width: 5px; }
-    #overlay-textarea::-webkit-scrollbar-track { background: #f0f4f8; }
-    #overlay-textarea::-webkit-scrollbar-thumb { background: #b0bec5; border-radius: 3px; }
-    #overlay-textarea::-webkit-scrollbar-thumb:hover { background: #78909c; }
     .ta-wrapper { position: relative; display: block; }
     .ta-expand-btn {
       position: absolute;
@@ -1335,7 +1340,9 @@
     <span id="overlay-label"></span>
     <button id="overlay-close" aria-label="Schließen">✕</button>
   </div>
-  <textarea id="overlay-textarea"></textarea>
+  <div id="overlay-body">
+    <textarea id="overlay-textarea"></textarea>
+  </div>
 </div>
 
 <script type="module" src="dashboard.js"></script>

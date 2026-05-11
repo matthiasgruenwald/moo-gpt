@@ -1959,9 +1959,18 @@ document.getElementById('st-save-btn').addEventListener('click', async () => {
 // ── Textarea-Vollbild-Overlay ─────────────────────────────────────────────────
 
 const _overlay      = document.getElementById('textarea-overlay');
+const _overlayBody  = document.getElementById('overlay-body');
 const _overlayTa    = document.getElementById('overlay-textarea');
 const _overlayLabel = document.getElementById('overlay-label');
 let   _sourceTa     = null;
+
+function _resizeOverlayTa() {
+  _overlayTa.style.height = 'auto';
+  const minH = _overlayBody.clientHeight;
+  _overlayTa.style.height = Math.max(minH, _overlayTa.scrollHeight) + 'px';
+}
+
+_overlayTa.addEventListener('input', _resizeOverlayTa);
 
 function _getLabelForTextarea(ta) {
   // Nearest .opt-diff-label sibling (for opt-alt / opt-neu)
@@ -1984,10 +1993,14 @@ function _openOverlay(ta, label) {
   _overlayTa.value          = ta.value;
   _overlayTa.readOnly       = ta.readOnly;
   _overlayLabel.textContent = label || _getLabelForTextarea(ta);
+  _overlayTa.style.height   = 'auto';
   _overlay.classList.add('visible');
-  _overlayTa.focus();
-  const len = _overlayTa.value.length;
-  _overlayTa.setSelectionRange(len, len);
+  requestAnimationFrame(() => {
+    _resizeOverlayTa();
+    _overlayTa.focus();
+    const len = _overlayTa.value.length;
+    _overlayTa.setSelectionRange(len, len);
+  });
 }
 
 function _closeOverlay() {
