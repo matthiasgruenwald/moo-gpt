@@ -2051,17 +2051,52 @@ function initAdminDebug() {
       setTimeout(() => location.reload(), 5000);
     } catch (e) { setStatus(status, e.message, true); }
   });
-  attachExpandBtn(document.getElementById('log-output'), 'Server-Logs');
+  const logOut        = document.getElementById('log-output');
+  const logOverlay    = document.getElementById('log-overlay');
+  const logOverlayPre = document.getElementById('log-overlay-pre');
+  let logWrap = true;
+
+  function applyWrap(on) {
+    logWrap = on;
+    const ws = on ? 'pre-wrap' : 'pre';
+    const wb = on ? 'break-all' : 'normal';
+    logOut.style.whiteSpace        = ws;
+    logOut.style.wordBreak         = wb;
+    logOverlayPre.style.whiteSpace = ws;
+    logOverlayPre.style.wordBreak  = wb;
+    document.getElementById('log-wrap-btn').textContent        = on ? '↵' : '→';
+    document.getElementById('log-overlay-wrap-btn').textContent = on ? '↵ an' : '→ aus';
+  }
+
+  document.getElementById('log-wrap-btn').addEventListener('click', () => applyWrap(!logWrap));
+  document.getElementById('log-overlay-wrap-btn').addEventListener('click', () => applyWrap(!logWrap));
+
+  document.getElementById('log-expand-btn').addEventListener('click', () => {
+    logOverlayPre.textContent = logOut.textContent;
+    logOverlay.classList.add('visible');
+  });
+  document.getElementById('log-overlay-close').addEventListener('click', () => {
+    logOverlay.classList.remove('visible');
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && logOverlay.classList.contains('visible'))
+      logOverlay.classList.remove('visible');
+  });
+
   loadLogs();
 }
 
 async function loadLogs() {
   const n = parseInt(document.getElementById('log-n-input').value) || 100;
   const out = document.getElementById('log-output');
+  const overlayPre = document.getElementById('log-overlay-pre');
   const status = document.getElementById('debug-status');
   try {
     const data = await apiFetch(`/api/admin/logs?n=${n}`);
-    out.value = data.lines.join('\n');
+    const text = data.lines.join('\n');
+    out.textContent = text;
+    if (document.getElementById('log-overlay').classList.contains('visible'))
+      overlayPre.textContent = text;
     out.scrollTop = out.scrollHeight;
     setStatus(status, `${data.lines.length} Zeilen geladen`);
   } catch (e) { setStatus(status, e.message, true); }

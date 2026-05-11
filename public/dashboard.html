@@ -769,6 +769,38 @@
     #overlay-body::-webkit-scrollbar-track { background: #f0f4f8; }
     #overlay-body::-webkit-scrollbar-thumb { background: #b0bec5; border-radius: 3px; }
     #overlay-body::-webkit-scrollbar-thumb:hover { background: #78909c; }
+    /* Log-Ausgabe: dünne Scrollleisten */
+    #log-output::-webkit-scrollbar { width: 5px; height: 5px; }
+    #log-output::-webkit-scrollbar-track { background: #1a1a1a; }
+    #log-output::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+    #log-output::-webkit-scrollbar-thumb:hover { background: #888; }
+    /* Log-Vollbild-Overlay */
+    #log-overlay {
+      display: none; position: fixed; inset: 0; z-index: 2000;
+      background: #111; flex-direction: column;
+    }
+    #log-overlay.visible { display: flex; }
+    #log-overlay-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px 10px 16px; border-bottom: 1px solid #333;
+      flex-shrink: 0; background: #1a1a1a;
+    }
+    #log-overlay-header span { font-size: 14px; font-weight: 600; color: #ccc; }
+    #log-overlay-header .log-ov-controls { display: flex; gap: 8px; align-items: center; }
+    #log-overlay-header button {
+      background: none; border: 1px solid #555; border-radius: 4px;
+      color: #ccc; cursor: pointer; font-size: 13px; padding: 3px 8px;
+    }
+    #log-overlay-header button:hover { color: #fff; border-color: #aaa; }
+    #log-overlay pre {
+      flex: 1; overflow: auto; margin: 0; padding: 16px;
+      color: #ccc; font-size: 12px; font-family: monospace;
+      white-space: pre-wrap; word-break: break-all; min-height: 0;
+    }
+    #log-overlay pre::-webkit-scrollbar { width: 5px; height: 5px; }
+    #log-overlay pre::-webkit-scrollbar-track { background: #1a1a1a; }
+    #log-overlay pre::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+    #log-overlay pre::-webkit-scrollbar-thumb:hover { background: #888; }
     #overlay-textarea {
       display: block;
       width: 100%;
@@ -1327,12 +1359,14 @@
       <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer">
         <input type="checkbox" id="log-auto-refresh"> Auto (30s)
       </label>
+      <button class="settings-btn" id="log-wrap-btn" title="Zeilenumbruch an/aus" style="margin-left:auto">↵</button>
+      <button class="settings-btn" id="log-expand-btn" title="Vollbild">⛶</button>
       <button class="settings-btn" id="server-restart-btn"
-              style="margin-left:auto;background:#c0392b;color:white;border-color:#c0392b">Dienst neu starten</button>
+              style="background:#c0392b;color:white;border-color:#c0392b">Dienst neu starten</button>
     </div>
-    <textarea id="log-output" class="settings-textarea" readonly
-              style="font-family:monospace;font-size:11px;max-height:400px;overflow-y:auto;
-                     white-space:pre;resize:none;margin:0"></textarea>
+    <pre id="log-output"
+         style="background:#111;color:#ccc;font-size:11px;padding:10px;border-radius:4px;
+                max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0"></pre>
     <div class="status-msg" id="debug-status"></div>
   </div>
 
@@ -1367,6 +1401,17 @@
   <div id="overlay-body">
     <textarea id="overlay-textarea"></textarea>
   </div>
+</div>
+
+<div id="log-overlay">
+  <div id="log-overlay-header">
+    <span>Server-Logs</span>
+    <div class="log-ov-controls">
+      <button id="log-overlay-wrap-btn" title="Zeilenumbruch an/aus">↵ an</button>
+      <button id="log-overlay-close" aria-label="Schließen">✕</button>
+    </div>
+  </div>
+  <pre id="log-overlay-pre"></pre>
 </div>
 
 <script type="module" src="dashboard.js"></script>
