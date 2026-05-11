@@ -872,6 +872,7 @@ const mainEl         = document.getElementById('main');
 const settingsPanel  = document.getElementById('settings-panel');
 const optimizePanel  = document.getElementById('optimize-panel');
 const adminPanel     = document.getElementById('admin-panel');
+const infoPanel      = document.getElementById('info-panel');
 const adminTabBtn    = document.getElementById('admin-tab-btn');
 
 tabBtns.forEach(btn => {
@@ -886,10 +887,32 @@ tabBtns.forEach(btn => {
     settingsPanel.classList.toggle('visible', tab === 'settings');
     optimizePanel.classList.toggle('visible', tab === 'optimize');
     adminPanel.classList.toggle('visible', tab === 'admin');
+    infoPanel.classList.toggle('visible', tab === 'info');
     if (tab === 'settings' || tab === 'admin')  loadSettings();
     if (tab === 'optimize')  { loadOptimizePanel(); loadSimulatePanel(); }
+    if (tab === 'info')      initMermaidOnce();
   });
 });
+
+// ── Info-Tab: Sub-Tabs + Mermaid ──────────────────────────────────────────────
+document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const subtab = btn.dataset.subtab;
+    document.querySelectorAll('.sub-tab-content').forEach(el => { el.style.display = 'none'; });
+    document.getElementById(`subtab-${subtab}`).style.display = '';
+    document.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (subtab === 'architektur') initMermaidOnce();
+  });
+});
+
+let mermaidReady = false;
+function initMermaidOnce() {
+  if (mermaidReady) return;
+  mermaidReady = true;
+  mermaid.initialize({ startOnLoad: false, theme: 'default' });
+  mermaid.run();
+}
 
 // configUpdated vom Server (anderer Admin hat etwas geändert)
 function handleConfigUpdated(msg) {

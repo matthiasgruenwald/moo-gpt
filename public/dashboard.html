@@ -6,6 +6,7 @@
   <title>Schüler-Dashboard – MMBbS GPT</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css" crossorigin="anonymous">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -411,6 +412,42 @@
       flex-direction: column;
     }
     #admin-panel.visible { display: flex; }
+    #info-panel {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: #f0f4f8;
+      gap: 16px;
+      flex-direction: column;
+    }
+    #info-panel.visible { display: flex; }
+    .sub-tab-bar {
+      display: flex;
+      gap: 8px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #dde3ea;
+    }
+    .sub-tab-btn {
+      padding: 6px 16px;
+      border: 1px solid #c8d0da;
+      border-radius: 6px;
+      background: white;
+      cursor: pointer;
+      font-size: 0.9em;
+      color: #555;
+    }
+    .sub-tab-btn.active {
+      background: #5599ff;
+      color: white;
+      border-color: #5599ff;
+    }
+    .sub-tab-content { padding-top: 8px; }
+    .info-table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+    .info-table th, .info-table td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #dde3ea; }
+    .info-table th { background: #f7f9fb; font-weight: 600; }
+    .info-faq dt { font-weight: 600; margin-top: 12px; }
+    .info-faq dd { margin: 4px 0 0 0; color: #555; }
     .settings-card {
       background: white;
       border-radius: 8px;
@@ -1051,6 +1088,7 @@
   <button class="tab-btn active" data-tab="students">Schüler</button>
   <button class="tab-btn" data-tab="optimize">Optimierung</button>
   <button class="tab-btn" data-tab="settings">Einstellungen</button>
+  <button class="tab-btn" data-tab="info">Info</button>
   <button class="tab-btn" id="admin-tab-btn" data-tab="admin" style="display:none;margin-left:auto">Admin</button>
 </div>
 
@@ -1332,6 +1370,106 @@
   </div>
 
 
+</div>
+
+<div id="info-panel">
+  <div class="sub-tab-bar">
+    <button class="sub-tab-btn active" data-subtab="bedienung">Bedienung</button>
+    <button class="sub-tab-btn" data-subtab="architektur">Architektur</button>
+  </div>
+
+  <div id="subtab-bedienung" class="sub-tab-content">
+    <div class="settings-card">
+      <h3>Übersicht der Tabs</h3>
+      <table class="info-table">
+        <thead><tr><th>Tab</th><th>Was man dort tut</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Schüler</strong></td><td>Alle Chat-Verläufe der Schüler einsehen. Links die Schülerliste, rechts der Chat-Verlauf. Kostenanzeige oben.</td></tr>
+          <tr><td><strong>Optimierung</strong></td><td>System-Prompt mit KI verbessern: Ein-Klick-Optimierung, manuelle Simulation mit Personas, Bewertungskriterien verwalten.</td></tr>
+          <tr><td><strong>Einstellungen</strong></td><td>KI-Modell wählen, System-Prompt bearbeiten, eigene Personas anlegen. Jede Aktivität hat eigene Einstellungen.</td></tr>
+          <tr><td><strong>Info</strong></td><td>Diese Seite: Bedienungshinweise und technische Architektur.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="settings-card">
+      <h3>Zusammenspiel mit Moodle</h3>
+      <p>Das Chat-Widget wird über ein <strong>TinyMCE-Snippet</strong> in eine Moodle-Aktivität eingebettet:</p>
+      <ol style="margin: 8px 0 0 20px; line-height: 1.8;">
+        <li>Lehrkraft öffnet eine Moodle-Textseite oder Aufgabe im Bearbeitungsmodus.</li>
+        <li>Im TinyMCE-Editor: <em>Einfügen → Snippets</em> → Snippet <code>abgpt</code> oder <code>tegpt</code> auswählen.</li>
+        <li>Das Snippet bettet ein <code>&lt;iframe&gt;</code> ein, das <code>chat.html</code> lädt und die Aktivitäts-ID übergibt.</li>
+        <li>Schüler sehen beim Öffnen der Aktivität das schwebende Chat-Widget.</li>
+        <li>Nachrichten laufen per <strong>WebSocket</strong> zum Server — Lehrkraft sieht alles live im <em>Schüler</em>-Tab.</li>
+      </ol>
+      <p style="margin-top: 8px; color: #666; font-size: 0.9em;">Jede Moodle-Aktivität hat eine eigene Aktivitäts-ID, eigenen System-Prompt und eigene Kosten-Statistik.</p>
+    </div>
+
+    <div class="settings-card">
+      <h3>Tipps &amp; FAQ</h3>
+      <dl class="info-faq">
+        <dt>Wie ändere ich den System-Prompt für eine Aktivität?</dt>
+        <dd>Tab <em>Einstellungen</em> → Abschnitt „System-Prompt". Jede Aktivität hat einen eigenen Prompt. Änderungen gelten sofort für neue Chats.</dd>
+
+        <dt>Was sind Personas?</dt>
+        <dd>Virtuelle Schüler-Profile (z.B. „neugieriger Erstklässler", „skeptischer Gymnasiast"), mit denen der System-Prompt im Tab <em>Optimierung</em> getestet werden kann, ohne echte Schüler zu benötigen.</dd>
+
+        <dt>Was bedeuten die Token-Kosten?</dt>
+        <dd>Jede KI-Antwort verbraucht Token (Eingangs- + Ausgangstext). Die Kostenanzeige im <em>Schüler</em>-Tab summiert alle Kosten der aktuellen Aktivität in USD.</dd>
+
+        <dt>Kann ich den Chat für Schüler sperren?</dt>
+        <dd>Ja: Im <em>Schüler</em>-Tab gibt es einen Plenum-Modus. Wenn aktiv, wird das Widget für Schüler deaktiviert.</dd>
+
+        <dt>Was ist der Unterschied zwischen abgpt und tegpt?</dt>
+        <dd><code>abgpt</code> ist für offene Aufgaben (Schüler können frei schreiben), <code>tegpt</code> für Quiz/Tests (Rollenerkennung aktiv, eingeschränkte Interaktion).</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div id="subtab-architektur" class="sub-tab-content" style="display:none;">
+    <div class="settings-card">
+      <h3>Systemkomponenten</h3>
+      <pre class="mermaid">
+graph TD
+    Moodle["Moodle (TinyMCE-Snippet)"]
+    Widget["Chat-Widget\nmoo-bot.js"]
+    Dashboard["Lehrer-Dashboard\ndashboard.html / dashboard.js"]
+    Server["Express-Server\nserver.js"]
+    DB["SQLite-Datenbank\ndb.js / chats.db"]
+    OpenAI["OpenAI API\nResponses API"]
+
+    Moodle -->|"iframe / Snippet eingebettet"| Widget
+    Widget <-->|"WebSocket (WSS)"| Server
+    Dashboard <-->|"HTTP REST + WebSocket"| Server
+    Server <-->|"better-sqlite3"| DB
+    Server <-->|"openai SDK (Streaming)"| OpenAI
+      </pre>
+    </div>
+
+    <div class="settings-card">
+      <h3>Chat-Nachrichtenfluss</h3>
+      <pre class="mermaid">
+sequenceDiagram
+    participant S as Schüler-Browser
+    participant W as Widget (moo-bot.js)
+    participant SV as Server (server.js)
+    participant OAI as OpenAI API
+
+    S->>W: Nachricht eingeben + senden
+    W->>SV: WebSocket: { type: "message", text }
+    SV->>SV: Nachricht in DB speichern
+    SV->>OAI: Responses API (stream: true)
+    loop Streaming
+        OAI-->>SV: Text-Chunk
+        SV-->>W: WebSocket: { type: "chunk", text }
+        W-->>S: Chunk im Chat anzeigen
+    end
+    OAI-->>SV: done + Token-Anzahl
+    SV->>SV: Token-Log in DB speichern
+    SV-->>W: WebSocket: { type: "done" }
+      </pre>
+    </div>
+  </div>
 </div>
 
 <div id="admin-panel">
