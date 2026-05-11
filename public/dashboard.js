@@ -907,10 +907,22 @@ document.querySelectorAll('.sub-tab-btn').forEach(btn => {
 });
 
 let mermaidReady = false;
-function initMermaidOnce() {
+async function initMermaidOnce() {
   if (mermaidReady) return;
   mermaidReady = true;
+  console.log('[mermaid] initialize');
   mermaid.initialize({ startOnLoad: false, theme: 'default' });
+  const els = document.querySelectorAll('pre.mermaid');
+  console.log('[mermaid] Elemente gefunden:', els.length);
+  let idx = 0;
+  for (const el of els) {
+    const text = el.textContent.trim();
+    console.log(`[mermaid] parse #${idx} (${text.slice(0,40).replace(/\n/g,' ')})`);
+    const ok = await mermaid.parse(text, { suppressErrors: true });
+    if (!ok) console.error(`[mermaid] FEHLER in Diagramm #${idx}:\n` + text);
+    idx++;
+  }
+  console.log('[mermaid] run()');
   mermaid.run();
 }
 
