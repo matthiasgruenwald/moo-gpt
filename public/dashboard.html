@@ -1384,8 +1384,8 @@
       <table class="info-table">
         <thead><tr><th>Tab</th><th>Was man dort tut</th></tr></thead>
         <tbody>
-          <tr><td><strong>Schüler</strong></td><td>Alle Chat-Verläufe der Schüler einsehen. Links die Schülerliste, rechts der Chat-Verlauf. Kostenanzeige oben.</td></tr>
-          <tr><td><strong>Optimierung</strong></td><td>System-Prompt mit KI verbessern: Ein-Klick-Optimierung, manuelle Simulation mit Personas, Bewertungskriterien verwalten.</td></tr>
+          <tr><td><strong>Schüler</strong></td><td>Alle Chat-Verläufe der Schüler einsehen. Links die Schülerliste, rechts der Chat-Verlauf. Kostenanzeige oben. Unter jeder KI-Antwort sehen Lehrkräfte die Feedback-Bewertungen, die Schüler vergeben haben.</td></tr>
+          <tr><td><strong>Optimierung</strong></td><td>System-Prompt mit KI verbessern: Ein-Klick-Optimierung, manuelle Simulation mit Personas, Bewertungskriterien verwalten. Im Abschnitt „KI-Optimierungsvorschlag" wertet die KI alle Feedback-Bewertungen aus echten Schüler-Chats aus und schlägt einen verbesserten Prompt vor.</td></tr>
           <tr><td><strong>Einstellungen</strong></td><td>KI-Modell wählen, System-Prompt bearbeiten, eigene Personas anlegen. Jede Aktivität hat eigene Einstellungen.</td></tr>
           <tr><td><strong>Info</strong></td><td>Diese Seite: Bedienungshinweise und technische Architektur.</td></tr>
         </tbody>
@@ -1415,13 +1415,13 @@
         <dd>Virtuelle Schüler-Profile (z.B. „neugieriger Erstklässler", „skeptischer Gymnasiast"), mit denen der System-Prompt im Tab <em>Optimierung</em> getestet werden kann, ohne echte Schüler zu benötigen.</dd>
 
         <dt>Was bedeuten die Token-Kosten?</dt>
-        <dd>Jede KI-Antwort verbraucht Token (Eingangs- + Ausgangstext). Die Kostenanzeige im <em>Schüler</em>-Tab summiert alle Kosten der aktuellen Aktivität in USD.</dd>
+        <dd>Jede KI-Antwort verbraucht Token (Eingangs- + Ausgangstext). Die Kostenanzeige im <em>Schüler</em>-Tab summiert alle Kosten der aktuellen Aktivität in US-Dollar.</dd>
 
         <dt>Kann ich den Chat für Schüler sperren?</dt>
         <dd>Ja: Im <em>Schüler</em>-Tab gibt es einen Plenum-Modus. Wenn aktiv, wird das Widget für Schüler deaktiviert.</dd>
 
-        <dt>Was ist der Unterschied zwischen abgpt und tegpt?</dt>
-        <dd><code>abgpt</code> ist für offene Aufgaben (Schüler können frei schreiben), <code>tegpt</code> für Quiz/Tests (Rollenerkennung aktiv, eingeschränkte Interaktion).</dd>
+        <dt>Was ist der Unterschied zwischen „KI-Chat (Aufgabe+Bilder)" und „KI-Chat Testfrage (iframe)"?</dt>
+        <dd><strong>KI-Chat (Aufgabe+Bilder)</strong> ist für offene Lernaufgaben gedacht – Schüler können frei mit dem Bot schreiben, optional auch Bilder oder Dateien hochladen. <strong>KI-Chat Testfrage (iframe)</strong> wird als eingebettetes iframe verwendet und eignet sich für Quiz- und Test-Szenarien mit eingeschränkter Interaktion.</dd>
       </dl>
     </div>
   </div>
@@ -1431,18 +1431,21 @@
       <h3>Systemkomponenten</h3>
       <pre class="mermaid">
 graph TD
-    Moodle["Moodle (TinyMCE-Snippet)"]
-    Widget["Chat-Widget\nmoo-bot.js"]
-    Dashboard["Lehrer-Dashboard\ndashboard.html / dashboard.js"]
-    Server["Express-Server\nserver.js"]
-    DB["SQLite-Datenbank\ndb.js / chats.db"]
-    OpenAI["OpenAI API\nResponses API"]
+    Moodle[Moodle TinyMCE-Snippet]
+    Widget[Chat-Widget]
+    Dashboard[Lehrer-Dashboard]
+    Server[Express-Server]
+    DB[SQLite-Datenbank]
+    OpenAI[OpenAI API]
 
-    Moodle -->|"iframe / Snippet eingebettet"| Widget
-    Widget <-->|"WebSocket (WSS)"| Server
-    Dashboard <-->|"HTTP REST + WebSocket"| Server
-    Server <-->|"better-sqlite3"| DB
-    Server <-->|"openai SDK (Streaming)"| OpenAI
+    Moodle -->|Snippet eingebettet| Widget
+    Widget -->|WebSocket Anfragen| Server
+    Server -->|WebSocket Antworten| Widget
+    Dashboard -->|HTTP REST| Server
+    Server -->|HTTP Antworten| Dashboard
+    Server --- DB
+    Server -->|openai SDK| OpenAI
+    OpenAI -->|Text-Chunks| Server
       </pre>
     </div>
 
