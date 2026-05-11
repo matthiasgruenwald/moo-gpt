@@ -1669,6 +1669,7 @@ function renderSimSuggestion(ev, container) {
 
   wrapper.appendChild(h4);
   wrapper.appendChild(ta);
+  attachExpandBtn(ta);
   wrapper.appendChild(btnRow);
   container.appendChild(wrapper);
 }
@@ -1957,44 +1958,44 @@ document.getElementById('st-save-btn').addEventListener('click', async () => {
 
 // ── Textarea-Vollbild-Overlay ─────────────────────────────────────────────────
 
-(function initTextareaOverlay() {
-  const overlay   = document.getElementById('textarea-overlay');
-  const overlayTa = document.getElementById('overlay-textarea');
-  let   sourceTa  = null;
+const _overlay   = document.getElementById('textarea-overlay');
+const _overlayTa = document.getElementById('overlay-textarea');
+let   _sourceTa  = null;
 
-  function open(ta) {
-    sourceTa           = ta;
-    overlayTa.value    = ta.value;
-    overlayTa.readOnly = ta.readOnly;
-    overlay.classList.add('visible');
-    overlayTa.focus();
-    const len = overlayTa.value.length;
-    overlayTa.setSelectionRange(len, len);
-  }
+function _openOverlay(ta) {
+  _sourceTa           = ta;
+  _overlayTa.value    = ta.value;
+  _overlayTa.readOnly = ta.readOnly;
+  _overlay.classList.add('visible');
+  _overlayTa.focus();
+  const len = _overlayTa.value.length;
+  _overlayTa.setSelectionRange(len, len);
+}
 
-  function close() {
-    if (sourceTa && !sourceTa.readOnly) sourceTa.value = overlayTa.value;
-    overlay.classList.remove('visible');
-    sourceTa = null;
-  }
+function _closeOverlay() {
+  if (_sourceTa && !_sourceTa.readOnly) _sourceTa.value = _overlayTa.value;
+  _overlay.classList.remove('visible');
+  _sourceTa = null;
+}
 
-  document.getElementById('overlay-close').addEventListener('click', close);
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && overlay.classList.contains('visible')) close();
-  });
+function attachExpandBtn(ta) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'ta-wrapper';
+  ta.parentNode.insertBefore(wrapper, ta);
+  wrapper.appendChild(ta);
 
-  document.querySelectorAll('.settings-textarea').forEach(ta => {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'ta-wrapper';
-    ta.parentNode.insertBefore(wrapper, ta);
-    wrapper.appendChild(ta);
+  const btn = document.createElement('button');
+  btn.className   = 'ta-expand-btn';
+  btn.type        = 'button';
+  btn.title       = 'Vollbild';
+  btn.textContent = '⛶';
+  btn.addEventListener('click', e => { e.preventDefault(); _openOverlay(ta); });
+  wrapper.appendChild(btn);
+}
 
-    const btn = document.createElement('button');
-    btn.className = 'ta-expand-btn';
-    btn.type      = 'button';
-    btn.title     = 'Vollbild';
-    btn.textContent = '⛶';
-    btn.addEventListener('click', e => { e.preventDefault(); open(ta); });
-    wrapper.appendChild(btn);
-  });
-})();
+document.getElementById('overlay-close').addEventListener('click', _closeOverlay);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && _overlay.classList.contains('visible')) _closeOverlay();
+});
+
+document.querySelectorAll('.settings-textarea').forEach(attachExpandBtn);
