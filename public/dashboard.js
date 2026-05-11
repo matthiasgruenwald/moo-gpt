@@ -871,7 +871,6 @@ const toolbarEl      = document.getElementById('toolbar');
 const mainEl         = document.getElementById('main');
 const settingsPanel  = document.getElementById('settings-panel');
 const optimizePanel  = document.getElementById('optimize-panel');
-const simulatePanel  = document.getElementById('simulate-panel');
 const adminBadge     = document.getElementById('admin-badge');
 
 tabBtns.forEach(btn => {
@@ -885,10 +884,8 @@ tabBtns.forEach(btn => {
     mainEl.style.display    = isStudents ? '' : 'none';
     settingsPanel.classList.toggle('visible', tab === 'settings');
     optimizePanel.classList.toggle('visible', tab === 'optimize');
-    simulatePanel.classList.toggle('visible', tab === 'simulate');
     if (tab === 'settings')  loadSettings();
-    if (tab === 'optimize')  loadOptimizePanel();
-    if (tab === 'simulate')  loadSimulatePanel();
+    if (tab === 'optimize')  { loadOptimizePanel(); loadSimulatePanel(); }
   });
 });
 
@@ -1470,7 +1467,7 @@ document.getElementById('admin-persona-add-btn').addEventListener('click', async
 // ── Issue #26: SSE-Simulation ─────────────────────────────────────────────────
 
 // Issues #29 #30 #31: gemeinsame Simulation-Logik für beide Buttons
-async function runSimulation({ autoOptimize = false } = {}) {
+async function runSimulation() {
   const personaId = document.getElementById('sim-persona-select').value;
   if (!personaId) { alert('Bitte eine Persona auswählen.'); return; }
 
@@ -1480,7 +1477,6 @@ async function runSimulation({ autoOptimize = false } = {}) {
   const results  = document.getElementById('sim-results');
   const suggDiv  = document.getElementById('sim-suggestion');
   const startBtn = document.getElementById('sim-start-btn');
-  const autoBtn  = document.getElementById('auto-optimize-btn');
 
   function setProgress(pct, label) {
     bar.style.width = pct + '%';
@@ -1489,24 +1485,19 @@ async function runSimulation({ autoOptimize = false } = {}) {
 
   loading.classList.add('visible');
   startBtn.disabled = true;
-  autoBtn.disabled  = true;
   results.innerHTML = '';
   suggDiv.innerHTML = '';
-  setProgress(0, autoOptimize ? 'Phase 1/2 – Simulation startet…' : 'Starte…');
+  setProgress(0, 'Starte…');
 
   let headerAdded  = false;
   let progressStep = 0;
   let pairsTotal   = 4;
-  const pairTimes  = [];  // ms-Zeitstempel pro eingetroffenen Pair
-  const phasePrefix = autoOptimize ? 'Phase 1/2 – ' : '';
+  const pairTimes  = [];
 
-  // Gibt " (~X Sek.)" zurück, sobald ≥ 2 Datenpunkte vorliegen (#31 ETA)
   function etaSuffix(pairsLeft) {
     if (pairTimes.length < 2) return '';
-    const avg   = (pairTimes[pairTimes.length - 1] - pairTimes[0]) / (pairTimes.length - 1);
-    let   remMs = pairsLeft * avg;
-    if (autoOptimize) remMs += 15_000;
-    const secs  = Math.round(remMs / 1000);
+    const avg  = (pairTimes[pairTimes.length - 1] - pairTimes[0]) / (pairTimes.length - 1);
+    const secs = Math.round(pairsLeft * avg / 1000);
     return secs > 2 ? ` (~${secs} Sek.)` : '';
   }
 
@@ -1547,13 +1538,13 @@ async function runSimulation({ autoOptimize = false } = {}) {
 
         if (ev.type === 'start') {
           pairsTotal = ev.total || 4;
-          setProgress(5, `${phasePrefix}Simulation gestartet (${pairsTotal} Paare)…`);
+          setProgress(5, `Simulation gestartet (${pairsTotal} Paare)…`);
         } else if (ev.type === 'progress') {
           progressStep++;
           if (progressStep === 1) {
-            setProgress(10, `${phasePrefix}${ev.label || 'Generiere Äußerungen…'}`);
+            setProgress(10, ev.label || 'Generiere Äußerungen…');
           } else {
-            setProgress(90, `${phasePrefix}${ev.label || 'Generiere Vorschlag…'}`);
+            setProgress(90, ev.label || 'Generiere Vorschlag…');
           }
         } else if (ev.type === 'pair') {
           pairTimes.push(Date.now());
@@ -1564,27 +1555,19 @@ async function runSimulation({ autoOptimize = false } = {}) {
           renderSimPair(ev.pair, ev.index, results);
           const pct = Math.min(20 + (ev.index + 1) * 17, 88);
           const eta = etaSuffix(pairsTotal - (ev.index + 1));
-          setProgress(pct, `${phasePrefix}Äußerung ${ev.index + 1}/${pairsTotal} ausgewertet${eta}`);
+          setProgress(pct, `Äußerung ${ev.index + 1}/${pairsTotal} ausgewertet${eta}`);
         } else if (ev.type === 'suggestion') {
           renderSimSuggestion(ev, suggDiv);
         } else if (ev.type === 'done') {
           setProgress(100, 'Simulation abgeschlossen.');
 
-          // #30: CTA-Button nach Simulation
           const ctaBtn = document.createElement('button');
           ctaBtn.className = 'sim-cta-btn';
-          ctaBtn.textContent = 'Weiter zur Optimierung →';
+          ctaBtn.textContent = 'Zum Optimierungsvorschlag →';
           ctaBtn.addEventListener('click', () => {
-            document.querySelector('.tab-btn[data-tab="optimize"]')?.click();
+            document.getElementById('opt-proposal-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
           });
           results.appendChild(ctaBtn);
-
-          // #31: Bei Auto-Optimierung direkt weiterschalten und KI-Vorschlag auslösen
-          if (autoOptimize) {
-            document.querySelector('.tab-btn[data-tab="optimize"]')?.click();
-            await new Promise(r => setTimeout(r, 300));
-            document.getElementById('opt-generate-btn')?.click();
-          }
         } else if (ev.type === 'error') {
           results.insertAdjacentHTML('beforeend', `<p style="color:#c0392b;font-size:13px">Fehler: ${escHtml(ev.message)}</p>`);
         }
@@ -1595,12 +1578,10 @@ async function runSimulation({ autoOptimize = false } = {}) {
   } finally {
     loading.classList.remove('visible');
     startBtn.disabled = false;
-    autoBtn.disabled  = false;
   }
 }
 
 document.getElementById('sim-start-btn').addEventListener('click', () => runSimulation());
-document.getElementById('auto-optimize-btn').addEventListener('click', () => runSimulation({ autoOptimize: true }));
 
 function highlightResponse(text, highlights) {
   let result = escHtml(text).replace(/\n/g, '<br>');
@@ -1670,11 +1651,14 @@ function renderSimSuggestion(ev, container) {
 
   const adoptBtn = document.createElement('button');
   adoptBtn.className = 'sim-adopt-btn';
-  adoptBtn.textContent = 'Weiter bearbeiten → Optimierung';
+  adoptBtn.textContent = 'In Optimierungsvorschlag übernehmen';
   adoptBtn.addEventListener('click', () => {
-    document.querySelector('.tab-btn[data-tab="optimize"]')?.click();
     const neuField = document.getElementById('opt-neu');
-    if (neuField) { neuField.value = ta.value; neuField.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    if (neuField) {
+      neuField.value = ta.value;
+      document.getElementById('opt-result').style.display = 'flex';
+      document.getElementById('opt-proposal-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   });
 
   const btnRow = document.createElement('div');
@@ -1853,6 +1837,95 @@ document.getElementById('opt-discard-btn').addEventListener('click', () => {
   document.getElementById('opt-result').style.display = 'none';
   document.getElementById('opt-confirm-status').textContent = '';
 });
+
+// ── P7: One-Click Optimierung ─────────────────────────────────────────────────
+
+document.getElementById('one-click-btn').addEventListener('click', runOneClick);
+
+async function runOneClick() {
+  const loading  = document.getElementById('one-click-loading');
+  const progress = document.getElementById('one-click-progress');
+  const bar      = document.getElementById('one-click-progress-bar');
+  const status   = document.getElementById('one-click-status');
+  const btn      = document.getElementById('one-click-btn');
+
+  loading.classList.add('visible');
+  btn.disabled = true;
+  status.textContent = '';
+  bar.style.width = '0%';
+  progress.textContent = 'Starte…';
+
+  const pairsTotal = 16;
+  let   pairsEmitted = 0;
+
+  function setProgress(pct, label) {
+    bar.style.width = pct + '%';
+    progress.textContent = label;
+  }
+
+  try {
+    const response = await fetch(
+      `/api/one-click-optimize?activityId=${encodeURIComponent(activityId)}&token=${encodeURIComponent(token)}`,
+      { method: 'POST' }
+    );
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${response.status}`);
+    }
+
+    const reader  = response.body.getReader();
+    const decoder = new TextDecoder();
+    let   buffer  = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        let ev;
+        try { ev = JSON.parse(line.slice(6)); } catch { continue; }
+
+        if (ev.type === 'criteria') {
+          const msg = ev.added > 0
+            ? `Kriterien: ${ev.total - ev.added} vorhanden, ${ev.added} ergänzt (${ev.total} gesamt)`
+            : `Kriterien: ${ev.total} vorhanden`;
+          setProgress(8, msg);
+        } else if (ev.type === 'personas') {
+          setProgress(12, `Personas: ${ev.selected.join(', ')}`);
+        } else if (ev.type === 'sim_start') {
+          setProgress(15, `Simulation startet (${ev.total} Paare)…`);
+        } else if (ev.type === 'sim_pair') {
+          pairsEmitted++;
+          const pct = 15 + Math.round((pairsEmitted / pairsTotal) * 70);
+          setProgress(pct, `Simulation: ${pairsEmitted}/${pairsTotal} Paare (${escHtml(ev.personaName)})`);
+        } else if (ev.type === 'optimize_done') {
+          setProgress(100, 'Fertig – Vorschlag generiert.');
+          document.getElementById('opt-alt').value = ev.erfahrungsprompt_alt || '(leer)';
+          document.getElementById('opt-neu').value = ev.erfahrungsprompt_neu || '';
+          renderKausalkette(ev.kausalkette || []);
+          document.getElementById('opt-result').style.display = 'flex';
+          document.getElementById('opt-proposal-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          setStatus(status, 'Vorschlag bereit – bitte prüfen und bestätigen.');
+          simulateLoaded = false;
+          await loadCriteria();
+          simulateLoaded = true;
+        } else if (ev.type === 'error') {
+          setStatus(status, `Fehler: ${ev.message}`, true);
+        }
+      }
+    }
+  } catch (e) {
+    setStatus(status, `Fehler: ${e.message}`, true);
+  } finally {
+    loading.classList.remove('visible');
+    btn.disabled = false;
+  }
+}
 
 document.getElementById('add-admin-btn').addEventListener('click', async () => {
   const input  = document.getElementById('new-admin-input');

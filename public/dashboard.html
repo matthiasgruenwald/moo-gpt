@@ -522,17 +522,33 @@
       #back-btn { display: block; }
     }
 
-    /* ── Simulations-Panel (Issue #21) ──────────────────────────────────── */
-    #simulate-panel {
-      display: none;
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px;
-      background: #f0f4f8;
-      gap: 16px;
-      flex-direction: column;
+    /* ── Simulations-Collapsible (P7) ───────────────────────────────────── */
+    .sim-collapsible {
+      background: white;
+      border: 1px solid #dde3ea;
+      border-radius: 8px;
     }
-    #simulate-panel.visible { display: flex; }
+    .sim-collapsible > summary {
+      padding: 14px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #003366;
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+    }
+    .sim-collapsible > summary::before { content: '▶'; font-size: 11px; transition: transform 0.2s; }
+    .sim-collapsible[open] > summary::before { transform: rotate(90deg); }
+    .sim-collapsible > .settings-card {
+      border: none;
+      border-top: 1px solid #eef0f3;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .sim-collapsible > .settings-card:last-child { border-radius: 0 0 8px 8px; }
     .criteria-item, .persona-item {
       display: flex;
       align-items: flex-start;
@@ -702,10 +718,10 @@
       text-align: center;
     }
     .sim-cta-btn:hover { background: #00254d; }
-    /* Issue #31: Auto-Optimierung-Button */
-    #auto-optimize-btn { background: #5255a4; }
-    #auto-optimize-btn:hover { background: #3d4085; }
-    #auto-optimize-btn:disabled { background: #a0a3cc; cursor: not-allowed; }
+    /* ── One-Click-Button (P7) ──────────────────────────────────────────── */
+    #one-click-btn { background: #5255a4; }
+    #one-click-btn:hover { background: #3d4085; }
+    #one-click-btn:disabled { background: #a0a3cc; cursor: not-allowed; }
 
     /* ── Optimierungs-Panel (Issue #20) ─────────────────────────────────── */
     #optimize-panel {
@@ -926,7 +942,6 @@
 
 <div id="tab-bar">
   <button class="tab-btn active" data-tab="students">Schüler</button>
-  <button class="tab-btn" data-tab="simulate">Simulation</button>
   <button class="tab-btn" data-tab="optimize">Optimierung</button>
   <button class="tab-btn" data-tab="settings">Einstellungen</button>
   <span id="admin-badge">Admin</span>
@@ -954,86 +969,97 @@
   <span class="cost-value cost-total" id="cost-bar-total" title="Gesamtkosten">=  –</span>
 </div>
 
-<!-- Simulations-Panel (Issue #21) -->
-<div id="simulate-panel">
-
-  <!-- Bewertungskriterien -->
-  <div class="settings-card">
-    <h3>Bewertungskriterien</h3>
-    <p style="font-size:13px;color:#555;margin:0">Woran wird gemessen, ob eine KI-Antwort pädagogisch gut ist? Die KI leitet Kriterien primär aus dem Aufgabenprompt vor – du kannst sie anpassen.</p>
-    <div id="criteria-list"></div>
-    <div id="criteria-deleted" style="display:none"></div>
-    <div class="settings-row">
-      <button class="suggest-btn" id="criteria-suggest-btn">KI schlägt Kriterien vor</button>
-      <span class="opt-loading" id="criteria-loading">Analysiere Aufgabenprompt…</span>
-    </div>
-    <div id="criteria-suggestions" style="display:none;margin-top:8px"></div>
-    <div class="settings-row" style="margin-top:6px">
-      <input type="text" id="criteria-input" placeholder="Eigenes Kriterium eingeben" style="flex:1;font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
-      <button class="settings-btn" id="criteria-add-btn">Hinzufügen</button>
-    </div>
-    <div class="status-msg" id="criteria-status"></div>
-  </div>
-
-  <!-- Personas -->
-  <div class="settings-card">
-    <h3>Schüler-Personas</h3>
-    <p style="font-size:13px;color:#555;margin:0 0 10px">Typische Schülertypen für die Simulation.</p>
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-bottom:4px">Globale Typen</div>
-    <div id="personas-global" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-bottom:4px">Meine Personas</div>
-    <div id="personas-own"></div>
-    <div class="settings-row" style="margin-top:8px">
-      <button class="suggest-btn" id="personas-suggest-btn">KI schlägt Personas vor</button>
-      <span class="opt-loading" id="personas-loading">Analysiere Schüleräußerungen…</span>
-    </div>
-    <div id="personas-suggestions" style="display:none;margin-top:8px"></div>
-    <div class="status-msg" id="personas-status"></div>
-  </div>
-
-  <!-- Simulation -->
-  <div class="settings-card">
-    <h3>Simulation starten</h3>
-    <p style="font-size:13px;color:#555;margin:0">Eine Persona sendet 4 synthetische Nachrichten. Der aktuelle Prompt-Stack antwortet – die KI bewertet jede Antwort anhand der Kriterien.</p>
-    <div class="settings-row">
-      <label for="sim-persona-select" style="min-width:60px">Persona:</label>
-      <select id="sim-persona-select" style="font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
-        <option value="">– Persona auswählen –</option>
-      </select>
-      <button class="settings-btn" id="sim-start-btn">Simulation starten</button>
-      <button class="settings-btn" id="auto-optimize-btn">⚡ Auto-Optimierung</button>
-    </div>
-    <!-- Issue #29: Fortschrittsbalken -->
-    <div class="opt-loading" id="sim-loading">
-      <div id="sim-progress">Starte…</div>
-      <div class="sim-progress-track"><div id="sim-progress-bar" class="sim-progress-fill"></div></div>
-    </div>
-    <details id="sim-model-details" style="margin-top:10px">
-      <summary>Modell-Einstellungen</summary>
-      <div class="sim-model-grid">
-        <span>Kriterien-Vorschlag:</span>
-        <select id="model-criteria"></select>
-        <span>Personas-Vorschlag:</span>
-        <select id="model-personas"></select>
-        <span>Äußerungen:</span>
-        <select id="model-utterances"></select>
-        <span>Evaluierung:</span>
-        <select id="model-eval"></select>
-        <span>Chat-Antwort:</span>
-        <input type="text" id="model-chat" disabled placeholder="wird aus Einstellungen geladen">
-      </div>
-    </details>
-    <div id="sim-results" style="margin-top:12px"></div>
-    <div id="sim-suggestion" style="margin-top:8px"></div>
-  </div>
-
-</div>
-
-<!-- Optimierungs-Panel (Issue #20, #28) -->
+<!-- Optimierungs-Panel (P7: enthält One-Click + manuelle Simulation + Vorschlag + Erfahrungsprompt) -->
 <div id="optimize-panel">
 
-  <!-- KI-Optimierung (Issue #28: jetzt erste Card) -->
+  <!-- One-Click (P7) -->
   <div class="settings-card">
+    <h3>⚡ One-Click Optimierung</h3>
+    <p style="font-size:13px;color:#555;margin:0 0 10px">Generiert automatisch Kriterien, simuliert 4 Schüler-Personas parallel und schlägt einen verbesserten Erfahrungsprompt vor.</p>
+    <button class="settings-btn" id="one-click-btn">⚡ Jetzt optimieren</button>
+    <div class="opt-loading" id="one-click-loading" style="margin-top:10px">
+      <div id="one-click-progress">Starte…</div>
+      <div class="sim-progress-track"><div id="one-click-progress-bar" class="sim-progress-fill"></div></div>
+    </div>
+    <div class="status-msg" id="one-click-status"></div>
+  </div>
+
+  <!-- Manuelle Simulation (ausklappbar) -->
+  <details class="sim-collapsible">
+    <summary>Manuelle Simulation</summary>
+
+    <!-- Bewertungskriterien -->
+    <div class="settings-card">
+      <h3>Bewertungskriterien</h3>
+      <p style="font-size:13px;color:#555;margin:0">Woran wird gemessen, ob eine KI-Antwort pädagogisch gut ist? Die KI leitet Kriterien primär aus dem Aufgabenprompt vor – du kannst sie anpassen.</p>
+      <div id="criteria-list"></div>
+      <div id="criteria-deleted" style="display:none"></div>
+      <div class="settings-row">
+        <button class="suggest-btn" id="criteria-suggest-btn">KI schlägt Kriterien vor</button>
+        <span class="opt-loading" id="criteria-loading">Analysiere Aufgabenprompt…</span>
+      </div>
+      <div id="criteria-suggestions" style="display:none;margin-top:8px"></div>
+      <div class="settings-row" style="margin-top:6px">
+        <input type="text" id="criteria-input" placeholder="Eigenes Kriterium eingeben" style="flex:1;font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
+        <button class="settings-btn" id="criteria-add-btn">Hinzufügen</button>
+      </div>
+      <div class="status-msg" id="criteria-status"></div>
+    </div>
+
+    <!-- Personas -->
+    <div class="settings-card">
+      <h3>Schüler-Personas</h3>
+      <p style="font-size:13px;color:#555;margin:0 0 10px">Typische Schülertypen für die Simulation.</p>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-bottom:4px">Globale Typen</div>
+      <div id="personas-global" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-bottom:4px">Meine Personas</div>
+      <div id="personas-own"></div>
+      <div class="settings-row" style="margin-top:8px">
+        <button class="suggest-btn" id="personas-suggest-btn">KI schlägt Personas vor</button>
+        <span class="opt-loading" id="personas-loading">Analysiere Schüleräußerungen…</span>
+      </div>
+      <div id="personas-suggestions" style="display:none;margin-top:8px"></div>
+      <div class="status-msg" id="personas-status"></div>
+    </div>
+
+    <!-- Simulation starten -->
+    <div class="settings-card">
+      <h3>Simulation starten</h3>
+      <p style="font-size:13px;color:#555;margin:0">Eine Persona sendet 4 synthetische Nachrichten. Der aktuelle Prompt-Stack antwortet – die KI bewertet jede Antwort anhand der Kriterien.</p>
+      <div class="settings-row">
+        <label for="sim-persona-select" style="min-width:60px">Persona:</label>
+        <select id="sim-persona-select" style="font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
+          <option value="">– Persona auswählen –</option>
+        </select>
+        <button class="settings-btn" id="sim-start-btn">Simulation starten</button>
+      </div>
+      <div class="opt-loading" id="sim-loading">
+        <div id="sim-progress">Starte…</div>
+        <div class="sim-progress-track"><div id="sim-progress-bar" class="sim-progress-fill"></div></div>
+      </div>
+      <details id="sim-model-details" style="margin-top:10px">
+        <summary>Modell-Einstellungen</summary>
+        <div class="sim-model-grid">
+          <span>Kriterien-Vorschlag:</span>
+          <select id="model-criteria"></select>
+          <span>Personas-Vorschlag:</span>
+          <select id="model-personas"></select>
+          <span>Äußerungen:</span>
+          <select id="model-utterances"></select>
+          <span>Evaluierung:</span>
+          <select id="model-eval"></select>
+          <span>Chat-Antwort:</span>
+          <input type="text" id="model-chat" disabled placeholder="wird aus Einstellungen geladen">
+        </div>
+      </details>
+      <div id="sim-results" style="margin-top:12px"></div>
+      <div id="sim-suggestion" style="margin-top:8px"></div>
+    </div>
+
+  </details>
+
+  <!-- KI-Optimierungsvorschlag -->
+  <div class="settings-card" id="opt-proposal-card">
     <h3>KI-Optimierungsvorschlag</h3>
     <p style="font-size:13px;color:#555;margin:0">Die KI analysiert alle Feedback-Bewertungen dieser Aufgabe und schlägt einen verbesserten Erfahrungsprompt vor.</p>
     <div class="settings-row">

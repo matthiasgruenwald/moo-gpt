@@ -1185,6 +1185,165 @@ app.post('/api/simulate', async (req, res) => {
   res.end();
 });
 
+// ── P7: One-Click Optimierung ─────────────────────────────────────────────────
+
+const ONE_CLICK_FALLBACK_NAMES = ['Der Musterschüler', 'Der Stille', 'Die Pragmatikerin', 'Der Zweifler'];
+
+function selectPersonasForOneClick(userId, count = 4) {
+  const own    = getTeacherPersonas(userId);
+  const global = getGlobalPersonas();
+
+  function selectDiverse(pool, n) {
+    if (pool.length <= n) return [...pool];
+    const words   = p => new Set((p.description || p.name).toLowerCase().split(/\W+/).filter(Boolean));
+    const overlap = (a, b) => {
+      const wa = words(a), wb = words(b);
+      let common = 0;
+      wa.forEach(w => { if (wb.has(w)) common++; });
+      return common / Math.max(wa.size, wb.size, 1);
+    };
+    const selected = [pool[0]];
+    while (selected.length < n) {
+      let best = null, bestScore = Infinity;
+      for (const p of pool) {
+        if (selected.includes(p)) continue;
+        const score = Math.max(...selected.map(s => overlap(p, s)));
+        if (score < bestScore) { bestScore = score; best = p; }
+      }
+      if (!best) break;
+      selected.push(best);
+    }
+    return selected;
+  }
+
+  const chosen = selectDiverse(own, count);
+
+  if (chosen.length < count) {
+    const fallbacks = ONE_CLICK_FALLBACK_NAMES
+      .map(name => global.find(p => p.name === name))
+      .filter(Boolean)
+      .filter(p => !chosen.find(c => c.id === p.id));
+    for (const p of fallbacks) {
+      if (chosen.length >= count) break;
+      chosen.push(p);
+    }
+    for (const p of global) {
+      if (chosen.length >= count) break;
+      if (!chosen.find(c => c.id === p.id)) chosen.push(p);
+    }
+  }
+
+  return chosen.slice(0, count);
+}
+
+async function augmentCriteria(activityId, existingCriteria) {
+  const erf = getActiveErfahrungsprompt(activityId);
+  const promptSource = erf
+    ? `Aufgabenprompt:\n${erf.content}`
+    : `Systemprompt:\n${cachedConfig.content}`;
+
+  const result = await aiJsonCall(
+    `Du leitest Bewertungskriterien für eine KI-Tutoring-Anwendung aus einem Prompt ab.
+Antworte AUSSCHLIESSLICH mit validem JSON:
+{ "criteria": ["Kriterium 1", "Kriterium 2", ...] }
+Leite 5–8 präzise, prüfbare Kriterien ab. Formuliere sie als positive Aussagen (was die KI TUN soll).`,
+    promptSource
+  );
+
+  const suggestions = result.criteria || [];
+  if (!existingCriteria.length) return suggestions;
+
+  const existingTexts = existingCriteria.map(c => c.content.toLowerCase());
+  return suggestions.filter(s => {
+    const sl    = s.toLowerCase();
+    const words = sl.split(/\W+/).filter(w => w.length > 4);
+    return !existingTexts.some(e => {
+      const matches = words.filter(w => e.includes(w)).length;
+      return matches >= Math.max(2, words.length * 0.5);
+    });
+  });
+}
+
+/** POST /api/one-click-optimize?activityId=X&token= – SSE-Stream */
+app.post('/api/one-click-optimize', async (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const { activityId, token } = req.query;
+  const userId = getUserIdFromToken(token);
+  if (!userId || !validateDashboardToken(token, activityId))
+    return res.status(403).json({ error: 'Unauthorized' });
+
+  res.writeHead(200, {
+    'Content-Type':      'text/event-stream',
+    'Cache-Control':     'no-cache',
+    'Connection':        'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+
+  const sendEvent = (type, data = {}) => res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`);
+
+  try {
+    // Phase 1: Kriterien ergänzen
+    const existing    = getCriteria(activityId);
+    const newCriteria = await augmentCriteria(activityId, existing);
+    for (const c of newCriteria) saveErkenntnisse(activityId, c, 'criteria');
+    sendEvent('criteria', { added: newCriteria.length, total: existing.length + newCriteria.length });
+    console.log(`[OneClick] Kriterien: ${existing.length} vorhanden, ${newCriteria.length} ergänzt`);
+
+    // Phase 2: Personas auswählen
+    const personas = selectPersonasForOneClick(userId);
+    if (!personas.length) throw new Error('Keine Personas verfügbar');
+    sendEvent('personas', { selected: personas.map(p => p.name) });
+    console.log(`[OneClick] Personas: ${personas.map(p => p.name).join(', ')}`);
+
+    // Phase 3: Parallele Simulationen
+    const currentCriteria  = getCriteria(activityId);
+    const erfahrungsprompt = getActiveErfahrungsprompt(activityId);
+    const allPairs         = [];
+    const total            = personas.length * 4;
+    let   pairsEmitted     = 0;
+
+    sendEvent('sim_start', { total });
+
+    await Promise.all(personas.map(async (persona) => {
+      const utterances = await generateSimulatedUtterances(persona, 4);
+      for (let i = 0; i < utterances.length; i++) {
+        const aiResponse = await generateAIResponse(
+          cachedConfig.content, erfahrungsprompt?.content || '', utterances[i]
+        );
+        let evaluation;
+        try {
+          evaluation = await evaluateResponse(utterances[i], aiResponse, currentCriteria);
+        } catch (_) {
+          evaluation = { overall: 'gemischt', score: 3, highlights: [], summary: 'Evaluierung nicht möglich.' };
+        }
+        const pair = { utterance: utterances[i], aiResponse, evaluation };
+        allPairs.push({ personaName: persona.name, pair });
+        pairsEmitted++;
+        sendEvent('sim_pair', { personaName: persona.name, index: i, pair, emitted: pairsEmitted, total });
+      }
+    }));
+
+    console.log(`[OneClick] ${allPairs.length} Paare simuliert, generiere Vorschlag`);
+
+    // Phase 4: Optimierungsvorschlag
+    const simResultsText = allPairs.map(r =>
+      `[${r.personaName}] ${r.pair.utterance}\n` +
+      `KI-Antwort: ${r.pair.aiResponse.slice(0, 400)}\n` +
+      `Bewertung: ${r.pair.evaluation.overall} (Score ${r.pair.evaluation.score}/5) – ${r.pair.evaluation.summary || ''}`
+    ).join('\n---\n');
+
+    const proposal = await generateOptimizeProposal(activityId, simResultsText);
+    sendEvent('optimize_done', proposal);
+    console.log(`[OneClick] Fertig für ${activityId}`);
+
+  } catch (e) {
+    console.error('[OneClick] Fehler:', e);
+    sendEvent('error', { message: e.message });
+  }
+
+  res.end();
+});
+
 // ── Issue #19: Feedback-Bewertung ────────────────────────────────────────────
 
 /** POST /api/feedback?activityId=…&token=… */
