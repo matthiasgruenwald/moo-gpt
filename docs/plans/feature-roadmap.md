@@ -34,6 +34,6 @@ P9 (Grafik) ─────── (eigenständig, parallel zu P5a–P7)
 | P5b | Lehrer-Vorlagen-Bibliothek | ✓ done | [steps/p5b-lehrer-vorlagen.md](steps/p5b-lehrer-vorlagen.md) |
 | P6 | Personas-Umbau | ✓ done | [steps/p6-personas-umbau.md](steps/p6-personas-umbau.md) |
 | P7 | One-Click Optimierung | ✓ done | [steps/p7-one-click-optimierung.md](steps/p7-one-click-optimierung.md) |
-| P8 | Debugging-Zugriff Admin-only | | [steps/p8-debugging-admin-only.md](steps/p8-debugging-admin-only.md) |
+| P8 | Debugging-Zugriff Admin-only | ✓ done | [steps/p8-debugging-admin-only.md](steps/p8-debugging-admin-only.md) |
 | P9 | Grafische Darstellung | | [steps/p9-grafische-darstellung.md](steps/p9-grafische-darstellung.md) |
 | P10 | Repository-Veröffentlichung | | [steps/p10-repository-veröffentlichung.md](steps/p10-repository-veröffentlichung.md) |
