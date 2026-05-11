@@ -910,13 +910,13 @@ let mermaidReady = false;
 async function initMermaidOnce() {
   if (mermaidReady) return;
   mermaidReady = true;
-  mermaid.initialize({ startOnLoad: false, theme: 'default' });
   const els = document.querySelectorAll('pre.mermaid');
   console.log('[mermaid] Elemente:', els.length);
   let idx = 0;
   for (const el of els) {
+    if (el.dataset.processed) { console.log(`[mermaid] #${idx} bereits gerendert, skip`); idx++; continue; }
     const text = el.textContent.trim();
-    console.log(`[mermaid] #${idx} processed=${el.dataset.processed ?? 'nein'} len=${text.length} "${text.slice(0,50).replace(/\n/g,'↵')}"`);
+    console.log(`[mermaid] #${idx} len=${text.length} "${text.slice(0,50).replace(/\n/g,'↵')}"`);
     try {
       await mermaid.parse(text, { suppressErrors: false });
     } catch(e) {
