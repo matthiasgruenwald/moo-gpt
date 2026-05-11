@@ -1856,8 +1856,8 @@ async function runOneClick() {
   bar.style.width = '0%';
   progress.textContent = 'Starte…';
 
-  const pairsTotal = 16;
-  let   pairsEmitted = 0;
+  let pairsTotal  = 16;
+  let pairsEmitted = 0;
 
   function setProgress(pct, label) {
     bar.style.width = pct + '%';
@@ -1899,7 +1899,8 @@ async function runOneClick() {
         } else if (ev.type === 'personas') {
           setProgress(12, `Personas: ${ev.selected.join(', ')}`);
         } else if (ev.type === 'sim_start') {
-          setProgress(15, `Simulation startet (${ev.total} Paare)…`);
+          pairsTotal = ev.total || pairsTotal;
+          setProgress(15, `Simulation startet (${pairsTotal} Paare)…`);
         } else if (ev.type === 'sim_pair') {
           pairsEmitted++;
           const pct = 15 + Math.round((pairsEmitted / pairsTotal) * 70);

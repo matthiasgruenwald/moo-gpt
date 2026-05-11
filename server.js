@@ -999,27 +999,30 @@ app.get('/api/criteria/:activityId', (req, res) => {
   res.json({ criteria: getCriteria(activityId), deletedCriteria: getDeletedCriteria(activityId) });
 });
 
+async function suggestCriteriaList(activityId, genModel = GEN_MODEL) {
+  const erf = getActiveErfahrungsprompt(activityId);
+  const promptSource = erf
+    ? `Aufgabenprompt:\n${erf.content}`
+    : `Systemprompt:\n${cachedConfig.content}`;
+  const result = await aiJsonCall(
+    `Du leitest Bewertungskriterien für eine KI-Tutoring-Anwendung aus einem Prompt ab.
+Antworte AUSSCHLIESSLICH mit validem JSON:
+{ "criteria": ["Kriterium 1", "Kriterium 2", ...] }
+Leite 5–8 präzise, prüfbare Kriterien ab. Formuliere sie als positive Aussagen (was die KI TUN soll).`,
+    promptSource,
+    genModel
+  );
+  return result.criteria || [];
+}
+
 /** POST /api/criteria-suggest/:activityId?token= – KI schlägt Kriterien vor */
 app.post('/api/criteria-suggest/:activityId', async (req, res) => {
   if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
   const { activityId } = req.params;
   if (!validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
   try {
-    const { genModel } = req.body;
-    const erf = getActiveErfahrungsprompt(activityId);
-    const promptSource = erf
-      ? `Aufgabenprompt:\n${erf.content}`
-      : `Systemprompt:\n${cachedConfig.content}`;
-
-    const result = await aiJsonCall(
-      `Du leitest Bewertungskriterien für eine KI-Tutoring-Anwendung aus einem Prompt ab.
-Antworte AUSSCHLIESSLICH mit validem JSON:
-{ "criteria": ["Kriterium 1", "Kriterium 2", ...] }
-Leite 5–8 präzise, prüfbare Kriterien ab. Formuliere sie als positive Aussagen (was die KI TUN soll).`,
-      promptSource,
-      genModel || GEN_MODEL
-    );
-    res.json({ suggestions: result.criteria || [] });
+    const suggestions = await suggestCriteriaList(activityId, req.body.genModel);
+    res.json({ suggestions });
   } catch (e) {
     console.error('[Criteria-Suggest] Fehler:', e);
     res.status(500).json({ error: e.message });
@@ -1237,26 +1240,12 @@ function selectPersonasForOneClick(userId, count = 4) {
 }
 
 async function augmentCriteria(activityId, existingCriteria) {
-  const erf = getActiveErfahrungsprompt(activityId);
-  const promptSource = erf
-    ? `Aufgabenprompt:\n${erf.content}`
-    : `Systemprompt:\n${cachedConfig.content}`;
-
-  const result = await aiJsonCall(
-    `Du leitest Bewertungskriterien für eine KI-Tutoring-Anwendung aus einem Prompt ab.
-Antworte AUSSCHLIESSLICH mit validem JSON:
-{ "criteria": ["Kriterium 1", "Kriterium 2", ...] }
-Leite 5–8 präzise, prüfbare Kriterien ab. Formuliere sie als positive Aussagen (was die KI TUN soll).`,
-    promptSource
-  );
-
-  const suggestions = result.criteria || [];
+  const suggestions = await suggestCriteriaList(activityId);
   if (!existingCriteria.length) return suggestions;
 
   const existingTexts = existingCriteria.map(c => c.content.toLowerCase());
   return suggestions.filter(s => {
-    const sl    = s.toLowerCase();
-    const words = sl.split(/\W+/).filter(w => w.length > 4);
+    const words = s.toLowerCase().split(/\W+/).filter(w => w.length > 4);
     return !existingTexts.some(e => {
       const matches = words.filter(w => e.includes(w)).length;
       return matches >= Math.max(2, words.length * 0.5);
