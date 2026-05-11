@@ -5,3 +5,9 @@ POST https://www.mmbbs.de/?s=%C3%96ffnungszeiten%20Ferien HTTP/1.1
 
 ### als Get Request
 GET https://www.mmbbs.de/?s=%C3%96ffnungszeiten%20Ferien HTTP/1.1
+
+### P8: Admin – Logs (letzte 50 Zeilen)
+GET http://localhost:3000/api/admin/logs?token=ADMIN_TOKEN_HERE&n=50
+
+### P8: Admin – Neustart
+POST http://localhost:3000/api/admin/restart?token=ADMIN_TOKEN_HERE

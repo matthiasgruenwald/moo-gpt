@@ -1312,6 +1312,26 @@
     <div class="status-msg" id="admin-status"></div>
   </div>
 
+  <!-- Server-Debug (nur Admins) -->
+  <div class="settings-card" id="admin-debug-card" style="display:none">
+    <h3>Server-Logs</h3>
+    <div class="settings-row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <label for="log-n-input" style="font-size:13px">Zeilen:</label>
+      <input type="number" id="log-n-input" value="100" min="10" max="2000"
+             style="width:70px;font-size:13px;padding:4px 6px;border:1px solid #ccd3db;border-radius:4px">
+      <button class="settings-btn" id="log-refresh-btn">Laden</button>
+      <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer">
+        <input type="checkbox" id="log-auto-refresh"> Auto (30s)
+      </label>
+      <button class="settings-btn" id="server-restart-btn"
+              style="margin-left:auto;background:#c0392b;color:white;border-color:#c0392b">Dienst neu starten</button>
+    </div>
+    <pre id="log-output"
+         style="background:#111;color:#ccc;font-size:11px;padding:10px;border-radius:4px;
+                max-height:400px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;margin:0"></pre>
+    <div class="status-msg" id="debug-status"></div>
+  </div>
+
 </div>
 
 <div id="main">

@@ -978,7 +978,9 @@ function applySettingsData(data) {
   document.getElementById('admin-personas-card').style.display  = '';
   document.getElementById('admin-mgmt-card').style.display      = '';
   document.getElementById('system-template-card').style.display = '';
+  document.getElementById('admin-debug-card').style.display     = '';
   loadAdminPersonas();
+  initAdminDebug();
 
   // Admin-Formular
   document.getElementById('sp-edit').value = data.systemPrompt || '';
@@ -2029,5 +2031,39 @@ document.getElementById('overlay-close').addEventListener('click', _closeOverlay
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && _overlay.classList.contains('visible')) _closeOverlay();
 });
+
+// ── Admin-Debug: Logs + Restart ───────────────────────────────────────────────
+
+let logAutoInterval = null;
+
+function initAdminDebug() {
+  document.getElementById('log-refresh-btn').addEventListener('click', loadLogs);
+  document.getElementById('log-auto-refresh').addEventListener('change', e => {
+    clearInterval(logAutoInterval);
+    if (e.target.checked) logAutoInterval = setInterval(loadLogs, 30_000);
+  });
+  document.getElementById('server-restart-btn').addEventListener('click', async () => {
+    if (!confirm('Server wirklich neu starten?')) return;
+    const status = document.getElementById('debug-status');
+    try {
+      await apiPost('/api/admin/restart', {});
+      setStatus(status, 'Neustart eingeleitet – Seite lädt in 5s neu…');
+      setTimeout(() => location.reload(), 5000);
+    } catch (e) { setStatus(status, e.message, true); }
+  });
+  loadLogs();
+}
+
+async function loadLogs() {
+  const n = parseInt(document.getElementById('log-n-input').value) || 100;
+  const out = document.getElementById('log-output');
+  const status = document.getElementById('debug-status');
+  try {
+    const data = await apiFetch(`/api/admin/logs?n=${n}`);
+    out.textContent = data.lines.join('\n');
+    out.scrollTop = out.scrollHeight;
+    setStatus(status, `${data.lines.length} Zeilen geladen`);
+  } catch (e) { setStatus(status, e.message, true); }
+}
 
 document.querySelectorAll('.settings-textarea').forEach(ta => attachExpandBtn(ta));

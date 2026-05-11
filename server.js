@@ -9,6 +9,7 @@ import https from "https";
 import cors from "cors";
 import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser, createPersona, deletePersona, promotePersonaToGlobal, getAllTeacherPersonasGrouped, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
 import crypto from "crypto";
+import { execFileSync, execFile } from 'child_process';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -987,6 +988,31 @@ app.put('/api/admin/personas/:id/promote', (req, res) => {
   if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
   promotePersonaToGlobal(parseInt(req.params.id), userId);
   res.json({ ok: true, global: getGlobalPersonas() });
+});
+
+// ── P8: Admin-Debug-Endpunkte ────────────────────────────────────────────────
+
+/** GET /api/admin/logs?token=&n=100 – letzte N Zeilen journalctl (Admin) */
+app.get('/api/admin/logs', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+  const n = Math.min(Math.max(parseInt(req.query.n) || 100, 1), 2000);
+  try {
+    const out = execFileSync('journalctl', ['-u', 'moo-gpt', '-n', String(n), '--no-pager', '--output=short-iso'], { encoding: 'utf8' });
+    res.json({ lines: out.split('\n').filter(l => l.length > 0) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** POST /api/admin/restart?token= – Dienst neu starten (Admin) */
+app.post('/api/admin/restart', (req, res) => {
+  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
+  const userId = getUserIdFromToken(req.query.token);
+  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+  res.json({ ok: true });
+  setTimeout(() => execFile('systemctl', ['restart', 'moo-gpt'], () => {}), 500);
 });
 
 // ── Issue #21: Kriterien-Endpunkte ───────────────────────────────────────────
