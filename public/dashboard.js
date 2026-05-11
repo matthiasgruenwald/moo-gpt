@@ -2097,9 +2097,12 @@ async function loadLogs() {
     out.textContent = text;
     if (document.getElementById('log-overlay').classList.contains('visible'))
       overlayPre.textContent = text;
-    out.scrollTop = out.scrollHeight;
+    requestAnimationFrame(() => { out.scrollTop = out.scrollHeight; });
     setStatus(status, `${data.lines.length} Zeilen geladen`);
   } catch (e) { setStatus(status, e.message, true); }
 }
 
 document.querySelectorAll('.settings-textarea').forEach(ta => attachExpandBtn(ta));
+
+// Admin-Tab-Sichtbarkeit früh prüfen (nicht erst beim Klick auf Einstellungen)
+loadSettings();
