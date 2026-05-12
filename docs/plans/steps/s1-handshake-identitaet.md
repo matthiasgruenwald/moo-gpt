@@ -9,7 +9,7 @@ Der Server darf `isTeacher` und `userId` im `settings`-Handshake nicht mehr aus 
 - Ist-Problem im `settings`-Handshake schließen: Client-Felder für Rolle und Identität verlieren autoritativen Status
 - Verifizierte Nutzeridentität serverseitig ableiten und erst danach Lehrer-/Dashboard-Rechte freigeben
 - Alle nachgelagerten Entscheidungen für Lehrer- und Admin-Funktionen an diese verifizierte Identität koppeln
-- Bewusst als höchstes Risiko behandeln und heute zuerst umsetzen
+- Bewusst als höchstes Risiko behandeln
 
 ## Betroffene Schnittstellen
 
@@ -21,7 +21,3 @@ Der Server darf `isTeacher` und `userId` im `settings`-Handshake nicht mehr aus 
 - Manipuliertes `isTeacher: true` erzeugt keine Lehrerrechte
 - Manipulierte `userId` gibt keinen Zugriff auf fremde Lehrer-/Admin-Funktionen
 - Reguläre Lehrer-Session funktioniert weiter mit serverseitig verifizierter Identität
-
-## Heute-Abend-Hinweis
-
-Heute nur implementieren. Morgen früh nach Restart gezielt als Negativtest gegen WS-Init-Payload prüfen.

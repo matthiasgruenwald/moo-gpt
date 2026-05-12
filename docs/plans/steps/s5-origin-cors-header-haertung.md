@@ -22,7 +22,3 @@ Origin-Prüfungen sind keine primäre Vertrauensgrenze mehr. Browser-Schutzschic
 - Missbrauch über Präfix-Domain wird blockiert
 - Erlaubte Origins funktionieren weiter
 - Security-Header sind auf den relevanten Antworten gesetzt
-
-## Heute-Abend-Hinweis
-
-Optional für heute. Wenn S1-S4 Zeit binden, wird S5 explizit zum nächsten Morgen-Schritt statt halb umgesetzt.

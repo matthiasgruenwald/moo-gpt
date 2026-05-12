@@ -22,7 +22,3 @@ Nach der Umsetzung gibt es einen reproduzierbaren kurzen Security-Abschlusscheck
 - Keine clientseitig eskalierbaren Lehrerrechte
 - Keine bekannten untrusted `innerHTML`-Sinks ohne Schutz
 - Kein serverseitiger Fetch fremder Bild-URLs
-
-## Heute-Abend-Hinweis
-
-Heute keine systematische Testphase mehr einplanen. Morgen früh nach Restart ist eine kurze produktionsnahe Abnahme zwingend, bevor der Stand als belastbar gilt.

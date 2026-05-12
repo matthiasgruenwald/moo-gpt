@@ -23,7 +23,3 @@ Der Server lädt keine externen Bild-URLs mehr nach. Uploads bekommen klare Grö
 - Oversized-Upload wird abgelehnt
 - Falscher MIME-Type oder falsches Format wird abgelehnt
 - Reguläre erlaubte Uploads funktionieren weiter
-
-## Heute-Abend-Hinweis
-
-Heute erst hinter S1-S3 angehen. Wenn keine Restzeit für einen sauberen Schnitt bleibt, lieber auf morgen früh verschieben als halb offen lassen.

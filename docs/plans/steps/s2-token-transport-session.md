@@ -22,7 +22,3 @@ Query-Token verschwinden aus URLs und REST-Aufrufen. Dashboard- und Config-Sessi
 - Browser-History enthält keine Session-Secrets
 - Admin-/Teacher-Endpunkte funktionieren im neuen Flow ohne Query-Token
 - Alte `?token=`-Aufrufe schlagen kontrolliert und erwartbar fehl
-
-## Heute-Abend-Hinweis
-
-Direkt nach S1 umsetzen. Der saubere Bruch ist gewollt; morgen früh muss der neue Session-Flow kurz produktionsnah geprüft werden.

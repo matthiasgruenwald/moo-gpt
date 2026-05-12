@@ -22,7 +22,3 @@ Markdown-Darstellung bleibt erhalten, aber untrusted Inhalte werden vor DOM-Inje
 - Script-, Event-Handler- und `javascript:`-Payloads werden neutralisiert
 - Legitimes Markdown bleibt brauchbar renderbar
 - Historische Inhalte werden ebenfalls ohne aktive HTML-Ausführung angezeigt
-
-## Heute-Abend-Hinweis
-
-Erst nach S1 und S2 anfangen. Heute keine breite Testphase mehr; morgen früh mehrere XSS-Negativpayloads in Opener, User-Text und Modellantwort prüfen.
