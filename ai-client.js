@@ -1,5 +1,21 @@
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+function stripAndParseJson(text) {
+  const raw = (text || '').replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+  try { return JSON.parse(raw); } catch (_) {}
+  try {
+    return JSON.parse(raw.replace(/\\([^"\\\/bfnrtu])/g, (_, c) => c));
+  } catch (_) {}
+  const fixedControls = raw.replace(/"(?:[^"\\]|\\.)*"/gs, match =>
+    match
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r')
+      .replace(/\t/g, '\\t')
+      .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F]/g, ' ')
+  );
+  return JSON.parse(fixedControls.replace(/\\([^"\\\/bfnrtu])/g, (_, c) => c));
+}
+
 const TEXT_TIMEOUT_MS   = 30_000;
 const STREAM_TIMEOUT_MS = 60_000;
 const MAX_INPUT_CHARS   = 200_000;
@@ -40,6 +56,12 @@ export class AIClient {
       }
     }
     throw lastErr;
+  }
+
+  // Non-streaming JSON: textCall + stripAndParseJson
+  async jsonCall(instructions, userMessage, model) {
+    const text = await this.textCall(instructions, userMessage, model);
+    return stripAndParseJson(text);
   }
 
   // Streaming: 60s Timeout, kein Retry — gibt den rohen Stream zurück

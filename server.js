@@ -7,7 +7,7 @@ import expressWs from "express-ws";
 import http from "http";
 import https from "https";
 import cors from "cors";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser, createPersona, deletePersona, promotePersonaToGlobal, getAllTeacherPersonasGrouped, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveFeedback, getFeedbackByActivity, saveErkenntnisse, getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser, createPersona, deletePersona, promotePersonaToGlobal, getAllTeacherPersonasGrouped, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
 import { execFileSync, execFile } from 'child_process';
 import { ChatSession } from "./chat-session.js";
 import { buildInstructions } from "./prompt-builder.js";
@@ -22,6 +22,9 @@ import {
   requireAdminAuth,
 } from './auth-middleware.js';
 import { recordUsage, enrichMessagesWithCost, computeThreadCost, computeActivityCost, computeRunCost } from './token-log.js';
+import { runSimulation } from './simulation.js';
+import { suggestCriteriaList, augmentCriteria } from './criteria.js';
+import { generateOptimizeProposal } from './optimize.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -524,64 +527,12 @@ app.delete('/api/erfahrungsprompt-history/:id', requireDashboardAuth, (req, res)
   res.json({ ok: true, history: getErfahrungspromptHistory(activityId) });
 });
 
-// Issue #26: Optimize-Logik als Hilfsfunktion (wird von /api/optimize-prompt und /api/simulate genutzt)
-async function generateOptimizeProposal(activityId, simResultsText = '') {
-  const feedbacks    = getFeedbackByActivity(activityId);
-  const erkenntnisse = getErkenntnisse(activityId);
-  const erf          = getActiveErfahrungsprompt(activityId);
-
-  const feedbackText = feedbacks.length === 0
-    ? 'Noch keine Bewertungen vorhanden.'
-    : feedbacks.map(f => {
-        const lines = [`[${f.rating.toUpperCase()}] ${(f.message_content || '').slice(0, 300)}`];
-        if (f.comment) lines.push(`Kommentar: ${f.comment}`);
-        if (f.improved_text) lines.push(`Verbesserter Vorschlag: ${f.improved_text.slice(0, 300)}`);
-        return lines.join('\n');
-      }).join('\n---\n');
-
-  const erkenntnisText = erkenntnisse.length === 0
-    ? 'Keine Erkenntnisse vorhanden.'
-    : erkenntnisse.map(e => `- ${e.content}`).join('\n');
-
-  const instructions = `Du bist Experte für pädagogisches Prompt-Engineering an einer IGS (Klasse 9).
-Deine Aufgabe: Erstelle einen verbesserten Erfahrungsprompt basierend auf Feedback-Daten.
-
-Der Erfahrungsprompt ist ein kurzer Zusatz zum globalen Systemprompt – aktivitätsspezifisch, max. 200 Wörter.
-Er wiederholt den Systemprompt NICHT, sondern ergänzt ihn mit konkreten Hinweisen für diese Aufgabe.
-
-Antworte AUSSCHLIESSLICH mit validem JSON ohne Markdown-Blöcke:
-{
-  "erfahrungsprompt_neu": "...",
-  "kausalkette": [
-    { "problem": "...", "ursache": "...", "aenderung": "..." }
-  ]
-}`;
-
-  const userMessage = `Globaler Systemprompt:\n${cachedConfig.content}\n\n` +
-    `Aktueller Erfahrungsprompt:\n${erf?.content || '(noch keiner)'}\n\n` +
-    `Feedback zu KI-Antworten dieser Aufgabe:\n${feedbackText}\n\n` +
-    (simResultsText ? `Simulations-Ergebnisse (frisch):\n${simResultsText}\n\n` : '') +
-    `Bisherige Erkenntnisse:\n${erkenntnisText}\n\n` +
-    `Erstelle einen verbesserten Erfahrungsprompt für diese Aufgabe.`;
-
-  const outputText = await aiClient.textCall(instructions, userMessage, cachedConfig.model || MODEL_NAME);
-
-  const parsed = stripAndParseJson(outputText);
-  if (!parsed.erfahrungsprompt_neu || !Array.isArray(parsed.kausalkette))
-    throw new Error('Unvollständige KI-Antwort');
-
-  return {
-    erfahrungsprompt_alt: erf?.content || '',
-    erfahrungsprompt_neu: parsed.erfahrungsprompt_neu,
-    kausalkette:          parsed.kausalkette,
-  };
-}
 
 /** POST /api/optimize-prompt?activityId=X&token= – KI-Vorschlag generieren */
 app.post('/api/optimize-prompt', requireDashboardAuth, async (req, res) => {
   const { activityId } = req;
   try {
-    const result = await generateOptimizeProposal(activityId);
+    const result = await generateOptimizeProposal(activityId, '', cachedConfig, aiClient);
     console.log(`[Optimize] Vorschlag für ${activityId} generiert (${result.kausalkette.length} Kausalketten-Einträge)`);
     res.json(result);
   } catch (e) {
@@ -602,71 +553,6 @@ app.post('/api/erkenntnisse', requireDashboardAuth, (req, res) => {
   res.json({ ok: true, saved: items.length });
 });
 
-// ── Issue #21: Personas & Simulation – AI-Hilfsfunktionen ────────────────────
-
-function stripAndParseJson(text) {
-  const raw = (text || '').replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
-
-  // Attempt 1: parse as-is
-  try { return JSON.parse(raw); } catch (_) {}
-
-  // Attempt 2: strip invalid escape sequences (e.g. \' or \,)
-  try {
-    return JSON.parse(raw.replace(/\\([^"\\\/bfnrtu])/g, (_, c) => c));
-  } catch (_) {}
-
-  // Attempt 3: LLMs sometimes embed literal control characters (newline, tab) inside
-  // JSON string values. Escape them within string literals only.
-  const fixedControls = raw.replace(/"(?:[^"\\]|\\.)*"/gs, match =>
-    match
-      .replace(/\n/g, '\\n')
-      .replace(/\r/g, '\\r')
-      .replace(/\t/g, '\\t')
-      .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F]/g, ' ')
-  );
-  return JSON.parse(fixedControls.replace(/\\([^"\\\/bfnrtu])/g, (_, c) => c));
-}
-
-async function aiJsonCall(instructions, userMessage, model = GEN_MODEL) {
-  const text = await aiClient.textCall(instructions, userMessage, model);
-  return stripAndParseJson(text);
-}
-
-async function generateSimulatedUtterances(persona, count = 4, model = GEN_MODEL) {
-  return aiJsonCall(
-    `Du simulierst Schüleräußerungen für Prompt-Engineering-Tests an einer IGS (Klasse 9).
-Generiere exakt ${count} kurze Schüleräußerungen für den beschriebenen Schüler-Typ.
-Antworte NUR mit einem JSON-Array von Strings: ["Äußerung 1", "Äußerung 2", ...]`,
-    `Schüler-Typ: ${persona.name}\nBeschreibung: ${persona.description || '–'}\n` +
-    (persona.example_msgs ? `Typische Formulierungen: ${persona.example_msgs}` : ''),
-    model
-  );
-}
-
-async function generateAIResponse(systemContent, erfahrungContent, utterance) {
-  const instructions = buildInstructions({ systemContent, erfahrungContent });
-  return aiClient.textCall(instructions, utterance, cachedConfig.model || MODEL_NAME);
-}
-
-async function evaluateResponse(utterance, aiResponse, criteria, model = GEN_MODEL) {
-  const criteriaText = criteria.length
-    ? criteria.map(c => `- ${c.content}`).join('\n')
-    : '- Gibt keine fertigen Lösungen\n- Stellt Rückfragen\n- Fördert eigenständiges Denken';
-
-  return aiJsonCall(
-    `Du bewertest KI-Antworten nach pädagogischen Kriterien.
-Antworte AUSSCHLIESSLICH mit validem JSON (keine Markdown-Blöcke):
-{
-  "overall": "gut|gemischt|problematisch",
-  "score": 1-5,
-  "highlights": [{ "quote": "exakter Wortlaut aus der KI-Antwort", "type": "gut|schlecht", "reason": "Begründung" }],
-  "summary": "Kurzes Gesamturteil"
-}
-Wähle nur Highlights deren Wortlaut EXAKT so in der KI-Antwort steht.`,
-    `Kriterien:\n${criteriaText}\n\nSchüler-Äußerung: ${utterance}\n\nKI-Antwort:\n${aiResponse}`,
-    model
-  );
-}
 
 // ── P6: Personas ─────────────────────────────────────────────────────────────
 
@@ -700,7 +586,7 @@ app.post('/api/personas-suggest', requireDashboardAuth, async (req, res) => {
     const { genModel } = req.body;
     const msgs   = getStudentMessages(activityId);
     const sample = msgs.slice(0, 60).map(m => m.content).join('\n---\n');
-    const result = await aiJsonCall(
+    const result = await aiClient.jsonCall(
       `Du analysierst Schüleräußerungen aus einer Lernaktivität und leitest typische Schüler-Personas ab.
 Antworte AUSSCHLIESSLICH mit validem JSON:
 { "personas": [{ "name": "...", "description": "...", "example_msgs": "Beispiel 1|Beispiel 2|Beispiel 3" }] }
@@ -771,27 +657,11 @@ app.get('/api/criteria/:activityId', requireDashboardAuth, (req, res) => {
   res.json({ criteria: getCriteria(activityId), deletedCriteria: getDeletedCriteria(activityId) });
 });
 
-async function suggestCriteriaList(activityId, genModel = GEN_MODEL) {
-  const erf = getActiveErfahrungsprompt(activityId);
-  const promptSource = erf
-    ? `Aufgabenprompt:\n${erf.content}`
-    : `Systemprompt:\n${cachedConfig.content}`;
-  const result = await aiJsonCall(
-    `Du leitest Bewertungskriterien für eine KI-Tutoring-Anwendung aus einem Prompt ab.
-Antworte AUSSCHLIESSLICH mit validem JSON:
-{ "criteria": ["Kriterium 1", "Kriterium 2", ...] }
-Leite 5–8 präzise, prüfbare Kriterien ab. Formuliere sie als positive Aussagen (was die KI TUN soll).`,
-    promptSource,
-    genModel
-  );
-  return result.criteria || [];
-}
-
 /** POST /api/criteria-suggest/:activityId?token= – KI schlägt Kriterien vor */
 app.post('/api/criteria-suggest/:activityId', requireDashboardAuth, async (req, res) => {
   const { activityId } = req;
   try {
-    const suggestions = await suggestCriteriaList(activityId, req.body.genModel);
+    const suggestions = await suggestCriteriaList(activityId, cachedConfig, req.body.genModel, aiClient);
     res.json({ suggestions });
   } catch (e) {
     console.error('[Criteria-Suggest] Fehler:', e);
@@ -889,39 +759,26 @@ app.post('/api/simulate', requireDashboardAuth, async (req, res) => {
     console.log(`[Simulate] Start für ${activityId}, Persona: ${persona.name}, utteranceModel: ${uModel}, evalModel: ${eModel}`);
 
     sendEvent('start', { total, personaName: persona.name });
-    sendEvent('progress', { label: 'Generiere Schüler-Äußerungen…' });
+    sendEvent('progress', { label: 'Simulation läuft, dauert typischerweise 30–60 Sekunden…' });
 
-    const utterances = await generateSimulatedUtterances(persona, total, uModel);
-    console.log(`[Simulate] ${utterances.length} Äußerungen generiert`);
+    const { pairs, simResultsText } = await runSimulation({
+      persona,
+      config:            cachedConfig,
+      erfahrungsprompt:  erfahrungsprompt?.content || '',
+      criteria,
+      models:            { utteranceModel: uModel, evalModel: eModel },
+      aiClient,
+    });
 
-    const results = [];
-    for (let i = 0; i < utterances.length; i++) {
-      sendEvent('progress', { label: `Simuliere Antwort ${i + 1} von ${utterances.length}…` });
-      const utterance  = utterances[i];
-      const aiResponse = await generateAIResponse(cachedConfig.content, erfahrungsprompt?.content || '', utterance);
-      let evaluation   = null;
-      try {
-        evaluation = await evaluateResponse(utterance, aiResponse, criteria, eModel);
-      } catch (evalErr) {
-        console.warn('[Simulate] Evaluierung fehlgeschlagen:', evalErr.message);
-        evaluation = { overall: 'gemischt', score: 3, highlights: [], summary: 'Evaluierung nicht möglich.' };
-      }
-      const pair = { utterance, aiResponse, evaluation };
-      results.push(pair);
-      sendEvent('pair', { index: i, pair, personaName: persona.name });
+    console.log(`[Simulate] ${pairs.length} Paare abgeschlossen, generiere Erfahrungsprompt-Vorschlag`);
+    for (let i = 0; i < pairs.length; i++) {
+      sendEvent('pair', { index: i, pair: pairs[i], personaName: persona.name });
     }
 
-    console.log(`[Simulate] ${results.length} Paare abgeschlossen, generiere Erfahrungsprompt-Vorschlag`);
     sendEvent('progress', { label: 'Generiere Erfahrungsprompt-Vorschlag…' });
 
-    const simResultsText = results.map((r, i) =>
-      `Äußerung ${i + 1}: ${r.utterance}\n` +
-      `KI-Antwort: ${r.aiResponse.slice(0, 400)}\n` +
-      `Bewertung: ${r.evaluation.overall} (Score ${r.evaluation.score}/5) – ${r.evaluation.summary || ''}`
-    ).join('\n---\n');
-
     try {
-      const suggestion = await generateOptimizeProposal(activityId, simResultsText);
+      const suggestion = await generateOptimizeProposal(activityId, simResultsText, cachedConfig, aiClient);
       sendEvent('suggestion', suggestion);
       console.log(`[Simulate] Erfahrungsprompt-Vorschlag gesendet`);
     } catch (optErr) {
@@ -988,19 +845,6 @@ function selectPersonasForOneClick(userId, count = 4) {
   return chosen.slice(0, count);
 }
 
-async function augmentCriteria(activityId, existingCriteria) {
-  const suggestions = await suggestCriteriaList(activityId);
-  if (!existingCriteria.length) return suggestions;
-
-  const existingTexts = existingCriteria.map(c => c.content.toLowerCase());
-  return suggestions.filter(s => {
-    const words = s.toLowerCase().split(/\W+/).filter(w => w.length > 4);
-    return !existingTexts.some(e => {
-      const matches = words.filter(w => e.includes(w)).length;
-      return matches >= Math.max(2, words.length * 0.5);
-    });
-  });
-}
 
 /** POST /api/one-click-optimize?activityId=X&token= – SSE-Stream */
 app.post('/api/one-click-optimize', requireDashboardAuth, async (req, res) => {
@@ -1017,7 +861,7 @@ app.post('/api/one-click-optimize', requireDashboardAuth, async (req, res) => {
   try {
     // Phase 1: Kriterien ergänzen
     const existing    = getCriteria(activityId);
-    const newCriteria = await augmentCriteria(activityId, existing);
+    const newCriteria = await augmentCriteria(activityId, existing, cachedConfig, aiClient);
     for (const c of newCriteria) saveErkenntnisse(activityId, c, 'criteria');
     sendEvent('criteria', { added: newCriteria.length, total: existing.length + newCriteria.length });
     console.log(`[OneClick] Kriterien: ${existing.length} vorhanden, ${newCriteria.length} ergänzt`);
@@ -1038,30 +882,22 @@ app.post('/api/one-click-optimize', requireDashboardAuth, async (req, res) => {
     sendEvent('sim_start', { total });
 
     await Promise.allSettled(personas.map(async (persona) => {
-      let utterances;
+      let result;
       try {
-        utterances = await generateSimulatedUtterances(persona, 4);
+        result = await runSimulation({
+          persona,
+          config:           cachedConfig,
+          erfahrungsprompt: erfahrungsprompt?.content || '',
+          criteria:         currentCriteria,
+          models:           { utteranceModel: GEN_MODEL, evalModel: GEN_MODEL },
+          aiClient,
+        });
       } catch (e) {
-        console.warn(`[OneClick] Utterances fehlgeschlagen für ${persona.name}:`, e.message);
+        console.warn(`[OneClick] Simulation fehlgeschlagen für ${persona.name}:`, e.message);
         return;
       }
-      for (let i = 0; i < utterances.length; i++) {
-        let aiResponse;
-        try {
-          aiResponse = await generateAIResponse(
-            cachedConfig.content, erfahrungsprompt?.content || '', utterances[i]
-          );
-        } catch (e) {
-          console.warn(`[OneClick] AI-Antwort fehlgeschlagen (${persona.name} #${i}):`, e.message);
-          continue;
-        }
-        let evaluation;
-        try {
-          evaluation = await evaluateResponse(utterances[i], aiResponse, currentCriteria);
-        } catch (_) {
-          evaluation = { overall: 'gemischt', score: 3, highlights: [], summary: 'Evaluierung nicht möglich.' };
-        }
-        const pair = { utterance: utterances[i], aiResponse, evaluation };
+      for (let i = 0; i < result.pairs.length; i++) {
+        const pair = result.pairs[i];
         allPairs.push({ personaName: persona.name, pair });
         pairsEmitted++;
         sendEvent('sim_pair', { personaName: persona.name, index: i, pair, emitted: pairsEmitted, total });
@@ -1078,7 +914,7 @@ app.post('/api/one-click-optimize', requireDashboardAuth, async (req, res) => {
       `Bewertung: ${r.pair.evaluation.overall} (Score ${r.pair.evaluation.score}/5) – ${r.pair.evaluation.summary || ''}`
     ).join('\n---\n');
 
-    const proposal = await generateOptimizeProposal(activityId, simResultsText);
+    const proposal = await generateOptimizeProposal(activityId, simResultsText, cachedConfig, aiClient);
     sendEvent('optimize_done', proposal);
     console.log(`[OneClick] Fertig für ${activityId}`);
 
