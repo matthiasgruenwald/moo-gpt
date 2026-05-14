@@ -8,10 +8,18 @@ import http from "http";
 import https from "https";
 import cors from "cors";
 import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser, createPersona, deletePersona, promotePersonaToGlobal, getAllTeacherPersonasGrouped, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
-import crypto from "crypto";
 import { execFileSync, execFile } from 'child_process';
 import { ChatSession } from "./chat-session.js";
 import { buildInstructions } from "./prompt-builder.js";
+import {
+  isOriginAllowed,
+  generateDashboardToken,
+  validateDashboardToken,
+  getUserNameFromToken,
+  requireTeacherAuth,
+  requireDashboardAuth,
+  requireAdminAuth,
+} from './auth-middleware.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -114,14 +122,6 @@ function checkOrigin(ws, req, next) {
 
 // Issue #5: Teacher-Dashboard -----------------------------------------------
 
-/** Prüft ALLOWED_ORIGIN für REST-Endpoints (analog zu checkOrigin für WS). */
-function isOriginAllowed(req) {
-  if (!process.env.ALLOWED_ORIGIN) return true;
-  const origin = req.headers.origin || req.headers.referer || '';
-  const allowedOrigins = process.env.ALLOWED_ORIGIN.split(',').map(o => o.trim());
-  return allowedOrigins.some(o => origin.startsWith(o));
-}
-
 /** Map activityId → Set<ws>  für Live-Updates im Lehrer-Dashboard. */
 const dashboardClients = new Map();
 
@@ -140,35 +140,6 @@ function notifyChatClients(activityId, payload) {
     if (ws.readyState === ws.OPEN) ws.send(msg);
   }
 }
-
-/**
- * Dashboard-Token-Verwaltung (Issue #5: Zugriffsschutz).
- * Token wird beim Lehrer-Login per WS erzeugt und 8 h gecacht.
- * Ohne gültigen Token → WS-Verbindung wird abgelehnt.
- */
-const dashboardTokens = new Map(); // token → { activityId, userId, userName, expires }
-
-function generateDashboardToken(activityId, userId, userName = null) {
-  const token   = crypto.randomBytes(32).toString('hex');
-  const expires = Date.now() + 8 * 60 * 60 * 1000; // 8 Stunden
-  dashboardTokens.set(token, { activityId: String(activityId), userId, userName, expires });
-  return token;
-}
-
-function validateDashboardToken(token, activityId) {
-  const entry = dashboardTokens.get(token);
-  if (!entry) return false;
-  if (Date.now() > entry.expires) { dashboardTokens.delete(token); return false; }
-  return entry.activityId === String(activityId);
-}
-
-// Abgelaufene Tokens stündlich aufräumen
-setInterval(() => {
-  const now = Date.now();
-  for (const [t, v] of dashboardTokens) {
-    if (now > v.expires) dashboardTokens.delete(t);
-  }
-}, 60 * 60 * 1000);
 
 /** Sendet ein Ereignis an alle verbundenen Lehrer-Dashboards einer Aktivität. */
 function notifyDashboard(activityId, payload) {
@@ -189,17 +160,6 @@ function notifyAllDashboards(payload) {
     }
   }
 }
-
-function getTokenData(token) {
-  if (!token) return null;
-  const entry = dashboardTokens.get(token);
-  if (!entry) return null;
-  if (Date.now() > entry.expires) { dashboardTokens.delete(token); return null; }
-  return entry;
-}
-
-function getUserIdFromToken(token)   { return getTokenData(token)?.userId  ?? null; }
-function getUserNameFromToken(token) { return getTokenData(token)?.userName ?? null; }
 
 /** Gibt das effektive Modell zurück: persönliche Präferenz > globaler DB-Wert. */
 function getEffectiveModel(isTeacher, userId) {
@@ -392,12 +352,8 @@ function validateTemplateFields(uploadMode, botIcon) {
 // ── P5: Aktivitäts-Konfig-Endpoints ─────────────────────────────────────────
 
 /** GET /api/activity-config/:activityId?token= – Konfig für config.html lesen */
-app.get('/api/activity-config/:activityId', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.params;
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !validateDashboardToken(req.query.token, activityId))
-    return res.status(403).json({ error: 'Unauthorized' });
+app.get('/api/activity-config/:activityId', requireDashboardAuth, (req, res) => {
+  const { activityId, userId } = req;
   const act  = getActivity(activityId);
   const erf  = getActiveErfahrungsprompt(activityId);
   const pref = getTeacherPreference(userId);
@@ -415,12 +371,8 @@ app.get('/api/activity-config/:activityId', (req, res) => {
 });
 
 /** PUT /api/activity-config/:activityId?token= – Opener + Upload-Modus speichern */
-app.put('/api/activity-config/:activityId', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.params;
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !validateDashboardToken(req.query.token, activityId))
-    return res.status(403).json({ error: 'Unauthorized' });
+app.put('/api/activity-config/:activityId', requireDashboardAuth, (req, res) => {
+  const { activityId, userId } = req;
   const { opener, uploadMode, title, botIcon } = req.body;
   const validErr = validateTemplateFields(uploadMode, botIcon);
   if (validErr) return res.status(400).json({ error: validErr });
@@ -432,11 +384,8 @@ app.put('/api/activity-config/:activityId', (req, res) => {
 // ── Issue #5: Teacher-Dashboard REST-Endpoints ──────────────────────────────
 
 /** GET /api/dashboard/students?activityId=…&token=… */
-app.get('/api/dashboard/students', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId, token } = req.query;
-  if (!activityId || !token || !validateDashboardToken(token, activityId))
-    return res.status(403).json({ error: 'Forbidden' });
+app.get('/api/dashboard/students', requireDashboardAuth, (req, res) => {
+  const { activityId } = req;
   try {
     const students = getStudents(activityId);
     const act      = getActivity(activityId);
@@ -448,11 +397,8 @@ app.get('/api/dashboard/students', (req, res) => {
 });
 
 /** GET /api/dashboard/messages/:threadDbId?activityId=…&token=… */
-app.get('/api/dashboard/messages/:threadDbId', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId, token } = req.query;
-  if (!activityId || !token || !validateDashboardToken(token, activityId))
-    return res.status(403).json({ error: 'Forbidden' });
+app.get('/api/dashboard/messages/:threadDbId', requireDashboardAuth, (req, res) => {
+  const { activityId } = req;
   const threadDbId = parseInt(req.params.threadDbId);
   if (isNaN(threadDbId)) return res.status(400).json({ error: 'Invalid threadDbId' });
   try {
@@ -471,10 +417,8 @@ app.get('/api/dashboard/messages/:threadDbId', (req, res) => {
 // ── Issue #17: Admin/Teacher-Config-Endpunkte ────────────────────────────────
 
 /** GET /api/admin/config?token=… – Prompt + Modell lesen (alle Lehrer) */
-app.get('/api/admin/config', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+app.get('/api/admin/config', requireTeacherAuth, (req, res) => {
+  const { userId } = req;
   const pref = getTeacherPreference(userId);
   res.json({
     systemPrompt:    cachedConfig.content,
@@ -487,12 +431,8 @@ app.get('/api/admin/config', (req, res) => {
 });
 
 /** PUT /api/admin/config?token=… – Systemprompt + Globalmodell speichern (nur Admin) */
-app.put('/api/admin/config', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
-  if (!isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
-
+app.put('/api/admin/config', requireAdminAuth, (req, res) => {
+  const { userId } = req;
   const { systemPrompt, model } = req.body;
   if (typeof systemPrompt !== 'string') return res.status(400).json({ error: 'systemPrompt fehlt' });
   if (!model || !AVAILABLE_MODELS.includes(model)) return res.status(400).json({ error: 'Ungültiges Modell' });
@@ -505,18 +445,12 @@ app.put('/api/admin/config', (req, res) => {
 });
 
 /** GET /api/admin/prompt-history?token=… – Versionshistorie (Admin) */
-app.get('/api/admin/prompt-history', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+app.get('/api/admin/prompt-history', requireAdminAuth, (req, res) => {
   res.json({ history: getPromptHistory() });
 });
 
 /** DELETE /api/admin/prompt-history/:id?token=… – Historyeintrag löschen (Admin) */
-app.delete('/api/admin/prompt-history/:id', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+app.delete('/api/admin/prompt-history/:id', requireAdminAuth, (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (!id) return res.status(400).json({ error: 'Ungültige ID' });
   const result = deletePromptHistoryEntry(id);
@@ -525,18 +459,13 @@ app.delete('/api/admin/prompt-history/:id', (req, res) => {
 });
 
 /** GET /api/admin/admins?token=… – Admin-Liste (Admin) */
-app.get('/api/admin/admins', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+app.get('/api/admin/admins', requireAdminAuth, (req, res) => {
   res.json({ admins: getAdmins() });
 });
 
 /** POST /api/admin/admins?token=… – Admin hinzufügen (Admin) */
-app.post('/api/admin/admins', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+app.post('/api/admin/admins', requireAdminAuth, (req, res) => {
+  const { userId } = req;
   const { newUserId } = req.body;
   if (!newUserId || typeof newUserId !== 'string') return res.status(400).json({ error: 'newUserId fehlt' });
   addAdmin(newUserId.trim(), userId);
@@ -545,10 +474,8 @@ app.post('/api/admin/admins', (req, res) => {
 });
 
 /** DELETE /api/admin/admins/:targetId?token=… – Admin entfernen (Admin) */
-app.delete('/api/admin/admins/:targetId', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+app.delete('/api/admin/admins/:targetId', requireAdminAuth, (req, res) => {
+  const { userId } = req;
   const targetId = req.params.targetId;
   if (targetId === userId) return res.status(400).json({ error: 'Eigene Admin-Rechte nicht entziehbar' });
   removeAdmin(targetId);
@@ -557,19 +484,15 @@ app.delete('/api/admin/admins/:targetId', (req, res) => {
 });
 
 /** GET /api/teacher/preferences?token=… – Persönliche Präferenzen lesen */
-app.get('/api/teacher/preferences', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+app.get('/api/teacher/preferences', requireTeacherAuth, (req, res) => {
+  const { userId } = req;
   const pref = getTeacherPreference(userId);
   res.json({ myModel: pref?.preferred_model || null, availableModels: AVAILABLE_MODELS });
 });
 
 /** PUT /api/teacher/preferences?token=… – Persönliches Modell setzen */
-app.put('/api/teacher/preferences', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+app.put('/api/teacher/preferences', requireTeacherAuth, (req, res) => {
+  const { userId } = req;
   const { model } = req.body;
   const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
   if (model && model !== '' && !validModel) return res.status(400).json({ error: 'Ungültiges Modell' });
@@ -581,18 +504,14 @@ app.put('/api/teacher/preferences', (req, res) => {
 // ── P5b: Lehrer-Vorlagen-Bibliothek ──────────────────────────────────────────
 
 /** GET /api/teacher/templates?token= – alle Vorlagen der Lehrkraft */
-app.get('/api/teacher/templates', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+app.get('/api/teacher/templates', requireTeacherAuth, (req, res) => {
+  const { userId } = req;
   res.json({ templates: getTeacherTemplates(userId) });
 });
 
 /** POST /api/teacher/templates?token= – neue Vorlage anlegen */
-app.post('/api/teacher/templates', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+app.post('/api/teacher/templates', requireTeacherAuth, (req, res) => {
+  const { userId } = req;
   const { name, title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
   const validErr1 = validateTemplateFields(uploadMode, botIcon);
@@ -602,10 +521,8 @@ app.post('/api/teacher/templates', (req, res) => {
 });
 
 /** PUT /api/teacher/templates/:id?token= – Vorlage aktualisieren */
-app.put('/api/teacher/templates/:id', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+app.put('/api/teacher/templates/:id', requireTeacherAuth, (req, res) => {
+  const { userId } = req;
   const id = parseInt(req.params.id, 10);
   if (!id) return res.status(400).json({ error: 'Ungültige ID' });
   const { name, title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
@@ -617,10 +534,8 @@ app.put('/api/teacher/templates/:id', (req, res) => {
 });
 
 /** DELETE /api/teacher/templates/:id?token= – Vorlage löschen */
-app.delete('/api/teacher/templates/:id', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+app.delete('/api/teacher/templates/:id', requireTeacherAuth, (req, res) => {
+  const { userId } = req;
   const id = parseInt(req.params.id, 10);
   if (!id) return res.status(400).json({ error: 'Ungültige ID' });
   deleteTeacherTemplate(id, userId);
@@ -628,10 +543,8 @@ app.delete('/api/teacher/templates/:id', (req, res) => {
 });
 
 /** PUT /api/teacher/templates/:id/set-default?token= – als Standard markieren */
-app.put('/api/teacher/templates/:id/set-default', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+app.put('/api/teacher/templates/:id/set-default', requireTeacherAuth, (req, res) => {
+  const { userId } = req;
   const id = parseInt(req.params.id, 10);
   if (!id) return res.status(400).json({ error: 'Ungültige ID' });
   setTeacherTemplateDefault(id, userId);
@@ -641,10 +554,7 @@ app.put('/api/teacher/templates/:id/set-default', (req, res) => {
 // ── P5b: Systemvorlage (Admin) ────────────────────────────────────────────────
 
 /** GET /api/admin/system-template?token= – Systemvorlage lesen */
-app.get('/api/admin/system-template', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+app.get('/api/admin/system-template', requireTeacherAuth, (req, res) => {
   const tpl = getSystemTemplate();
   res.json({
     title:         tpl?.title         ?? '',
@@ -656,10 +566,8 @@ app.get('/api/admin/system-template', (req, res) => {
 });
 
 /** PUT /api/admin/system-template?token= – Systemvorlage speichern (nur Admin) */
-app.put('/api/admin/system-template', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+app.put('/api/admin/system-template', requireAdminAuth, (req, res) => {
+  const { userId } = req;
   const { title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
   const validErr3 = validateTemplateFields(uploadMode, botIcon);
   if (validErr3) return res.status(400).json({ error: validErr3 });
@@ -671,22 +579,15 @@ app.put('/api/admin/system-template', (req, res) => {
 // ── Issue #20: Erfahrungsprompt-Verwaltung + Prompt-Optimierung ──────────────
 
 /** GET /api/erfahrungsprompt/:activityId?token= */
-app.get('/api/erfahrungsprompt/:activityId', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.params;
-  if (!validateDashboardToken(req.query.token, activityId))
-    return res.status(403).json({ error: 'Unauthorized' });
+app.get('/api/erfahrungsprompt/:activityId', requireDashboardAuth, (req, res) => {
+  const { activityId } = req;
   const erf = getActiveErfahrungsprompt(activityId);
   res.json({ content: erf?.content || '', version: erf?.version || 0 });
 });
 
 /** POST /api/erfahrungsprompt/:activityId?token= – manuell speichern */
-app.post('/api/erfahrungsprompt/:activityId', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.params;
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !validateDashboardToken(req.query.token, activityId))
-    return res.status(403).json({ error: 'Unauthorized' });
+app.post('/api/erfahrungsprompt/:activityId', requireDashboardAuth, (req, res) => {
+  const { activityId, userId } = req;
   const { content } = req.body;
   if (typeof content !== 'string') return res.status(400).json({ error: 'content fehlt' });
   saveErfahrungsprompt(activityId, content, userId);
@@ -695,20 +596,14 @@ app.post('/api/erfahrungsprompt/:activityId', (req, res) => {
 });
 
 /** GET /api/erfahrungsprompt-history/:activityId?token= */
-app.get('/api/erfahrungsprompt-history/:activityId', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.params;
-  if (!validateDashboardToken(req.query.token, activityId))
-    return res.status(403).json({ error: 'Unauthorized' });
+app.get('/api/erfahrungsprompt-history/:activityId', requireDashboardAuth, (req, res) => {
+  const { activityId } = req;
   res.json({ history: getErfahrungspromptHistory(activityId) });
 });
 
 /** DELETE /api/erfahrungsprompt-history/:id?activityId=&token= */
-app.delete('/api/erfahrungsprompt-history/:id', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.query;
-  if (!validateDashboardToken(req.query.token, activityId))
-    return res.status(403).json({ error: 'Unauthorized' });
+app.delete('/api/erfahrungsprompt-history/:id', requireDashboardAuth, (req, res) => {
+  const { activityId } = req;
   const id = parseInt(req.params.id, 10);
   if (!id) return res.status(400).json({ error: 'Ungültige ID' });
   const result = deleteErfahrungspromptHistoryEntry(activityId, id);
@@ -775,12 +670,8 @@ Antworte AUSSCHLIESSLICH mit validem JSON ohne Markdown-Blöcke:
 }
 
 /** POST /api/optimize-prompt?activityId=X&token= – KI-Vorschlag generieren */
-app.post('/api/optimize-prompt', async (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId, token } = req.query;
-  if (!activityId || !validateDashboardToken(token, activityId))
-    return res.status(403).json({ error: 'Unauthorized' });
-
+app.post('/api/optimize-prompt', requireDashboardAuth, async (req, res) => {
+  const { activityId } = req;
   try {
     const result = await generateOptimizeProposal(activityId);
     console.log(`[Optimize] Vorschlag für ${activityId} generiert (${result.kausalkette.length} Kausalketten-Einträge)`);
@@ -792,11 +683,8 @@ app.post('/api/optimize-prompt', async (req, res) => {
 });
 
 /** POST /api/erkenntnisse?activityId=X&token= – Erkenntnisse aus Kausalkette speichern */
-app.post('/api/erkenntnisse', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId, token } = req.query;
-  if (!activityId || !validateDashboardToken(token, activityId))
-    return res.status(403).json({ error: 'Unauthorized' });
+app.post('/api/erkenntnisse', requireDashboardAuth, (req, res) => {
+  const { activityId } = req;
   const { items } = req.body; // [{ problem, ursache, aenderung }]
   if (!Array.isArray(items)) return res.status(400).json({ error: 'items-Array fehlt' });
   for (const item of items) {
@@ -886,18 +774,14 @@ Wähle nur Highlights deren Wortlaut EXAKT so in der KI-Antwort steht.`,
 // ── P6: Personas ─────────────────────────────────────────────────────────────
 
 /** GET /api/personas?token= – globale + lehrer-eigene Personas */
-app.get('/api/personas', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+app.get('/api/personas', requireTeacherAuth, (req, res) => {
+  const { userId } = req;
   res.json({ global: getGlobalPersonas(), own: getTeacherPersonas(userId) });
 });
 
 /** POST /api/personas?token= – lehrer-eigene Persona speichern */
-app.post('/api/personas', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+app.post('/api/personas', requireTeacherAuth, (req, res) => {
+  const { userId } = req;
   const { name, description, example_msgs } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'name fehlt' });
   const teacherName = getUserNameFromToken(req.query.token);
@@ -906,19 +790,15 @@ app.post('/api/personas', (req, res) => {
 });
 
 /** DELETE /api/personas/:id?token= – eigene Persona löschen */
-app.delete('/api/personas/:id', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId) return res.status(403).json({ error: 'Unauthorized' });
+app.delete('/api/personas/:id', requireTeacherAuth, (req, res) => {
+  const { userId } = req;
   deletePersona(parseInt(req.params.id), userId, false);
   res.json({ ok: true, own: getTeacherPersonas(userId) });
 });
 
 /** POST /api/personas-suggest?activityId=X&token= – KI schlägt Personas vor */
-app.post('/api/personas-suggest', async (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId, token } = req.query;
-  if (!activityId || !validateDashboardToken(token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
+app.post('/api/personas-suggest', requireDashboardAuth, async (req, res) => {
+  const { activityId } = req;
   try {
     const { genModel } = req.body;
     const msgs   = getStudentMessages(activityId);
@@ -941,18 +821,13 @@ Leite 3–5 gut unterscheidbare Personas ab. Wenn keine Äußerungen vorliegen, 
 // ── P6: Admin Personas ────────────────────────────────────────────────────────
 
 /** GET /api/admin/personas?token= – alle Lehrer-Personas sortiert nach Name */
-app.get('/api/admin/personas', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+app.get('/api/admin/personas', requireAdminAuth, (req, res) => {
   res.json({ personas: getAllTeacherPersonasGrouped() });
 });
 
 /** POST /api/admin/personas?token= – globale Persona erstellen */
-app.post('/api/admin/personas', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+app.post('/api/admin/personas', requireAdminAuth, (req, res) => {
+  const { userId } = req;
   const { name, description, example_msgs } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'name fehlt' });
   createPersona({ teacherId: null, teacherName: null, name: name.trim(), description, example_msgs, createdBy: userId });
@@ -960,19 +835,14 @@ app.post('/api/admin/personas', (req, res) => {
 });
 
 /** DELETE /api/admin/personas/:id?token= – beliebige Persona löschen */
-app.delete('/api/admin/personas/:id', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+app.delete('/api/admin/personas/:id', requireAdminAuth, (req, res) => {
   deletePersona(parseInt(req.params.id), null, true);
   res.json({ ok: true });
 });
 
 /** PUT /api/admin/personas/:id/promote?token= – Lehrer-Persona zu global machen */
-app.put('/api/admin/personas/:id/promote', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+app.put('/api/admin/personas/:id/promote', requireAdminAuth, (req, res) => {
+  const { userId } = req;
   promotePersonaToGlobal(parseInt(req.params.id), userId);
   res.json({ ok: true, global: getGlobalPersonas() });
 });
@@ -980,10 +850,7 @@ app.put('/api/admin/personas/:id/promote', (req, res) => {
 // ── P8: Admin-Debug-Endpunkte ────────────────────────────────────────────────
 
 /** GET /api/admin/logs?token=&n=100 – letzte N Zeilen journalctl (Admin) */
-app.get('/api/admin/logs', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+app.get('/api/admin/logs', requireAdminAuth, (req, res) => {
   const n = Math.min(Math.max(parseInt(req.query.n) || 100, 1), 2000);
   try {
     const out = execFileSync('journalctl', ['-u', 'moo-gpt', '-n', String(n), '--no-pager', '--output=short-iso'], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
@@ -994,10 +861,7 @@ app.get('/api/admin/logs', (req, res) => {
 });
 
 /** POST /api/admin/restart?token= – Dienst neu starten (Admin) */
-app.post('/api/admin/restart', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !isAdmin(userId)) return res.status(403).json({ error: 'Forbidden' });
+app.post('/api/admin/restart', requireAdminAuth, (req, res) => {
   res.json({ ok: true });
   setTimeout(() => execFile('systemctl', ['restart', 'moo-gpt'], () => {}), 500);
 });
@@ -1005,10 +869,8 @@ app.post('/api/admin/restart', (req, res) => {
 // ── Issue #21: Kriterien-Endpunkte ───────────────────────────────────────────
 
 /** GET /api/criteria/:activityId?token= */
-app.get('/api/criteria/:activityId', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.params;
-  if (!validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
+app.get('/api/criteria/:activityId', requireDashboardAuth, (req, res) => {
+  const { activityId } = req;
   res.json({ criteria: getCriteria(activityId), deletedCriteria: getDeletedCriteria(activityId) });
 });
 
@@ -1029,10 +891,8 @@ Leite 5–8 präzise, prüfbare Kriterien ab. Formuliere sie als positive Aussag
 }
 
 /** POST /api/criteria-suggest/:activityId?token= – KI schlägt Kriterien vor */
-app.post('/api/criteria-suggest/:activityId', async (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.params;
-  if (!validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
+app.post('/api/criteria-suggest/:activityId', requireDashboardAuth, async (req, res) => {
+  const { activityId } = req;
   try {
     const suggestions = await suggestCriteriaList(activityId, req.body.genModel);
     res.json({ suggestions });
@@ -1043,11 +903,8 @@ app.post('/api/criteria-suggest/:activityId', async (req, res) => {
 });
 
 /** POST /api/criteria/:activityId?token= – Kriterium hinzufügen */
-app.post('/api/criteria/:activityId', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.params;
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
+app.post('/api/criteria/:activityId', requireDashboardAuth, (req, res) => {
+  const { activityId, userId } = req;
   const { content } = req.body;
   if (!content) return res.status(400).json({ error: 'content fehlt' });
   saveErkenntnisse(activityId, content, 'criteria');
@@ -1055,19 +912,15 @@ app.post('/api/criteria/:activityId', (req, res) => {
 });
 
 /** DELETE /api/criteria/:id?activityId=X&token= – Soft-Delete */
-app.delete('/api/criteria/:id', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.query;
-  if (!activityId || !validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
+app.delete('/api/criteria/:id', requireDashboardAuth, (req, res) => {
+  const { activityId } = req;
   softDeleteCriterion(parseInt(req.params.id));
   res.json({ ok: true, criteria: getCriteria(activityId), deletedCriteria: getDeletedCriteria(activityId) });
 });
 
 /** PATCH /api/criteria/:id/restore?activityId=X&token= */
-app.patch('/api/criteria/:id/restore', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.query;
-  if (!activityId || !validateDashboardToken(req.query.token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
+app.patch('/api/criteria/:id/restore', requireDashboardAuth, (req, res) => {
+  const { activityId } = req;
   restoreCriterion(parseInt(req.params.id));
   res.json({ ok: true, criteria: getCriteria(activityId), deletedCriteria: getDeletedCriteria(activityId) });
 });
@@ -1075,13 +928,8 @@ app.patch('/api/criteria/:id/restore', (req, res) => {
 // ── P3: Plenum-Sperre ────────────────────────────────────────────────────────
 
 /** POST /api/activity/:activityId/lock?token= – Aktivität sperren */
-app.post('/api/activity/:activityId/lock', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.params;
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !validateDashboardToken(req.query.token, activityId))
-    return res.status(403).json({ error: 'Unauthorized' });
-
+app.post('/api/activity/:activityId/lock', requireDashboardAuth, (req, res) => {
+  const { activityId, userId } = req;
   const existing = activityLocks.get(String(activityId));
   if (existing?.timerHandle) clearTimeout(existing.timerHandle);
 
@@ -1104,13 +952,8 @@ app.post('/api/activity/:activityId/lock', (req, res) => {
 });
 
 /** DELETE /api/activity/:activityId/lock?token= – Aktivität entsperren */
-app.delete('/api/activity/:activityId/lock', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.params;
-  const userId = getUserIdFromToken(req.query.token);
-  if (!userId || !validateDashboardToken(req.query.token, activityId))
-    return res.status(403).json({ error: 'Unauthorized' });
-
+app.delete('/api/activity/:activityId/lock', requireDashboardAuth, (req, res) => {
+  const { activityId, userId } = req;
   const existing = activityLocks.get(String(activityId));
   if (existing?.timerHandle) clearTimeout(existing.timerHandle);
   activityLocks.delete(String(activityId));
@@ -1123,13 +966,9 @@ app.delete('/api/activity/:activityId/lock', (req, res) => {
 // ── Issues #21 + #26: Simulation (SSE-Streaming) ─────────────────────────────
 
 /** POST /api/simulate?activityId=X&token= – SSE-Stream */
-app.post('/api/simulate', async (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId, token } = req.query;
-  if (!activityId || !validateDashboardToken(token, activityId)) return res.status(403).json({ error: 'Unauthorized' });
-
+app.post('/api/simulate', requireDashboardAuth, async (req, res) => {
+  const { activityId, userId } = req;
   const { personaId, utteranceModel, evalModel } = req.body;
-  const userId   = getUserIdFromToken(token);
   const personas = userId ? getAllPersonasForUser(userId) : getGlobalPersonas();
   const persona  = personas.find(p => p.id === parseInt(personaId));
   if (!persona) return res.status(400).json({ error: 'Persona nicht gefunden' });
@@ -1267,13 +1106,8 @@ async function augmentCriteria(activityId, existingCriteria) {
 }
 
 /** POST /api/one-click-optimize?activityId=X&token= – SSE-Stream */
-app.post('/api/one-click-optimize', async (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId, token } = req.query;
-  const userId = getUserIdFromToken(token);
-  if (!userId || !validateDashboardToken(token, activityId))
-    return res.status(403).json({ error: 'Unauthorized' });
-
+app.post('/api/one-click-optimize', requireDashboardAuth, async (req, res) => {
+  const { activityId, userId } = req;
   res.writeHead(200, {
     'Content-Type':      'text/event-stream',
     'Cache-Control':     'no-cache',
@@ -1362,15 +1196,11 @@ app.post('/api/one-click-optimize', async (req, res) => {
 // ── Issue #19: Feedback-Bewertung ────────────────────────────────────────────
 
 /** POST /api/feedback?activityId=…&token=… */
-app.post('/api/feedback', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId, token } = req.query;
-  if (!activityId || !token || !validateDashboardToken(token, activityId))
-    return res.status(403).json({ error: 'Unauthorized' });
+app.post('/api/feedback', requireDashboardAuth, (req, res) => {
+  const { activityId, userId } = req;
   const { messageId, threadId, rating, comment, improvedText } = req.body;
   if (!messageId || !['gut', 'schlecht'].includes(rating))
     return res.status(400).json({ error: 'messageId und rating (gut|schlecht) erforderlich' });
-  const userId = getUserIdFromToken(token);
   try {
     saveFeedback({ messageId, threadId, activityId, rating, comment, improvedText, ratedBy: userId });
     res.json({ ok: true });
@@ -1381,12 +1211,8 @@ app.post('/api/feedback', (req, res) => {
 });
 
 /** GET /api/feedback/:activityId?token=… */
-app.get('/api/feedback/:activityId', (req, res) => {
-  if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
-  const { activityId } = req.params;
-  const { token } = req.query;
-  if (!token || !validateDashboardToken(token, activityId))
-    return res.status(403).json({ error: 'Unauthorized' });
+app.get('/api/feedback/:activityId', requireDashboardAuth, (req, res) => {
+  const { activityId } = req;
   try {
     res.json({ feedback: getFeedbackByActivity(activityId) });
   } catch (e) {

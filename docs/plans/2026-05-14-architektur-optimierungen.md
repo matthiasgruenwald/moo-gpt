@@ -10,7 +10,7 @@ Identifiziert via `/improve-codebase-architecture`. Jedes Problem wird in einer 
 |---|----------|--------|
 | 1 | Chat-Handler aufteilen | erledigt |
 | 2 | Prompt-Konstruktion isolieren | erledigt |
-| 3 | Auth-Middleware einführen | offen |
+| 3 | Auth-Middleware einführen | erledigt |
 | 4 | Token-Logging-Modul extrahieren | offen |
 | 5 | AIClient-Seam etablieren | offen |
 | 6 | Simulation-Modul extrahieren | offen |
