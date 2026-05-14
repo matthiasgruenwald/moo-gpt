@@ -11,6 +11,7 @@ import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, 
 import { execFileSync, execFile } from 'child_process';
 import { ChatSession } from "./chat-session.js";
 import { buildInstructions } from "./prompt-builder.js";
+import { AIClient } from "./ai-client.js";
 import {
   isOriginAllowed,
   generateDashboardToken,
@@ -199,6 +200,7 @@ if (!process.env.MODEL_NAME) {
 }
 
 const oai = new OpenAI({ apiKey: process.env.APIKEY });
+const aiClient = new AIClient(oai);
 
 // Issue #13: Modell + System-Prompt aus Env (Fallback, wenn DB noch leer)
 const MODEL_NAME    = process.env.MODEL_NAME;
@@ -562,14 +564,9 @@ Antworte AUSSCHLIESSLICH mit validem JSON ohne Markdown-Blöcke:
     `Bisherige Erkenntnisse:\n${erkenntnisText}\n\n` +
     `Erstelle einen verbesserten Erfahrungsprompt für diese Aufgabe.`;
 
-  const response = await oai.responses.create({
-    model:        cachedConfig.model || MODEL_NAME,
-    instructions,
-    input:        [{ role: 'user', content: userMessage }],
-    stream:       false,
-  });
+  const outputText = await aiClient.textCall(instructions, userMessage, cachedConfig.model || MODEL_NAME);
 
-  const parsed = stripAndParseJson(response.output_text);
+  const parsed = stripAndParseJson(outputText);
   if (!parsed.erfahrungsprompt_neu || !Array.isArray(parsed.kausalkette))
     throw new Error('Unvollständige KI-Antwort');
 
@@ -631,13 +628,8 @@ function stripAndParseJson(text) {
 }
 
 async function aiJsonCall(instructions, userMessage, model = GEN_MODEL) {
-  const response = await oai.responses.create({
-    model,
-    instructions,
-    input:   [{ role: 'user', content: userMessage }],
-    stream:  false,
-  });
-  return stripAndParseJson(response.output_text);
+  const text = await aiClient.textCall(instructions, userMessage, model);
+  return stripAndParseJson(text);
 }
 
 async function generateSimulatedUtterances(persona, count = 4, model = GEN_MODEL) {
@@ -653,13 +645,7 @@ Antworte NUR mit einem JSON-Array von Strings: ["Äußerung 1", "Äußerung 2", 
 
 async function generateAIResponse(systemContent, erfahrungContent, utterance) {
   const instructions = buildInstructions({ systemContent, erfahrungContent });
-  const r = await oai.responses.create({
-    model:        cachedConfig.model || MODEL_NAME,
-    instructions,
-    input:        [{ role: 'user', content: utterance }],
-    stream:       false,
-  });
-  return r.output_text || '';
+  return aiClient.textCall(instructions, utterance, cachedConfig.model || MODEL_NAME);
 }
 
 async function evaluateResponse(utterance, aiResponse, criteria, model = GEN_MODEL) {
@@ -1284,12 +1270,7 @@ async function streamResponse(ws, settings, threadDbId) {
   let resContent = '';
 
   try {
-    const stream = await oai.responses.create({
-      model:        effectiveModel,
-      instructions,
-      input,
-      stream:       true,
-    });
+    const stream = await aiClient.stream(instructions, input, effectiveModel);
 
     let usage = null;
     for await (const event of stream) {
