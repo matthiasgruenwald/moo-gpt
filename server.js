@@ -10,6 +10,7 @@ import cors from "cors";
 import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser, createPersona, deletePersona, promotePersonaToGlobal, getAllTeacherPersonasGrouped, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
 import crypto from "crypto";
 import { execFileSync, execFile } from 'child_process';
+import { ChatSession } from "./chat-session.js";
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -1481,266 +1482,28 @@ app.ws('/api/dashboard-ws', (ws, req) => {
 
 app.ws("/api/chat", (ws, req) => {
   checkOrigin(ws, req, () => {
-    var settings  = undefined;
-    var threadDbId = undefined;
-
-    // Keepalive: alle 30 Sek. ping senden, damit Cloudflare die Verbindung nicht trennt
-    const keepalive = setInterval(() => {
-      if (ws.readyState === ws.OPEN) {
-        ws.ping();
-      }
-    }, 30000);
-    ws.on("close", () => {
-      clearInterval(keepalive);
-      if (settings?.activityId) {
-        activityChatClients.get(String(settings.activityId))?.delete(ws);
-      }
+    const session = new ChatSession(ws, {
+      activityChatClients, activityLocks, generateDashboardToken,
+      notifyDashboard, streamResponse, oai, VERSION,
     });
 
     ws.on("message", (message) => {
       limitRequests(ws, req, message, () => {
         console.log("Message received:", message);
-        var chatMsg = { end: false, messages: "" };
         try {
           var msgObj = JSON.parse(message);
           console.log("msgObj:", JSON.stringify(msgObj, null, 2));
           checkFormat(ws, msgObj, async () => {
             switch (msgObj.type) {
-              case "settings":
-                settings = msgObj.data;
-                console.log("Settings received: " + JSON.stringify({...settings, images: settings.images ? `[${settings.images.length} Bild(er)]` : 'keine'}));
-
-                // Rollenerkennung (Issue #4)
-                {
-                  const teacherIds = process.env.TEACHER_USER_IDS
-                    ? process.env.TEACHER_USER_IDS.split(',').map(s => s.trim())
-                    : [];
-                  const isTeacherByEnv = !!(settings.userId && teacherIds.includes(settings.userId));
-                  ws.isTeacher = settings.isTeacher === true || isTeacherByEnv;
-                  ws.userId    = settings.userId || null;
-                  console.log(`[Auth] isTeacher=${ws.isTeacher} (client=${settings.isTeacher}, env=${isTeacherByEnv})`);
-                }
-
-                // P5b: Aktivitäts-Config aus DB laden; bei neuer Aktivität Vorlage anwenden
-                if (settings.activityId) {
-                  let act = getActivity(settings.activityId);
-                  if (!act) {
-                    const defaults = ws.isTeacher && ws.userId
-                      ? (getTeacherDefaultTemplate(ws.userId) ?? getSystemTemplate())
-                      : null;
-                    upsertActivity(
-                      settings.activityId,
-                      settings.activityName || settings.activityId,
-                      defaults?.opener      ?? null,
-                      defaults?.upload_mode ?? 'off',
-                      defaults?.title       ?? null,
-                      defaults?.bot_icon    ?? 'grw',
-                    );
-                    act = getActivity(settings.activityId);
-                  } else if (settings.activityName && settings.activityName !== act.activity_name) {
-                    upsertActivity(settings.activityId, settings.activityName, null, null, null, null);
-                  }
-
-                  // Backward-Compat: hints aus altem Snippet importieren (nur wenn noch kein Erfahrungsprompt)
-                  if (settings.hints && !getActiveErfahrungsprompt(settings.activityId)) {
-                    saveErfahrungsprompt(settings.activityId, settings.hints, settings.userId || 'moodle-import');
-                    console.log(`[Settings] Aufgabenprompt (hints) für ${settings.activityId} aus Snippet importiert`);
-                  }
-
-                  const actConfig = {
-                    title:      act?.title       ?? null,
-                    botIcon:    act?.bot_icon    ?? 'grw',
-                    opener:     act?.opener      ?? null,
-                    uploadMode: act?.upload_mode ?? 'off',
-                    needsConfig: act?.title == null,
-                  };
-                  ws.activityConfig = actConfig;
-                  ws.send(JSON.stringify({ type: 'config', activityId: settings.activityId, config: actConfig }));
-                  console.log(`[P5a] Config für ${settings.activityId} gesendet, needsConfig=${actConfig.needsConfig}`);
-                }
-
-                // P3: Chat-Client registrieren (nur Schüler) + ggf. sofort sperren
-                if (settings.activityId && !ws.isTeacher) {
-                  const aid = String(settings.activityId);
-                  if (!activityChatClients.has(aid)) activityChatClients.set(aid, new Set());
-                  activityChatClients.get(aid).add(ws);
-                  if (activityLocks.has(aid)) ws.send(JSON.stringify({ type: 'locked' }));
-                }
-
-                // Issue #5: Dashboard-Token für Lehrer erzeugen und zurückschicken
-                if (ws.isTeacher && settings.activityId) {
-                  const token = generateDashboardToken(settings.activityId, settings.userId, settings.userName || null);
-                  ws.send(JSON.stringify({ type: 'dashboardToken', token, activityId: settings.activityId }));
-                  console.log(`[Dashboard] Token für Lehrer ${settings.userId} / Aufgabe ${settings.activityId} erzeugt`);
-                }
-
-                // Issue #13: Thread nur noch in SQLite – kein OpenAI-Thread-Objekt mehr
-                {
-                  let existingThreadRow = null;
-                  if (settings.userId && settings.activityId) {
-                    existingThreadRow = findThread({ moodle_user_id: settings.userId, activity_id: settings.activityId });
-                  }
-                  if (existingThreadRow) {
-                    threadDbId = existingThreadRow.id;
-                    touchThread(threadDbId);
-                    if (!existingThreadRow.moodle_user_name && settings.userName) {
-                      updateThreadName(threadDbId, settings.userName);
-                      console.log(`[DB] Namen nachgefüllt: ${settings.userName} (db_id=${threadDbId})`);
-                    }
-                    console.log(`[DB] Bestehenden Thread wiederverwendet (db_id=${threadDbId})`);
-                  } else {
-                    threadDbId = saveThread({
-                      moodle_user_id:   settings.userId   || null,
-                      moodle_user_name: settings.userName || null,
-                      activity_id:      settings.activityId || null,
-                    });
-                    console.log(`[DB] Neuer Thread angelegt, db_id=${threadDbId}`);
-
-                    // Aufgabenbilder als task_image in DB speichern (statt Files API + Thread-Message)
-                    if (settings.images && settings.images.length > 0) {
-                      let saved = 0;
-                      for (const img of settings.images) {
-                        try {
-                          const imgClean = typeof img === 'string' ? img.trim() : img;
-                          if (!imgClean) continue;
-                          let dataUrl;
-                          if (imgClean.startsWith('data:')) {
-                            dataUrl = imgClean;
-                          } else {
-                            const parsed = new URL(imgClean);
-                            if (!['http:', 'https:'].includes(parsed.protocol)) continue;
-                            const res = await fetch(imgClean);
-                            if (!res.ok) { console.log(`[Settings] Bild übersprungen (HTTP ${res.status})`); continue; }
-                            const mimeType = res.headers.get('content-type') || 'image/jpeg';
-                            const buf = Buffer.from(await res.arrayBuffer());
-                            dataUrl = `data:${mimeType};base64,${buf.toString('base64')}`;
-                          }
-                          saveMessage({ thread_db_id: threadDbId, role: 'user', content: dataUrl, content_type: 'task_image' });
-                          saved++;
-                        } catch (e) {
-                          console.warn('[Settings] Aufgabenbild übersprungen:', e.message);
-                        }
-                      }
-                      console.log(`[DB] ${saved} Aufgabenbild(er) als task_image gespeichert`);
-                    }
-                  }
-
-                  // Chatverlauf an Client senden (nur bei bestehendem Thread)
-                  if (existingThreadRow) {
-                    const history = getMessages(threadDbId);
-                    if (history.length > 0) {
-                      ws.send(JSON.stringify({ type: "history", messages: history }));
-                      console.log(`[DB] ${history.length} Nachrichten an Client gesendet`);
-                    }
-                  }
-                }
-                break;
-              case "chatmsg":
-                // Noch nicht bereit (race condition)
-                if (!threadDbId) {
-                  chatMsg.end = true;
-                  chatMsg.messages = "⏳ Verbindung wird aufgebaut, bitte nochmal senden...";
-                  ws.send(JSON.stringify(chatMsg));
-                  return;
-                }
-                if (msgObj.data.message === "about") {
-                  chatMsg.messages = `**Version ${VERSION}**\r\n\r\n© 2024 Dr. Jörg Tuttas · Erweitert 2026 von Matthias Grünwald`;
-                  chatMsg.end = true;
-                  ws.send(JSON.stringify(chatMsg));
-                  return;
-                }
-                // Usernachricht in DB spiegeln + Dashboard benachrichtigen
-                saveMessage({ thread_db_id: threadDbId, role: 'user', content: msgObj.data.message });
-                if (settings.activityId) {
-                  notifyDashboard(settings.activityId, {
-                    type: 'newMessage', threadDbId,
-                    userId:    settings.userId   || null,
-                    userName:  settings.userName || null,
-                    role:      'user',
-                    content:   msgObj.data.message,
-                    createdAt: new Date().toISOString(),
-                  });
-                }
-                streamResponse(ws, settings, threadDbId);
-                break;
-              case "filemsg": {
-                // Issue #10: Dateiupload (Bilder & PDF) — P5a: uploadMode aus DB-Config
-                const uploadMode = ws.activityConfig?.uploadMode || settings?.uploadMode || 'off';
-                if (uploadMode === 'off') {
-                  ws.send(JSON.stringify({ end: true, messages: '⚠️ Upload ist für diese Aufgabe nicht aktiviert.' }));
-                  return;
-                }
-                const { file, originalType } = msgObj.data;
-                if (originalType === 'video') {
-                  ws.send(JSON.stringify({ end: true, messages: '⚠️ Videos werden nicht unterstützt.' }));
-                  return;
-                }
-                if (originalType === 'pdf' && uploadMode !== 'files') {
-                  ws.send(JSON.stringify({ end: true, messages: '⚠️ PDF-Upload ist für diese Aufgabe nicht aktiviert (nur Bilder erlaubt).' }));
-                  return;
-                }
-                if (!threadDbId) {
-                  ws.send(JSON.stringify({ end: true, messages: '⏳ Verbindung wird aufgebaut, bitte nochmal senden...' }));
-                  return;
-                }
-                try {
-                  const mimeMatch = file.match(/^data:([^;]+);base64,/);
-                  const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-                  const b64 = file.replace(/^data:[^;]+;base64,/, '');
-                  const imageBuffer = Buffer.from(b64, 'base64');
-                  console.log(`[Upload] originalType=${originalType}, mimeType=${mimeType}, size=${imageBuffer.length}`);
-
-                  if (mimeType.startsWith('video/')) {
-                    ws.send(JSON.stringify({ end: true, messages: '⚠️ Videos werden nicht unterstützt.' }));
-                    return;
-                  }
-
-                  // Kleine Dateien direkt als base64 in DB; große über Files API (bleibt verfügbar)
-                  const TWO_MB = 2 * 1024 * 1024;
-                  let dbContent;
-                  if (imageBuffer.length < TWO_MB) {
-                    dbContent = file;
-                  } else {
-                    const ext = mimeType.split('/')[1]?.split('+')[0] || 'jpeg';
-                    const uploadedFile = await oai.files.create({
-                      file: new File([imageBuffer], `upload.${ext}`, { type: mimeType }),
-                      purpose: 'vision',
-                    });
-                    dbContent = `[${originalType}:${uploadedFile.id}]`;
-                    console.log(`[Upload] Große Datei → Files API, file_id=${uploadedFile.id}`);
-                  }
-                  const contentType = originalType === 'pdf' ? 'pdf' : 'image';
-
-                  // In DB speichern + Dashboard benachrichtigen
-                  saveMessage({ thread_db_id: threadDbId, role: 'user', content: dbContent, content_type: contentType });
-                  if (settings.activityId) {
-                    notifyDashboard(settings.activityId, {
-                      type: 'newMessage', threadDbId,
-                      userId: settings.userId || null, userName: settings.userName || null,
-                      role: 'user', content: dbContent, contentType,
-                      createdAt: new Date().toISOString(),
-                    });
-                  }
-
-                  // History jetzt vollständig in DB – direkt streamen
-                  streamResponse(ws, settings, threadDbId);
-                } catch (err) {
-                  console.error('[Upload] Fehler:', err);
-                  ws.send(JSON.stringify({ end: true, messages: `⚠️ Upload fehlgeschlagen: ${err.message}` }));
-                }
-                break;
-              }
-              default:
-                // Handle unknown message type
-                break;
+              case "settings": await session.init(msgObj.data); break;
+              case "chatmsg":  await session.handleChat(msgObj); break;
+              case "filemsg":  await session.handleFile(msgObj); break;
+              default: break;
             }
           });
         } catch (error) {
-          chatMsg.end = true;
-          chatMsg.messages = "Error: " + error.message;
-          ws.send(JSON.stringify(chatMsg));
+          ws.send(JSON.stringify({ end: true, messages: "Error: " + error.message }));
           console.log("Error: ", error);
-          return;
         }
       });
     });
