@@ -11,6 +11,7 @@ import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, 
 import crypto from "crypto";
 import { execFileSync, execFile } from 'child_process';
 import { ChatSession } from "./chat-session.js";
+import { buildInstructions } from "./prompt-builder.js";
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -209,21 +210,6 @@ function getEffectiveModel(isTeacher, userId) {
     }
   }
   return cachedConfig.model || MODEL_NAME;
-}
-
-/** Baut die vollständigen instructions für einen Chat-Request. */
-function buildInstructions(settings, activityId) {
-  const now = new Date();
-  const dayName = now.toLocaleDateString('de-DE', { weekday: 'long' });
-  const dateStr = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const timeStr = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  let instructions = cachedConfig.content
-    + `\nHeute ist ${dayName}, der ${dateStr} um ${timeStr}.\n`
-    + (settings.hints || '')
-    + (settings.task  || '');
-  const erf = getActiveErfahrungsprompt(activityId);
-  if (erf?.content) instructions += `\n\n${erf.content}`;
-  return instructions;
 }
 
 // ---------------------------------------------------------------------------
@@ -867,7 +853,7 @@ Antworte NUR mit einem JSON-Array von Strings: ["Äußerung 1", "Äußerung 2", 
 }
 
 async function generateAIResponse(systemContent, erfahrungContent, utterance) {
-  const instructions = systemContent + (erfahrungContent ? `\n\n${erfahrungContent}` : '');
+  const instructions = buildInstructions({ systemContent, erfahrungContent });
   const r = await oai.responses.create({
     model:        cachedConfig.model || MODEL_NAME,
     instructions,
@@ -1549,7 +1535,13 @@ async function streamResponse(ws, settings, threadDbId) {
   const chatMsg = { end: false, messages: '' };
 
   const effectiveModel = getEffectiveModel(ws.isTeacher, ws.userId);
-  const instructions   = buildInstructions(settings, settings.activityId);
+  const instructions   = buildInstructions({
+    systemContent:    cachedConfig.content,
+    erfahrungContent: getActiveErfahrungsprompt(settings.activityId)?.content ?? '',
+    hints:            settings.hints,
+    task:             settings.task,
+    date:             new Date(),
+  });
   const input          = buildInput(getMessagesAll(threadDbId));
 
   let resContent = '';

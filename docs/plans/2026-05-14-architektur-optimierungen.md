@@ -9,11 +9,12 @@ Identifiziert via `/improve-codebase-architecture`. Jedes Problem wird in einer 
 | # | Kandidat | Status |
 |---|----------|--------|
 | 1 | Chat-Handler aufteilen | erledigt |
-| 2 | Prompt-Konstruktion isolieren | offen |
+| 2 | Prompt-Konstruktion isolieren | erledigt |
 | 3 | Auth-Middleware einführen | offen |
 | 4 | Token-Logging-Modul extrahieren | offen |
 | 5 | AIClient-Seam etablieren | offen |
-| 6 | ClientRegistry für WebSocket-Clients | offen |
+| 6 | Simulation-Modul extrahieren | offen |
+| 7 | ClientRegistry für WebSocket-Clients | offen |
 
 ---
 
@@ -87,7 +88,23 @@ Identifiziert via `/improve-codebase-architecture`. Jedes Problem wird in einer 
 
 ---
 
-## 6 — ClientRegistry für WebSocket-Clients
+## 6 — Simulation-Modul extrahieren
+
+**Files:** `server.js:734–898` — `generateOptimizeProposal()`, `generateSimulatedUtterances()`, `generateAIResponse()`, `evaluateResponse()`
+
+**Abhängigkeiten:** Punkt 2 (PromptBuilder), Punkt 5 (AIClient-Seam)
+
+**Problem:** Die gesamte Simulations-Pipeline — Schüleräußerungen erzeugen, Chatbot-Antwort simulieren, Antwort bewerten, Optimierungsvorschlag generieren — steckt direkt in `server.js`. `generateAIResponse` baut den Prompt manuell statt `PromptBuilder` zu nutzen, was die Simulation vom echten Chat-Verhalten entkoppelt.
+
+**Lösung:** `simulation.js`-Modul, das `PromptBuilder` und `AIClient` importiert. `generateAIResponse` ruft `buildInstructions({ systemContent, erfahrungContent })` auf. `server.js` importiert nur noch die High-Level-Einstiegspunkte (`runSimulation`, `generateOptimizeProposal`).
+
+**Nutzen:**
+- *Locality:* Simulations-Pipeline an einem Ort, unabhängig testbar
+- *Leverage:* Simulation nutzt dieselbe Prompt-Logik wie der echte Chat — Divergenz ausgeschlossen
+
+---
+
+## 7 — ClientRegistry für WebSocket-Clients
 
 **Files:** `server.js:128–139` — `dashboardClients`, `activityChatClients`, `activityLocks`
 
