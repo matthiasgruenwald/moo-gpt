@@ -32,18 +32,21 @@ export class AIClient {
     this._provider = provider;
   }
 
-  // Non-streaming: Input-Limit prüfen, Retry bei transienten Fehlern, 30s Timeout
+  // Non-streaming: Input-Limit prüfen, Retry bei transienten Fehlern, konfigurierbarer Timeout
   async textCall(instructions, userMessage, model, opts = {}) {
     if (userMessage.length > MAX_INPUT_CHARS)
       throw new Error(`Input zu lang: ${userMessage.length} Zeichen (max ${MAX_INPUT_CHARS})`);
 
+    const timeout = opts.timeout ?? TEXT_TIMEOUT_MS;
+    const { timeout: _t, ...apiOpts } = opts;
+
     let lastErr;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), TEXT_TIMEOUT_MS);
+      const timer = setTimeout(() => controller.abort(), timeout);
       try {
         const response = await this._provider.responses.create(
-          { model, instructions, input: [{ role: 'user', content: userMessage }], stream: false, ...opts },
+          { model, instructions, input: [{ role: 'user', content: userMessage }], stream: false, ...apiOpts },
           { signal: controller.signal },
         );
         return response.output_text ?? '';
@@ -59,8 +62,8 @@ export class AIClient {
   }
 
   // Non-streaming JSON: textCall + stripAndParseJson
-  async jsonCall(instructions, userMessage, model) {
-    const text = await this.textCall(instructions, userMessage, model);
+  async jsonCall(instructions, userMessage, model, opts = {}) {
+    const text = await this.textCall(instructions, userMessage, model, opts);
     return stripAndParseJson(text);
   }
 

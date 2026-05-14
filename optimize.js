@@ -39,7 +39,7 @@ Antworte AUSSCHLIESSLICH mit validem JSON ohne Markdown-Blöcke:
     `Bisherige Erkenntnisse:\n${erkenntnisText}\n\n` +
     `Erstelle einen verbesserten Erfahrungsprompt für diese Aufgabe.`;
 
-  const parsed = await aiClient.jsonCall(instructions, userMessage, config.model);
+  const parsed = await aiClient.jsonCall(instructions, userMessage, config.model, { timeout: 120_000 });
   if (!parsed.erfahrungsprompt_neu || !Array.isArray(parsed.kausalkette))
     throw new Error('Unvollständige KI-Antwort');
 
