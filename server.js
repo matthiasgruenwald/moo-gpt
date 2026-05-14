@@ -7,7 +7,7 @@ import expressWs from "express-ws";
 import http from "http";
 import https from "https";
 import cors from "cors";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, saveTokenUsage, getThreadCostTokens, getActivityCostTokens, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser, createPersona, deletePersona, promotePersonaToGlobal, getAllTeacherPersonasGrouped, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveFeedback, getFeedbackByActivity, getErkenntnisse, saveErkenntnisse, getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser, createPersona, deletePersona, promotePersonaToGlobal, getAllTeacherPersonasGrouped, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
 import { execFileSync, execFile } from 'child_process';
 import { ChatSession } from "./chat-session.js";
 import { buildInstructions } from "./prompt-builder.js";
@@ -20,6 +20,7 @@ import {
   requireDashboardAuth,
   requireAdminAuth,
 } from './auth-middleware.js';
+import { recordUsage, enrichMessagesWithCost, computeThreadCost, computeActivityCost, computeRunCost } from './token-log.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -213,96 +214,6 @@ const GEN_MODEL  = process.env.GEN_MODEL || 'gpt-4.1-nano';
 const GEN_MODELS = [...new Set(['gpt-4.1-nano', 'gpt-4.1', ...AVAILABLE_MODELS])];
 
 let cachedConfig = { content: SYSTEM_PROMPT, model: MODEL_NAME }; // wird nach initDb() überschrieben
-
-// Issue #11: LiteLLM-Preise laden und 24 h cachen
-let PRICING = null;
-let pricingFetchedAt = 0;
-
-async function fetchPricing() {
-  const now = Date.now();
-  if (PRICING && (now - pricingFetchedAt) < 24 * 60 * 60 * 1000) return PRICING;
-  try {
-    const res  = await fetch('https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json');
-    const data = await res.json();
-    // LiteLLM-Keys: z.B. "gpt-5" oder "openai/gpt-5"
-    const entry = data[MODEL_NAME] || data[`openai/${MODEL_NAME}`] || null;
-    PRICING = entry ? {
-      input_cost_per_token:  entry.input_cost_per_token  || 0,
-      output_cost_per_token: entry.output_cost_per_token || 0,
-    } : null;
-    pricingFetchedAt = now;
-    console.log(`[Pricing] Preise geladen für ${MODEL_NAME}:`, PRICING);
-  } catch (e) {
-    console.warn('[Pricing] Fehler beim Laden der Preise:', e.message);
-  }
-  return PRICING;
-}
-
-// Beim Serverstart sofort laden
-fetchPricing();
-
-// Issue #12: USD→EUR Wechselkurs (ECB via frankfurter.app), 1h Cache
-let EUR_RATE = null;
-let eurRateFetchedAt = 0;
-
-async function fetchEurRate() {
-  const now = Date.now();
-  if (EUR_RATE && (now - eurRateFetchedAt) < 60 * 60 * 1000) return EUR_RATE;
-  try {
-    const res  = await fetch('https://api.frankfurter.app/latest?from=USD&to=EUR');
-    const data = await res.json();
-    EUR_RATE = data.rates?.EUR ?? null;
-    eurRateFetchedAt = now;
-    console.log(`[Pricing] EUR/USD: ${EUR_RATE}`);
-  } catch (e) {
-    console.warn('[Pricing] EUR-Rate Fehler:', e.message);
-  }
-  return EUR_RATE;
-}
-
-fetchEurRate();
-setInterval(fetchEurRate, 60 * 60 * 1000);
-
-/**
- * Berechnet die Kosten eines Runs in EUR.
- * Rückgabe: { inputEur, outputEur, totalEur } oder null wenn kein Pricing vorhanden.
- */
-function computeRunCost(promptTokens, completionTokens) {
-  if (!PRICING || !EUR_RATE) return null;
-  const inputUsd  = (promptTokens     || 0) * PRICING.input_cost_per_token;
-  const outputUsd = (completionTokens || 0) * PRICING.output_cost_per_token;
-  return {
-    inputEur:  inputUsd  * EUR_RATE,
-    outputEur: outputUsd * EUR_RATE,
-    totalEur:  (inputUsd + outputUsd) * EUR_RATE,
-  };
-}
-
-/** Gesamtkosten eines Threads aus token_log. */
-function computeThreadCost(threadDbId) {
-  const t = getThreadCostTokens(threadDbId);
-  return computeRunCost(t.prompt_tokens, t.completion_tokens);
-}
-
-/** Gesamtkosten einer Aktivität aus token_log. */
-function computeActivityCost(actId) {
-  const t = getActivityCostTokens(actId);
-  return computeRunCost(t.prompt_tokens, t.completion_tokens);
-}
-
-/**
- * Reichert eine Nachrichten-Liste mit Kosten-Feldern an (Issue #12).
- * Assistenten-Nachrichten mit cost_prompt erhalten ein runCost-Objekt.
- */
-function enrichMessagesWithCost(messages) {
-  return messages.map(m => {
-    if (m.role === 'assistant' && m.cost_prompt != null) {
-      const cost = computeRunCost(m.cost_prompt, m.cost_completion);
-      return { ...m, runCost: cost };
-    }
-    return m;
-  });
-}
 
 /**
  * Reichert eine Schülerliste mit Kosten-Feldern an (Issue #12).
@@ -1398,25 +1309,7 @@ async function streamResponse(ws, settings, threadDbId) {
     const msgId = saveMessage({ thread_db_id: threadDbId, role: 'assistant', content: resContent });
 
     // Token-Verbrauch speichern (Responses API: input_tokens / output_tokens)
-    let runCost      = null;
-    let threadCost   = null;
-    let activityCost = null;
-    try {
-      if (usage && threadDbId) {
-        const mapped = {
-          prompt_tokens:     usage.input_tokens,
-          completion_tokens: usage.output_tokens,
-          total_tokens:      usage.total_tokens,
-        };
-        saveTokenUsage(threadDbId, settings?.activityId || null, effectiveModel, mapped, msgId);
-        console.log(`[Token] ${effectiveModel} – input=${usage.input_tokens} output=${usage.output_tokens}`);
-        runCost      = computeRunCost(mapped.prompt_tokens, mapped.completion_tokens);
-        threadCost   = computeThreadCost(threadDbId);
-        activityCost = computeActivityCost(settings?.activityId || null);
-      }
-    } catch (e) {
-      console.warn('[Token] Fehler beim Speichern:', e.message);
-    }
+    const costs = recordUsage(threadDbId, settings?.activityId || null, effectiveModel, usage, msgId);
 
     // Dashboard benachrichtigen
     if (settings.activityId) {
@@ -1429,9 +1322,9 @@ async function streamResponse(ws, settings, threadDbId) {
         content:      resContent,
         createdAt:    new Date().toISOString(),
         messageId:    msgId,
-        runCost,
-        threadCost,
-        activityCost,
+        runCost:      costs?.runCost      ?? null,
+        threadCost:   costs?.threadCost   ?? null,
+        activityCost: costs?.activityCost ?? null,
       });
     }
 
