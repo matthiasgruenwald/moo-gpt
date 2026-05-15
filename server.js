@@ -25,6 +25,7 @@ import { recordUsage, enrichMessagesWithCost, computeThreadCost, computeActivity
 import { runSimulation } from './simulation.js';
 import { suggestCriteriaList, augmentCriteria } from './criteria.js';
 import { generateOptimizeProposal } from './optimize.js';
+import { ClientRegistry } from './client-registry.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -127,44 +128,11 @@ function checkOrigin(ws, req, next) {
 
 // Issue #5: Teacher-Dashboard -----------------------------------------------
 
-/** Map activityId → Set<ws>  für Live-Updates im Lehrer-Dashboard. */
-const dashboardClients = new Map();
+const dashboardRegistry = new ClientRegistry();
+const chatRegistry      = new ClientRegistry();
 
 /** P3: activityId → { timerHandle? } für Plenum-Sperre. */
 const activityLocks = new Map();
-
-/** P3: activityId → Set<ws> für Chat-Clients (Schüler). */
-const activityChatClients = new Map();
-
-/** P3: Sendet ein Ereignis an alle Schüler-Chat-Clients einer Aktivität. */
-function notifyChatClients(activityId, payload) {
-  const clients = activityChatClients.get(String(activityId));
-  if (!clients) return;
-  const msg = JSON.stringify(payload);
-  for (const ws of clients) {
-    if (ws.readyState === ws.OPEN) ws.send(msg);
-  }
-}
-
-/** Sendet ein Ereignis an alle verbundenen Lehrer-Dashboards einer Aktivität. */
-function notifyDashboard(activityId, payload) {
-  const clients = dashboardClients.get(String(activityId));
-  if (!clients || clients.size === 0) return;
-  const msg = JSON.stringify(payload);
-  for (const ws of clients) {
-    if (ws.readyState === ws.OPEN) ws.send(msg);
-  }
-}
-
-/** Sendet ein Ereignis an ALLE verbundenen Dashboards (z.B. bei Config-Änderung). */
-function notifyAllDashboards(payload) {
-  const msg = JSON.stringify(payload);
-  for (const clients of dashboardClients.values()) {
-    for (const ws of clients) {
-      if (ws.readyState === ws.OPEN) ws.send(msg);
-    }
-  }
-}
 
 /** Gibt das effektive Modell zurück: persönliche Präferenz > globaler DB-Wert. */
 function getEffectiveModel(isTeacher, userId) {
@@ -355,7 +323,7 @@ app.put('/api/admin/config', requireAdminAuth, (req, res) => {
 
   saveSystemPrompt(systemPrompt, model, userId);
   cachedConfig = { content: systemPrompt, model };
-  notifyAllDashboards({ type: 'configUpdated', model, updatedBy: userId });
+  dashboardRegistry.broadcastAll({ type: 'configUpdated', model, updatedBy: userId });
   console.log(`[Admin] Systemprompt + Modell gespeichert von ${userId}, Modell: ${model}`);
   res.json({ ok: true });
 });
@@ -705,15 +673,15 @@ app.post('/api/activity/:activityId/lock', requireDashboardAuth, (req, res) => {
   if (durationMinutes > 0) {
     entry.timerHandle = setTimeout(() => {
       activityLocks.delete(String(activityId));
-      notifyChatClients(activityId, { type: 'unlocked' });
-      notifyDashboard(activityId, { type: 'unlocked' });
+      chatRegistry.broadcast(activityId, { type: 'unlocked' });
+      dashboardRegistry.broadcast(activityId, { type: 'unlocked' });
       console.log(`[Lock] Aktivität ${activityId} automatisch entsperrt nach ${durationMinutes} min`);
     }, durationMinutes * 60 * 1000);
   }
 
   activityLocks.set(String(activityId), entry);
-  notifyChatClients(activityId, { type: 'locked' });
-  notifyDashboard(activityId, { type: 'locked' });
+  chatRegistry.broadcast(activityId, { type: 'locked' });
+  dashboardRegistry.broadcast(activityId, { type: 'locked' });
   console.log(`[Lock] Aktivität ${activityId} gesperrt von ${userId}, Timer: ${durationMinutes} min`);
   res.json({ ok: true, locked: true });
 });
@@ -724,8 +692,8 @@ app.delete('/api/activity/:activityId/lock', requireDashboardAuth, (req, res) =>
   const existing = activityLocks.get(String(activityId));
   if (existing?.timerHandle) clearTimeout(existing.timerHandle);
   activityLocks.delete(String(activityId));
-  notifyChatClients(activityId, { type: 'unlocked' });
-  notifyDashboard(activityId, { type: 'unlocked' });
+  chatRegistry.broadcast(activityId, { type: 'unlocked' });
+  dashboardRegistry.broadcast(activityId, { type: 'unlocked' });
   console.log(`[Lock] Aktivität ${activityId} entsperrt von ${userId}`);
   res.json({ ok: true, locked: false });
 });
@@ -975,8 +943,7 @@ app.ws('/api/dashboard-ws', (ws, req) => {
   }
 
   // Registrieren
-  if (!dashboardClients.has(activityId)) dashboardClients.set(activityId, new Set());
-  dashboardClients.get(activityId).add(ws);
+  dashboardRegistry.register(activityId, ws);
   console.log(`[Dashboard] Lehrer verbunden, activityId=${activityId}`);
 
   // Initialliste + Aufgabentitel + Kosten senden (Issue #12)
@@ -1018,7 +985,7 @@ app.ws('/api/dashboard-ws', (ws, req) => {
   });
 
   ws.on('close', () => {
-    dashboardClients.get(activityId)?.delete(ws);
+    dashboardRegistry.unregister(activityId, ws);
     console.log(`[Dashboard] Lehrer getrennt, activityId=${activityId}`);
   });
 });
@@ -1028,8 +995,8 @@ app.ws('/api/dashboard-ws', (ws, req) => {
 app.ws("/api/chat", (ws, req) => {
   checkOrigin(ws, req, () => {
     const session = new ChatSession(ws, {
-      activityChatClients, activityLocks, generateDashboardToken,
-      notifyDashboard, streamResponse, oai, VERSION,
+      chatRegistry, activityLocks, generateDashboardToken,
+      dashboardRegistry, streamResponse, oai, VERSION,
     });
 
     ws.on("message", (message) => {
@@ -1130,7 +1097,7 @@ async function streamResponse(ws, settings, threadDbId) {
 
     // Dashboard benachrichtigen
     if (settings.activityId) {
-      notifyDashboard(settings.activityId, {
+      dashboardRegistry.broadcast(settings.activityId, {
         type:         'newMessage',
         threadDbId,
         userId:       settings.userId   || null,

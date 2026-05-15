@@ -13,8 +13,8 @@ Identifiziert via `/improve-codebase-architecture`. Jedes Problem wird in einer 
 | 3 | Auth-Middleware einführen | erledigt |
 | 4 | Token-Logging-Modul extrahieren | erledigt |
 | 5 | AIClient-Seam etablieren | erledigt |
-| 6 | Simulation-Modul extrahieren | offen |
-| 7 | ClientRegistry für WebSocket-Clients | offen |
+| 6 | Simulation-Modul extrahieren | erledigt |
+| 7 | ClientRegistry für WebSocket-Clients | erledigt |
 
 ---
 

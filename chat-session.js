@@ -117,7 +117,7 @@ export class ChatSession {
   _cleanup() {
     clearInterval(this._keepalive);
     if (this.settings?.activityId) {
-      this._deps.activityChatClients.get(String(this.settings.activityId))?.delete(this.ws);
+      this._deps.chatRegistry.unregister(this.settings.activityId, this.ws);
     }
   }
 
@@ -138,9 +138,8 @@ export class ChatSession {
     // P3: Chat-Client registrieren (nur Schüler) + ggf. sofort sperren
     if (settings.activityId && !this.isTeacher) {
       const aid = String(settings.activityId);
-      const { activityChatClients, activityLocks } = this._deps;
-      if (!activityChatClients.has(aid)) activityChatClients.set(aid, new Set());
-      activityChatClients.get(aid).add(this.ws);
+      const { chatRegistry, activityLocks } = this._deps;
+      chatRegistry.register(aid, this.ws);
       if (activityLocks.has(aid)) this.ws.send(JSON.stringify({ type: 'locked' }));
     }
 
@@ -175,7 +174,7 @@ export class ChatSession {
     }
     saveMessage({ thread_db_id: this.threadDbId, role: 'user', content: msgObj.data.message });
     if (this.settings.activityId) {
-      this._deps.notifyDashboard(this.settings.activityId, {
+      this._deps.dashboardRegistry.broadcast(this.settings.activityId, {
         type: 'newMessage', threadDbId: this.threadDbId,
         userId:    this.settings.userId   || null,
         userName:  this.settings.userName || null,
@@ -235,7 +234,7 @@ export class ChatSession {
 
       saveMessage({ thread_db_id: this.threadDbId, role: 'user', content: dbContent, content_type: contentType });
       if (this.settings.activityId) {
-        this._deps.notifyDashboard(this.settings.activityId, {
+        this._deps.dashboardRegistry.broadcast(this.settings.activityId, {
           type: 'newMessage', threadDbId: this.threadDbId,
           userId: this.settings.userId || null, userName: this.settings.userName || null,
           role: 'user', content: dbContent, contentType,

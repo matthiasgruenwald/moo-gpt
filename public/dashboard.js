@@ -152,6 +152,10 @@ lockBtn.addEventListener('click', async () => {
   }
 });
 
+lockTimer.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !isLocked) lockBtn.click();
+});
+
 // ── Kosten-Formatierung (Issue #12) ──────────────────────────────────────────
 
 /**
