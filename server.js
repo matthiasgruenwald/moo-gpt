@@ -7,7 +7,6 @@ import http from "http";
 import https from "https";
 import cors from "cors";
 import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveFeedback, getFeedbackByActivity, saveErkenntnisse, getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser, createPersona, deletePersona, promotePersonaToGlobal, getAllTeacherPersonasGrouped, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
-import { execFileSync, execFile } from 'child_process';
 import { ChatSession } from "./chat-session.js";
 import { buildInstructions } from "./prompt-builder.js";
 import { getCachedConfig, updateCachedConfig } from './config-cache.js';
@@ -30,6 +29,7 @@ import { ClientRegistry } from './client-registry.js';
 import { validateTemplateFields } from './routes/validators.js';
 import { createActivityRouter } from './routes/activity.js';
 import dashboardRouter, { enrichStudentsWithCost } from './routes/dashboard.js';
+import { createAdminRouter } from './routes/admin.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -139,7 +139,9 @@ const chatRegistry      = new ClientRegistry();
 const activityLocks = new Map();
 
 const activityRouter = createActivityRouter({ chatRegistry, dashboardRegistry, activityLocks });
+const adminRouter = createAdminRouter({ dashboardRegistry });
 app.use('/api', activityRouter);
+app.use('/api', adminRouter);
 app.use('/api', dashboardRouter);
 
 /** Gibt das effektive Modell zurück: persönliche Präferenz > globaler DB-Wert. */
@@ -197,75 +199,6 @@ initDb();
   }
 }
 
-
-// ── Issue #17: Admin/Teacher-Config-Endpunkte ────────────────────────────────
-
-/** GET /api/admin/config?token=… – Prompt + Modell lesen (alle Lehrer) */
-app.get('/api/admin/config', requireTeacherAuth, (req, res) => {
-  const { userId } = req;
-  const pref = getTeacherPreference(userId);
-  res.json({
-    systemPrompt:    getCachedConfig().content,
-    model:           getCachedConfig().model,
-    availableModels: AVAILABLE_MODELS,
-    genModels:       GEN_MODELS,
-    isAdmin:         isAdmin(userId),
-    myModel:         pref?.preferred_model || null,
-  });
-});
-
-/** PUT /api/admin/config?token=… – Systemprompt + Globalmodell speichern (nur Admin) */
-app.put('/api/admin/config', requireAdminAuth, (req, res) => {
-  const { userId } = req;
-  const { systemPrompt, model } = req.body;
-  if (typeof systemPrompt !== 'string') return res.status(400).json({ error: 'systemPrompt fehlt' });
-  if (!model || !AVAILABLE_MODELS.includes(model)) return res.status(400).json({ error: 'Ungültiges Modell' });
-
-  saveSystemPrompt(systemPrompt, model, userId);
-  updateCachedConfig(systemPrompt, model);
-  dashboardRegistry.broadcastAll({ type: 'configUpdated', model, updatedBy: userId });
-  console.log(`[Admin] Systemprompt + Modell gespeichert von ${userId}, Modell: ${model}`);
-  res.json({ ok: true });
-});
-
-/** GET /api/admin/prompt-history?token=… – Versionshistorie (Admin) */
-app.get('/api/admin/prompt-history', requireAdminAuth, (req, res) => {
-  res.json({ history: getPromptHistory() });
-});
-
-/** DELETE /api/admin/prompt-history/:id?token=… – Historyeintrag löschen (Admin) */
-app.delete('/api/admin/prompt-history/:id', requireAdminAuth, (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (!id) return res.status(400).json({ error: 'Ungültige ID' });
-  const result = deletePromptHistoryEntry(id);
-  if (!result.ok) return res.status(400).json({ error: result.error });
-  res.json({ ok: true, history: getPromptHistory() });
-});
-
-/** GET /api/admin/admins?token=… – Admin-Liste (Admin) */
-app.get('/api/admin/admins', requireAdminAuth, (req, res) => {
-  res.json({ admins: getAdmins() });
-});
-
-/** POST /api/admin/admins?token=… – Admin hinzufügen (Admin) */
-app.post('/api/admin/admins', requireAdminAuth, (req, res) => {
-  const { userId } = req;
-  const { newUserId } = req.body;
-  if (!newUserId || typeof newUserId !== 'string') return res.status(400).json({ error: 'newUserId fehlt' });
-  addAdmin(newUserId.trim(), userId);
-  console.log(`[Admin] ${newUserId} als Admin eingetragen von ${userId}`);
-  res.json({ ok: true, admins: getAdmins() });
-});
-
-/** DELETE /api/admin/admins/:targetId?token=… – Admin entfernen (Admin) */
-app.delete('/api/admin/admins/:targetId', requireAdminAuth, (req, res) => {
-  const { userId } = req;
-  const targetId = req.params.targetId;
-  if (targetId === userId) return res.status(400).json({ error: 'Eigene Admin-Rechte nicht entziehbar' });
-  removeAdmin(targetId);
-  console.log(`[Admin] ${targetId} als Admin entfernt von ${userId}`);
-  res.json({ ok: true, admins: getAdmins() });
-});
 
 /** GET /api/teacher/preferences?token=… – Persönliche Präferenzen lesen */
 app.get('/api/teacher/preferences', requireTeacherAuth, (req, res) => {
@@ -332,31 +265,6 @@ app.put('/api/teacher/templates/:id/set-default', requireTeacherAuth, (req, res)
   const id = parseInt(req.params.id, 10);
   if (!id) return res.status(400).json({ error: 'Ungültige ID' });
   setTeacherTemplateDefault(id, userId);
-  res.json({ ok: true });
-});
-
-// ── P5b: Systemvorlage (Admin) ────────────────────────────────────────────────
-
-/** GET /api/admin/system-template?token= – Systemvorlage lesen */
-app.get('/api/admin/system-template', requireTeacherAuth, (req, res) => {
-  const tpl = getSystemTemplate();
-  res.json({
-    title:         tpl?.title         ?? '',
-    botIcon:       tpl?.bot_icon      ?? 'grw',
-    opener:        tpl?.opener        ?? '',
-    uploadMode:    tpl?.upload_mode   ?? 'off',
-    hintsTemplate: tpl?.hints_template ?? '',
-  });
-});
-
-/** PUT /api/admin/system-template?token= – Systemvorlage speichern (nur Admin) */
-app.put('/api/admin/system-template', requireAdminAuth, (req, res) => {
-  const { userId } = req;
-  const { title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
-  const validErr3 = validateTemplateFields(uploadMode, botIcon);
-  if (validErr3) return res.status(400).json({ error: validErr3 });
-  setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTemplate });
-  console.log(`[P5b] Systemvorlage gespeichert von ${userId}`);
   res.json({ ok: true });
 });
 
@@ -467,54 +375,6 @@ Leite 3–5 gut unterscheidbare Personas ab. Wenn keine Äußerungen vorliegen, 
     console.error('[Personas-Suggest] Fehler:', e);
     res.status(500).json({ error: e.message });
   }
-});
-
-// ── P6: Admin Personas ────────────────────────────────────────────────────────
-
-/** GET /api/admin/personas?token= – alle Lehrer-Personas sortiert nach Name */
-app.get('/api/admin/personas', requireAdminAuth, (req, res) => {
-  res.json({ personas: getAllTeacherPersonasGrouped() });
-});
-
-/** POST /api/admin/personas?token= – globale Persona erstellen */
-app.post('/api/admin/personas', requireAdminAuth, (req, res) => {
-  const { userId } = req;
-  const { name, description, example_msgs } = req.body;
-  if (!name?.trim()) return res.status(400).json({ error: 'name fehlt' });
-  createPersona({ teacherId: null, teacherName: null, name: name.trim(), description, example_msgs, createdBy: userId });
-  res.json({ ok: true, global: getGlobalPersonas() });
-});
-
-/** DELETE /api/admin/personas/:id?token= – beliebige Persona löschen */
-app.delete('/api/admin/personas/:id', requireAdminAuth, (req, res) => {
-  deletePersona(parseInt(req.params.id), null, true);
-  res.json({ ok: true });
-});
-
-/** PUT /api/admin/personas/:id/promote?token= – Lehrer-Persona zu global machen */
-app.put('/api/admin/personas/:id/promote', requireAdminAuth, (req, res) => {
-  const { userId } = req;
-  promotePersonaToGlobal(parseInt(req.params.id), userId);
-  res.json({ ok: true, global: getGlobalPersonas() });
-});
-
-// ── P8: Admin-Debug-Endpunkte ────────────────────────────────────────────────
-
-/** GET /api/admin/logs?token=&n=100 – letzte N Zeilen journalctl (Admin) */
-app.get('/api/admin/logs', requireAdminAuth, (req, res) => {
-  const n = Math.min(Math.max(parseInt(req.query.n) || 100, 1), 2000);
-  try {
-    const out = execFileSync('journalctl', ['-u', 'moo-gpt', '-n', String(n), '--no-pager', '--output=short-iso'], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
-    res.json({ lines: out.split('\n').filter(l => l.length > 0) });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-/** POST /api/admin/restart?token= – Dienst neu starten (Admin) */
-app.post('/api/admin/restart', requireAdminAuth, (req, res) => {
-  res.json({ ok: true });
-  setTimeout(() => execFile('systemctl', ['restart', 'moo-gpt'], () => {}), 500);
 });
 
 // ── Issue #21: Kriterien-Endpunkte ───────────────────────────────────────────
