@@ -6,7 +6,7 @@ import expressWs from "express-ws";
 import http from "http";
 import https from "https";
 import cors from "cors";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, saveErfahrungsprompt, getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveFeedback, getFeedbackByActivity, saveErkenntnisse, getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser, createPersona, deletePersona, promotePersonaToGlobal, getAllTeacherPersonasGrouped, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveFeedback, getFeedbackByActivity, saveErkenntnisse, getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser, createPersona, deletePersona, promotePersonaToGlobal, getAllTeacherPersonasGrouped, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
 import { ChatSession } from "./chat-session.js";
 import { buildInstructions } from "./prompt-builder.js";
 import { getCachedConfig, updateCachedConfig } from './config-cache.js';
@@ -31,6 +31,7 @@ import { createActivityRouter } from './routes/activity.js';
 import dashboardRouter, { enrichStudentsWithCost } from './routes/dashboard.js';
 import { createAdminRouter } from './routes/admin.js';
 import teacherRouter from './routes/teacher.js';
+import erfahrungspromptRouter from './routes/erfahrungsprompt.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -144,6 +145,7 @@ const adminRouter = createAdminRouter({ dashboardRegistry });
 app.use('/api', activityRouter);
 app.use('/api', adminRouter);
 app.use('/api', teacherRouter);
+app.use('/api', erfahrungspromptRouter);
 app.use('/api', dashboardRouter);
 
 /** Gibt das effektive Modell zurück: persönliche Präferenz > globaler DB-Wert. */
@@ -202,54 +204,6 @@ initDb();
 }
 
 
-// ── Issue #20: Erfahrungsprompt-Verwaltung + Prompt-Optimierung ──────────────
-
-/** GET /api/erfahrungsprompt/:activityId?token= */
-app.get('/api/erfahrungsprompt/:activityId', requireDashboardAuth, (req, res) => {
-  const { activityId } = req;
-  const erf = getActiveErfahrungsprompt(activityId);
-  res.json({ content: erf?.content || '', version: erf?.version || 0 });
-});
-
-/** POST /api/erfahrungsprompt/:activityId?token= – manuell speichern */
-app.post('/api/erfahrungsprompt/:activityId', requireDashboardAuth, (req, res) => {
-  const { activityId, userId } = req;
-  const { content } = req.body;
-  if (typeof content !== 'string') return res.status(400).json({ error: 'content fehlt' });
-  saveErfahrungsprompt(activityId, content, userId);
-  console.log(`[Erfahrungsprompt] Gespeichert für ${activityId} von ${userId}`);
-  res.json({ ok: true });
-});
-
-/** GET /api/erfahrungsprompt-history/:activityId?token= */
-app.get('/api/erfahrungsprompt-history/:activityId', requireDashboardAuth, (req, res) => {
-  const { activityId } = req;
-  res.json({ history: getErfahrungspromptHistory(activityId) });
-});
-
-/** DELETE /api/erfahrungsprompt-history/:id?activityId=&token= */
-app.delete('/api/erfahrungsprompt-history/:id', requireDashboardAuth, (req, res) => {
-  const { activityId } = req;
-  const id = parseInt(req.params.id, 10);
-  if (!id) return res.status(400).json({ error: 'Ungültige ID' });
-  const result = deleteErfahrungspromptHistoryEntry(activityId, id);
-  if (!result.ok) return res.status(400).json({ error: result.error });
-  res.json({ ok: true, history: getErfahrungspromptHistory(activityId) });
-});
-
-
-/** POST /api/optimize-prompt?activityId=X&token= – KI-Vorschlag generieren */
-app.post('/api/optimize-prompt', requireDashboardAuth, async (req, res) => {
-  const { activityId } = req;
-  try {
-    const result = await generateOptimizeProposal(activityId, '', getCachedConfig(), aiClient);
-    console.log(`[Optimize] Vorschlag für ${activityId} generiert (${result.kausalkette.length} Kausalketten-Einträge)`);
-    res.json(result);
-  } catch (e) {
-    console.error('[Optimize] Fehler:', e);
-    res.status(500).json({ error: e.message });
-  }
-});
 
 /** POST /api/erkenntnisse?activityId=X&token= – Erkenntnisse aus Kausalkette speichern */
 app.post('/api/erkenntnisse', requireDashboardAuth, (req, res) => {
