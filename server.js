@@ -28,6 +28,7 @@ import { suggestCriteriaList, augmentCriteria } from './criteria.js';
 import { generateOptimizeProposal } from './optimize.js';
 import { ClientRegistry } from './client-registry.js';
 import { validateTemplateFields } from './routes/validators.js';
+import { createActivityRouter } from './routes/activity.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -136,6 +137,9 @@ const chatRegistry      = new ClientRegistry();
 /** P3: activityId → { timerHandle? } für Plenum-Sperre. */
 const activityLocks = new Map();
 
+const activityRouter = createActivityRouter({ chatRegistry, dashboardRegistry, activityLocks });
+app.use('/api', activityRouter);
+
 /** Gibt das effektive Modell zurück: persönliche Präferenz > globaler DB-Wert. */
 function getEffectiveModel(isTeacher, userId) {
   if (isTeacher && userId) {
@@ -201,38 +205,6 @@ initDb();
   }
 }
 
-
-// ── P5: Aktivitäts-Konfig-Endpoints ─────────────────────────────────────────
-
-/** GET /api/activity-config/:activityId?token= – Konfig für config.html lesen */
-app.get('/api/activity-config/:activityId', requireDashboardAuth, (req, res) => {
-  const { activityId, userId } = req;
-  const act  = getActivity(activityId);
-  const erf  = getActiveErfahrungsprompt(activityId);
-  const pref = getTeacherPreference(userId);
-  res.json({
-    activityId,
-    activityName:     act?.activity_name   || '',
-    title:            act?.title           ?? '',
-    botIcon:          act?.bot_icon        ?? 'grw',
-    opener:           act?.opener          || '',
-    uploadMode:       act?.upload_mode     || 'off',
-    erfahrungsprompt: erf?.content         || '',
-    myModel:          pref?.preferred_model || null,
-    availableModels:  AVAILABLE_MODELS,
-  });
-});
-
-/** PUT /api/activity-config/:activityId?token= – Opener + Upload-Modus speichern */
-app.put('/api/activity-config/:activityId', requireDashboardAuth, (req, res) => {
-  const { activityId, userId } = req;
-  const { opener, uploadMode, title, botIcon } = req.body;
-  const validErr = validateTemplateFields(uploadMode, botIcon);
-  if (validErr) return res.status(400).json({ error: validErr });
-  setActivityConfig(activityId, opener ?? null, uploadMode ?? null, title ?? null, botIcon ?? null);
-  console.log(`[Config] Aktivität ${activityId} aktualisiert von ${userId}`);
-  res.json({ ok: true });
-});
 
 // ── Issue #5: Teacher-Dashboard REST-Endpoints ──────────────────────────────
 
@@ -627,44 +599,6 @@ app.patch('/api/criteria/:id/restore', requireDashboardAuth, (req, res) => {
   const { activityId } = req;
   restoreCriterion(parseInt(req.params.id));
   res.json({ ok: true, criteria: getCriteria(activityId), deletedCriteria: getDeletedCriteria(activityId) });
-});
-
-// ── P3: Plenum-Sperre ────────────────────────────────────────────────────────
-
-/** POST /api/activity/:activityId/lock?token= – Aktivität sperren */
-app.post('/api/activity/:activityId/lock', requireDashboardAuth, (req, res) => {
-  const { activityId, userId } = req;
-  const existing = activityLocks.get(String(activityId));
-  if (existing?.timerHandle) clearTimeout(existing.timerHandle);
-
-  const entry = {};
-  const durationMinutes = Math.min(120, Math.max(0, Number(req.body.durationMinutes) || 0));
-  if (durationMinutes > 0) {
-    entry.timerHandle = setTimeout(() => {
-      activityLocks.delete(String(activityId));
-      chatRegistry.broadcast(activityId, { type: 'unlocked' });
-      dashboardRegistry.broadcast(activityId, { type: 'unlocked' });
-      console.log(`[Lock] Aktivität ${activityId} automatisch entsperrt nach ${durationMinutes} min`);
-    }, durationMinutes * 60 * 1000);
-  }
-
-  activityLocks.set(String(activityId), entry);
-  chatRegistry.broadcast(activityId, { type: 'locked' });
-  dashboardRegistry.broadcast(activityId, { type: 'locked' });
-  console.log(`[Lock] Aktivität ${activityId} gesperrt von ${userId}, Timer: ${durationMinutes} min`);
-  res.json({ ok: true, locked: true });
-});
-
-/** DELETE /api/activity/:activityId/lock?token= – Aktivität entsperren */
-app.delete('/api/activity/:activityId/lock', requireDashboardAuth, (req, res) => {
-  const { activityId, userId } = req;
-  const existing = activityLocks.get(String(activityId));
-  if (existing?.timerHandle) clearTimeout(existing.timerHandle);
-  activityLocks.delete(String(activityId));
-  chatRegistry.broadcast(activityId, { type: 'unlocked' });
-  dashboardRegistry.broadcast(activityId, { type: 'unlocked' });
-  console.log(`[Lock] Aktivität ${activityId} entsperrt von ${userId}`);
-  res.json({ ok: true, locked: false });
 });
 
 // ── Issues #21 + #26: Simulation (SSE-Streaming) ─────────────────────────────

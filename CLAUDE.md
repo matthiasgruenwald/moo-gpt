@@ -31,12 +31,17 @@ KI-Chatbot-Widget für Moodle (IGS Mittelstufe, v.a. Jg. 9). Floating-Chat-Widge
 
 | Datei | Zweck |
 |-------|-------|
-| `server.js` | WebSocket-Server, Express-Routing, OpenAI-Anbindung |
+| `server.js` | WebSocket-Server, Express-Routing, Route-Mounting |
+| `config-cache.js` | Modul-Singleton für cachedConfig (System-Prompt + Modell) |
+| `ai-instance.js` | oai + aiClient Singletons, APIKEY-Guard |
+| `env-config.js` | Berechnete Env-Konstanten: MODEL_NAME, AVAILABLE_MODELS, GEN_MODEL, GEN_MODELS |
 | `ai-client.js` | AIClient: textCall, jsonCall (konfig. Timeout), Streaming |
 | `simulation.js` | runSimulation: Äußerungen, KI-Antwort, Evaluierung |
 | `criteria.js` | suggestCriteriaList, augmentCriteria |
 | `optimize.js` | generateOptimizeProposal (Erfahrungsprompt-Vorschlag) |
 | `prompt-builder.js` | buildInstructions: System-Prompt zusammensetzen |
+| `routes/validators.js` | validateTemplateFields (uploadMode, botIcon) |
+| `routes/activity.js` | createActivityRouter: GET/PUT activity-config, POST/DELETE activity lock |
 | `auth-middleware.js` | requireDashboardAuth, requireTeacherAuth, requireAdminAuth |
 | `token-log.js` | recordUsage, enrichMessagesWithCost, computeCosts |
 | `chat-session.js` | ChatSession: WebSocket-Handler für /api/chat |
