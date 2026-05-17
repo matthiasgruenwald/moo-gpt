@@ -1,4 +1,4 @@
-# Schritt 9: routes/criteria.js
+# Schritt 9: routes/criteria.js ✅ erledigt
 
 Bewertungskriterien, Erkenntnisse und Schüler-Feedback.
 Drei inhaltlich verwandte Domänen, alle um Qualitätsbewertung von Chat-Antworten.

@@ -47,6 +47,7 @@ KI-Chatbot-Widget für Moodle (IGS Mittelstufe, v.a. Jg. 9). Floating-Chat-Widge
 | `routes/teacher.js` | Teacher-Präferenzen, Lehrer-Templates |
 | `routes/erfahrungsprompt.js` | Erfahrungsprompt CRUD + optimize-prompt |
 | `routes/personas.js` | Lehrer-Personas, Admin-Personas, personas-suggest |
+| `routes/criteria.js` | createCriteriaRouter: Kriterien CRUD, Erkenntnisse, Feedback-Bewertung |
 | `auth-middleware.js` | requireDashboardAuth, requireTeacherAuth, requireAdminAuth |
 | `token-log.js` | recordUsage, enrichMessagesWithCost, computeCosts |
 | `chat-session.js` | ChatSession: WebSocket-Handler für /api/chat |
