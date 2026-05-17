@@ -5,7 +5,6 @@ import {
   isAdmin, addAdmin, removeAdmin, getAdmins,
   saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry,
   getSystemTemplate, setSystemTemplate,
-  getAllTeacherPersonasGrouped, getGlobalPersonas, createPersona, deletePersona, promotePersonaToGlobal,
   getTeacherPreference,
 } from '../db.js';
 import { getCachedConfig, updateCachedConfig } from '../config-cache.js';
@@ -94,29 +93,6 @@ export function createAdminRouter({ dashboardRegistry }) {
     setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTemplate });
     console.log(`[P5b] Systemvorlage gespeichert von ${userId}`);
     res.json({ ok: true });
-  });
-
-  router.get('/admin/personas', requireAdminAuth, (req, res) => {
-    res.json({ personas: getAllTeacherPersonasGrouped() });
-  });
-
-  router.post('/admin/personas', requireAdminAuth, (req, res) => {
-    const { userId } = req;
-    const { name, description, example_msgs } = req.body;
-    if (!name?.trim()) return res.status(400).json({ error: 'name fehlt' });
-    createPersona({ teacherId: null, teacherName: null, name: name.trim(), description, example_msgs, createdBy: userId });
-    res.json({ ok: true, global: getGlobalPersonas() });
-  });
-
-  router.delete('/admin/personas/:id', requireAdminAuth, (req, res) => {
-    deletePersona(parseInt(req.params.id), null, true);
-    res.json({ ok: true });
-  });
-
-  router.put('/admin/personas/:id/promote', requireAdminAuth, (req, res) => {
-    const { userId } = req;
-    promotePersonaToGlobal(parseInt(req.params.id), userId);
-    res.json({ ok: true, global: getGlobalPersonas() });
   });
 
   router.get('/admin/logs', requireAdminAuth, (req, res) => {

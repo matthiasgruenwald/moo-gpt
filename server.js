@@ -6,7 +6,7 @@ import expressWs from "express-ws";
 import http from "http";
 import https from "https";
 import cors from "cors";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveFeedback, getFeedbackByActivity, saveErkenntnisse, getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser, createPersona, deletePersona, promotePersonaToGlobal, getAllTeacherPersonasGrouped, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getStudentMessages } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveFeedback, getFeedbackByActivity, saveErkenntnisse, getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion } from "./db.js";
 import { ChatSession } from "./chat-session.js";
 import { buildInstructions } from "./prompt-builder.js";
 import { getCachedConfig, updateCachedConfig } from './config-cache.js';
@@ -32,6 +32,7 @@ import dashboardRouter, { enrichStudentsWithCost } from './routes/dashboard.js';
 import { createAdminRouter } from './routes/admin.js';
 import teacherRouter from './routes/teacher.js';
 import erfahrungspromptRouter from './routes/erfahrungsprompt.js';
+import personasRouter from './routes/personas.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -146,6 +147,7 @@ app.use('/api', activityRouter);
 app.use('/api', adminRouter);
 app.use('/api', teacherRouter);
 app.use('/api', erfahrungspromptRouter);
+app.use('/api', personasRouter);
 app.use('/api', dashboardRouter);
 
 /** Gibt das effektive Modell zurück: persönliche Präferenz > globaler DB-Wert. */
@@ -217,53 +219,6 @@ app.post('/api/erkenntnisse', requireDashboardAuth, (req, res) => {
   res.json({ ok: true, saved: items.length });
 });
 
-
-// ── P6: Personas ─────────────────────────────────────────────────────────────
-
-/** GET /api/personas?token= – globale + lehrer-eigene Personas */
-app.get('/api/personas', requireTeacherAuth, (req, res) => {
-  const { userId } = req;
-  res.json({ global: getGlobalPersonas(), own: getTeacherPersonas(userId) });
-});
-
-/** POST /api/personas?token= – lehrer-eigene Persona speichern */
-app.post('/api/personas', requireTeacherAuth, (req, res) => {
-  const { userId } = req;
-  const { name, description, example_msgs } = req.body;
-  if (!name?.trim()) return res.status(400).json({ error: 'name fehlt' });
-  const teacherName = getUserNameFromToken(req.query.token);
-  createPersona({ teacherId: userId, teacherName, name: name.trim(), description, example_msgs, createdBy: userId });
-  res.json({ ok: true, own: getTeacherPersonas(userId) });
-});
-
-/** DELETE /api/personas/:id?token= – eigene Persona löschen */
-app.delete('/api/personas/:id', requireTeacherAuth, (req, res) => {
-  const { userId } = req;
-  deletePersona(parseInt(req.params.id), userId, false);
-  res.json({ ok: true, own: getTeacherPersonas(userId) });
-});
-
-/** POST /api/personas-suggest?activityId=X&token= – KI schlägt Personas vor */
-app.post('/api/personas-suggest', requireDashboardAuth, async (req, res) => {
-  const { activityId } = req;
-  try {
-    const { genModel } = req.body;
-    const msgs   = getStudentMessages(activityId);
-    const sample = msgs.slice(0, 60).map(m => m.content).join('\n---\n');
-    const result = await aiClient.jsonCall(
-      `Du analysierst Schüleräußerungen aus einer Lernaktivität und leitest typische Schüler-Personas ab.
-Antworte AUSSCHLIESSLICH mit validem JSON:
-{ "personas": [{ "name": "...", "description": "...", "example_msgs": "Beispiel 1|Beispiel 2|Beispiel 3" }] }
-Leite 3–5 gut unterscheidbare Personas ab. Wenn keine Äußerungen vorliegen, erstelle generische Schüler-Typen für eine IGS Klasse 9.`,
-      msgs.length ? `Schüler-Äußerungen:\n${sample}` : 'Noch keine Schüler-Äußerungen vorhanden. Erstelle typische Klasse-9-Personas.',
-      genModel || GEN_MODEL
-    );
-    res.json({ suggestions: result.personas || [] });
-  } catch (e) {
-    console.error('[Personas-Suggest] Fehler:', e);
-    res.status(500).json({ error: e.message });
-  }
-});
 
 // ── Issue #21: Kriterien-Endpunkte ───────────────────────────────────────────
 
