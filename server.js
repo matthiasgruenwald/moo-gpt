@@ -6,7 +6,7 @@ import expressWs from "express-ws";
 import http from "http";
 import https from "https";
 import cors from "cors";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveFeedback, getFeedbackByActivity, saveErkenntnisse, getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser, getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion } from "./db.js";
+import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveErkenntnisse, getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser, getCriteria } from "./db.js";
 import { ChatSession } from "./chat-session.js";
 import { buildInstructions } from "./prompt-builder.js";
 import { getCachedConfig, updateCachedConfig } from './config-cache.js';
@@ -23,7 +23,7 @@ import {
 } from './auth-middleware.js';
 import { recordUsage, enrichMessagesWithCost, computeThreadCost, computeActivityCost, computeRunCost } from './token-log.js';
 import { runSimulation } from './simulation.js';
-import { suggestCriteriaList, augmentCriteria } from './criteria.js';
+import { augmentCriteria } from './criteria.js';
 import { generateOptimizeProposal } from './optimize.js';
 import { ClientRegistry } from './client-registry.js';
 import { validateTemplateFields } from './routes/validators.js';
@@ -33,6 +33,7 @@ import { createAdminRouter } from './routes/admin.js';
 import teacherRouter from './routes/teacher.js';
 import erfahrungspromptRouter from './routes/erfahrungsprompt.js';
 import personasRouter from './routes/personas.js';
+import criteriaRouter from './routes/criteria.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -148,6 +149,7 @@ app.use('/api', adminRouter);
 app.use('/api', teacherRouter);
 app.use('/api', erfahrungspromptRouter);
 app.use('/api', personasRouter);
+app.use('/api', criteriaRouter);
 app.use('/api', dashboardRouter);
 
 /** Gibt das effektive Modell zurück: persönliche Präferenz > globaler DB-Wert. */
@@ -206,62 +208,6 @@ initDb();
 }
 
 
-
-/** POST /api/erkenntnisse?activityId=X&token= – Erkenntnisse aus Kausalkette speichern */
-app.post('/api/erkenntnisse', requireDashboardAuth, (req, res) => {
-  const { activityId } = req;
-  const { items } = req.body; // [{ problem, ursache, aenderung }]
-  if (!Array.isArray(items)) return res.status(400).json({ error: 'items-Array fehlt' });
-  for (const item of items) {
-    const text = [item.problem, item.ursache, item.aenderung].filter(Boolean).join(' → ');
-    if (text) saveErkenntnisse(activityId, text, 'ai');
-  }
-  res.json({ ok: true, saved: items.length });
-});
-
-
-// ── Issue #21: Kriterien-Endpunkte ───────────────────────────────────────────
-
-/** GET /api/criteria/:activityId?token= */
-app.get('/api/criteria/:activityId', requireDashboardAuth, (req, res) => {
-  const { activityId } = req;
-  res.json({ criteria: getCriteria(activityId), deletedCriteria: getDeletedCriteria(activityId) });
-});
-
-/** POST /api/criteria-suggest/:activityId?token= – KI schlägt Kriterien vor */
-app.post('/api/criteria-suggest/:activityId', requireDashboardAuth, async (req, res) => {
-  const { activityId } = req;
-  try {
-    const suggestions = await suggestCriteriaList(activityId, getCachedConfig(), req.body.genModel, aiClient);
-    res.json({ suggestions });
-  } catch (e) {
-    console.error('[Criteria-Suggest] Fehler:', e);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-/** POST /api/criteria/:activityId?token= – Kriterium hinzufügen */
-app.post('/api/criteria/:activityId', requireDashboardAuth, (req, res) => {
-  const { activityId, userId } = req;
-  const { content } = req.body;
-  if (!content) return res.status(400).json({ error: 'content fehlt' });
-  saveErkenntnisse(activityId, content, 'criteria');
-  res.json({ ok: true, criteria: getCriteria(activityId), deletedCriteria: getDeletedCriteria(activityId) });
-});
-
-/** DELETE /api/criteria/:id?activityId=X&token= – Soft-Delete */
-app.delete('/api/criteria/:id', requireDashboardAuth, (req, res) => {
-  const { activityId } = req;
-  softDeleteCriterion(parseInt(req.params.id));
-  res.json({ ok: true, criteria: getCriteria(activityId), deletedCriteria: getDeletedCriteria(activityId) });
-});
-
-/** PATCH /api/criteria/:id/restore?activityId=X&token= */
-app.patch('/api/criteria/:id/restore', requireDashboardAuth, (req, res) => {
-  const { activityId } = req;
-  restoreCriterion(parseInt(req.params.id));
-  res.json({ ok: true, criteria: getCriteria(activityId), deletedCriteria: getDeletedCriteria(activityId) });
-});
 
 // ── Issues #21 + #26: Simulation (SSE-Streaming) ─────────────────────────────
 
@@ -457,34 +403,6 @@ app.post('/api/one-click-optimize', requireDashboardAuth, async (req, res) => {
   }
 
   res.end();
-});
-
-// ── Issue #19: Feedback-Bewertung ────────────────────────────────────────────
-
-/** POST /api/feedback?activityId=…&token=… */
-app.post('/api/feedback', requireDashboardAuth, (req, res) => {
-  const { activityId, userId } = req;
-  const { messageId, threadId, rating, comment, improvedText } = req.body;
-  if (!messageId || !['gut', 'schlecht'].includes(rating))
-    return res.status(400).json({ error: 'messageId und rating (gut|schlecht) erforderlich' });
-  try {
-    saveFeedback({ messageId, threadId, activityId, rating, comment, improvedText, ratedBy: userId });
-    res.json({ ok: true });
-  } catch (e) {
-    console.error('[Feedback] Fehler:', e);
-    res.status(500).json({ error: 'Interner Fehler' });
-  }
-});
-
-/** GET /api/feedback/:activityId?token=… */
-app.get('/api/feedback/:activityId', requireDashboardAuth, (req, res) => {
-  const { activityId } = req;
-  try {
-    res.json({ feedback: getFeedbackByActivity(activityId) });
-  } catch (e) {
-    console.error('[Feedback] Ladefehler:', e);
-    res.status(500).json({ error: 'Interner Fehler' });
-  }
 });
 
 // ── Issue #5: Teacher-Dashboard WebSocket (Live-Updates) ────────────────────
