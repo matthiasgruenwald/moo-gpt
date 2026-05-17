@@ -61,38 +61,39 @@ In `server.js` eingebunden. Smoke-Test bestanden.
 `routes/validators.js` mit `validateTemplateFields()` + Konstanten.
 In `server.js` importieren und lokale Definition löschen. Smoke-Test bestanden.
 
-### Schritt 3 — Activity-Router extrahieren
+### ~~Schritt 3 — Activity-Router extrahieren~~ ✓
 **Datei:** `03-routes-activity.md`
 
 `routes/activity.js` mit 4 Endpunkten (activity-config, plenum-lock).
 Factory-Pattern wegen `chatRegistry`, `dashboardRegistry`, `activityLocks`.
 
-### Schritt 4 — Dashboard-Router extrahieren
+### ~~Schritt 4 — Dashboard-Router extrahieren~~ ✓
 **Datei:** `04-routes-dashboard.md`
 
 `routes/dashboard.js` mit 2 HTTP-Endpunkten (students, messages).
 `enrichStudentsWithCost` zieht hier rein.
 
-### Schritt 5 — Admin-Router extrahieren
+### ~~Schritt 5 — Admin-Router extrahieren~~ ✓
 **Datei:** `05-routes-admin.md`
 
-`routes/admin.js` mit 12 Endpunkten.
+`routes/admin.js` mit 8 Endpunkten (ohne Admin-Personas, die in Schritt 8 wandern).
 Liest und schreibt `cachedConfig` via `config-cache.js`.
 
-### Schritt 6 — Teacher-Router extrahieren
+### ~~Schritt 6 — Teacher-Router extrahieren~~ ✓
 **Datei:** `06-routes-teacher.md`
 
 `routes/teacher.js` mit 7 Endpunkten (preferences, templates, system-template).
 
-### Schritt 7 — Erfahrungsprompt-Router extrahieren
+### ~~Schritt 7 — Erfahrungsprompt-Router extrahieren~~ ✓
 **Datei:** `07-routes-erfahrungsprompt.md`
 
 `routes/erfahrungsprompt.js` mit 5 Endpunkten inkl. optimize-prompt.
 
-### Schritt 8 — Personas-Router extrahieren
+### ~~Schritt 8 — Personas-Router extrahieren~~ ✓
 **Datei:** `08-routes-personas.md`
 
-`routes/personas.js` mit 7 Endpunkten (Lehrer + Admin-Personas + suggest).
+`routes/personas.js` mit 8 Endpunkten (Lehrer-Personas, personas-suggest, Admin-Personas).
+Admin-Personas aus `routes/admin.js` hierher verschoben (gleiche DB-Domäne).
 
 ### Schritt 9 — Criteria-Router extrahieren
 **Datei:** `09-routes-criteria.md`
