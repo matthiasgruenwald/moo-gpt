@@ -1,7 +1,6 @@
 const VERSION = "3.0.0";
 
 import express from "express";
-import OpenAI from "openai";
 import fs from "fs";
 import expressWs from "express-ws";
 import http from "http";
@@ -11,7 +10,9 @@ import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, 
 import { execFileSync, execFile } from 'child_process';
 import { ChatSession } from "./chat-session.js";
 import { buildInstructions } from "./prompt-builder.js";
-import { AIClient } from "./ai-client.js";
+import { getCachedConfig, updateCachedConfig } from './config-cache.js';
+import { oai, aiClient } from './ai-instance.js';
+import { MODEL_NAME, AVAILABLE_MODELS, GEN_MODEL, GEN_MODELS } from './env-config.js';
 import {
   isOriginAllowed,
   generateDashboardToken,
@@ -26,6 +27,7 @@ import { runSimulation } from './simulation.js';
 import { suggestCriteriaList, augmentCriteria } from './criteria.js';
 import { generateOptimizeProposal } from './optimize.js';
 import { ClientRegistry } from './client-registry.js';
+import { validateTemplateFields } from './routes/validators.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -142,7 +144,7 @@ function getEffectiveModel(isTeacher, userId) {
       return pref.preferred_model;
     }
   }
-  return cachedConfig.model || MODEL_NAME;
+  return getCachedConfig().model || MODEL_NAME;
 }
 
 // ---------------------------------------------------------------------------
@@ -161,32 +163,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-if (!process.env.APIKEY) {
-  console.error("APIKEY ist nicht gesetzt");
-  process.exit(1);
-}
-if (!process.env.MODEL_NAME) {
-  console.error("MODEL_NAME ist nicht gesetzt (z.B. gpt-5)");
-  process.exit(1);
-}
-
-const oai = new OpenAI({ apiKey: process.env.APIKEY });
-const aiClient = new AIClient(oai);
-
-// Issue #13: Modell + System-Prompt aus Env (Fallback, wenn DB noch leer)
-const MODEL_NAME    = process.env.MODEL_NAME;
+// Issue #13: System-Prompt aus Env (Fallback, wenn DB noch leer)
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || '';
-
-// Issue #17: Verfügbare Modelle und aktive Konfiguration (DB überschreibt Env)
-const AVAILABLE_MODELS = process.env.AVAILABLE_MODELS
-  ? process.env.AVAILABLE_MODELS.split(',').map(m => m.trim()).filter(Boolean)
-  : [MODEL_NAME];
-
-// Issue #25: Günstige Modelle für Hilfsgenerierungen (Kriterien, Personas, Äußerungen, Evaluierung)
-const GEN_MODEL  = process.env.GEN_MODEL || 'gpt-4.1-nano';
-const GEN_MODELS = [...new Set(['gpt-4.1-nano', 'gpt-4.1', ...AVAILABLE_MODELS])];
-
-let cachedConfig = { content: SYSTEM_PROMPT, model: MODEL_NAME }; // wird nach initDb() überschrieben
 
 /**
  * Reichert eine Schülerliste mit Kosten-Feldern an (Issue #12).
@@ -214,24 +192,15 @@ initDb();
 {
   const dbPrompt = getActiveSystemPrompt();
   if (dbPrompt) {
-    cachedConfig = { content: dbPrompt.content, model: dbPrompt.model || MODEL_NAME };
-    console.log(`[Config] Systemprompt aus DB (v${dbPrompt.version}), Modell: ${cachedConfig.model}`);
+    updateCachedConfig(dbPrompt.content, dbPrompt.model || MODEL_NAME);
+    console.log(`[Config] Systemprompt aus DB (v${dbPrompt.version}), Modell: ${getCachedConfig().model}`);
   } else {
     saveSystemPrompt(SYSTEM_PROMPT || '', MODEL_NAME, 'env-migration');
-    cachedConfig = { content: SYSTEM_PROMPT || '', model: MODEL_NAME };
+    updateCachedConfig(SYSTEM_PROMPT || '', MODEL_NAME);
     console.log(`[Config] Systemprompt aus ENV in DB migriert, Modell: ${MODEL_NAME}`);
   }
 }
 
-
-const VALID_UPLOAD_MODES = ['off', 'images', 'files'];
-const VALID_BOT_ICONS    = ['grw', 'grw2', 'weiblich'];
-
-function validateTemplateFields(uploadMode, botIcon) {
-  if (uploadMode !== undefined && !VALID_UPLOAD_MODES.includes(uploadMode)) return 'Ungültiger uploadMode';
-  if (botIcon !== undefined && botIcon !== '' && !VALID_BOT_ICONS.includes(botIcon)) return 'Ungültiges botIcon';
-  return null;
-}
 
 // ── P5: Aktivitäts-Konfig-Endpoints ─────────────────────────────────────────
 
@@ -305,8 +274,8 @@ app.get('/api/admin/config', requireTeacherAuth, (req, res) => {
   const { userId } = req;
   const pref = getTeacherPreference(userId);
   res.json({
-    systemPrompt:    cachedConfig.content,
-    model:           cachedConfig.model,
+    systemPrompt:    getCachedConfig().content,
+    model:           getCachedConfig().model,
     availableModels: AVAILABLE_MODELS,
     genModels:       GEN_MODELS,
     isAdmin:         isAdmin(userId),
@@ -322,7 +291,7 @@ app.put('/api/admin/config', requireAdminAuth, (req, res) => {
   if (!model || !AVAILABLE_MODELS.includes(model)) return res.status(400).json({ error: 'Ungültiges Modell' });
 
   saveSystemPrompt(systemPrompt, model, userId);
-  cachedConfig = { content: systemPrompt, model };
+  updateCachedConfig(systemPrompt, model);
   dashboardRegistry.broadcastAll({ type: 'configUpdated', model, updatedBy: userId });
   console.log(`[Admin] Systemprompt + Modell gespeichert von ${userId}, Modell: ${model}`);
   res.json({ ok: true });
@@ -500,7 +469,7 @@ app.delete('/api/erfahrungsprompt-history/:id', requireDashboardAuth, (req, res)
 app.post('/api/optimize-prompt', requireDashboardAuth, async (req, res) => {
   const { activityId } = req;
   try {
-    const result = await generateOptimizeProposal(activityId, '', cachedConfig, aiClient);
+    const result = await generateOptimizeProposal(activityId, '', getCachedConfig(), aiClient);
     console.log(`[Optimize] Vorschlag für ${activityId} generiert (${result.kausalkette.length} Kausalketten-Einträge)`);
     res.json(result);
   } catch (e) {
@@ -629,7 +598,7 @@ app.get('/api/criteria/:activityId', requireDashboardAuth, (req, res) => {
 app.post('/api/criteria-suggest/:activityId', requireDashboardAuth, async (req, res) => {
   const { activityId } = req;
   try {
-    const suggestions = await suggestCriteriaList(activityId, cachedConfig, req.body.genModel, aiClient);
+    const suggestions = await suggestCriteriaList(activityId, getCachedConfig(), req.body.genModel, aiClient);
     res.json({ suggestions });
   } catch (e) {
     console.error('[Criteria-Suggest] Fehler:', e);
@@ -731,7 +700,7 @@ app.post('/api/simulate', requireDashboardAuth, async (req, res) => {
 
     const { pairs, simResultsText } = await runSimulation({
       persona,
-      config:            cachedConfig,
+      config:            getCachedConfig(),
       erfahrungsprompt:  erfahrungsprompt?.content || '',
       criteria,
       models:            { utteranceModel: uModel, evalModel: eModel },
@@ -746,7 +715,7 @@ app.post('/api/simulate', requireDashboardAuth, async (req, res) => {
     sendEvent('progress', { label: 'Generiere Erfahrungsprompt-Vorschlag…' });
 
     try {
-      const suggestion = await generateOptimizeProposal(activityId, simResultsText, cachedConfig, aiClient);
+      const suggestion = await generateOptimizeProposal(activityId, simResultsText, getCachedConfig(), aiClient);
       sendEvent('suggestion', suggestion);
       console.log(`[Simulate] Erfahrungsprompt-Vorschlag gesendet`);
     } catch (optErr) {
@@ -829,7 +798,7 @@ app.post('/api/one-click-optimize', requireDashboardAuth, async (req, res) => {
   try {
     // Phase 1: Kriterien ergänzen
     const existing    = getCriteria(activityId);
-    const newCriteria = await augmentCriteria(activityId, existing, cachedConfig, aiClient);
+    const newCriteria = await augmentCriteria(activityId, existing, getCachedConfig(), aiClient);
     for (const c of newCriteria) saveErkenntnisse(activityId, c, 'criteria');
     sendEvent('criteria', { added: newCriteria.length, total: existing.length + newCriteria.length });
     console.log(`[OneClick] Kriterien: ${existing.length} vorhanden, ${newCriteria.length} ergänzt`);
@@ -854,7 +823,7 @@ app.post('/api/one-click-optimize', requireDashboardAuth, async (req, res) => {
       try {
         result = await runSimulation({
           persona,
-          config:           cachedConfig,
+          config:           getCachedConfig(),
           erfahrungsprompt: erfahrungsprompt?.content || '',
           criteria:         currentCriteria,
           models:           { utteranceModel: GEN_MODEL, evalModel: GEN_MODEL },
@@ -882,7 +851,7 @@ app.post('/api/one-click-optimize', requireDashboardAuth, async (req, res) => {
       `Bewertung: ${r.pair.evaluation.overall} (Score ${r.pair.evaluation.score}/5) – ${r.pair.evaluation.summary || ''}`
     ).join('\n---\n');
 
-    const proposal = await generateOptimizeProposal(activityId, simResultsText, cachedConfig, aiClient);
+    const proposal = await generateOptimizeProposal(activityId, simResultsText, getCachedConfig(), aiClient);
     sendEvent('optimize_done', proposal);
     console.log(`[OneClick] Fertig für ${activityId}`);
 
@@ -1062,7 +1031,7 @@ async function streamResponse(ws, settings, threadDbId) {
 
   const effectiveModel = getEffectiveModel(ws.isTeacher, ws.userId);
   const instructions   = buildInstructions({
-    systemContent:    cachedConfig.content,
+    systemContent:    getCachedConfig().content,
     erfahrungContent: getActiveErfahrungsprompt(settings.activityId)?.content ?? '',
     hints:            settings.hints,
     task:             settings.task,
