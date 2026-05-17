@@ -31,7 +31,15 @@ KI-Chatbot-Widget für Moodle (IGS Mittelstufe, v.a. Jg. 9). Floating-Chat-Widge
 
 | Datei | Zweck |
 |-------|-------|
-| `server.js` | WebSocket-Server, OpenAI-Anbindung |
+| `server.js` | WebSocket-Server, Express-Routing, OpenAI-Anbindung |
+| `ai-client.js` | AIClient: textCall, jsonCall (konfig. Timeout), Streaming |
+| `simulation.js` | runSimulation: Äußerungen, KI-Antwort, Evaluierung |
+| `criteria.js` | suggestCriteriaList, augmentCriteria |
+| `optimize.js` | generateOptimizeProposal (Erfahrungsprompt-Vorschlag) |
+| `prompt-builder.js` | buildInstructions: System-Prompt zusammensetzen |
+| `auth-middleware.js` | requireDashboardAuth, requireTeacherAuth, requireAdminAuth |
+| `token-log.js` | recordUsage, enrichMessagesWithCost, computeCosts |
+| `chat-session.js` | ChatSession: WebSocket-Handler für /api/chat |
 | `db.js` | SQLite-Modul |
 | `public/moo-bot.js` | Floating-Chat-Widget (ES-Modul) |
 | `public/dashboard.html` / `dashboard.js` | Lehrer-Dashboard |
