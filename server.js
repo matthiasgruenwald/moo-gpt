@@ -30,6 +30,7 @@ import { validateTemplateFields } from './routes/validators.js';
 import { createActivityRouter } from './routes/activity.js';
 import dashboardRouter, { enrichStudentsWithCost } from './routes/dashboard.js';
 import { createAdminRouter } from './routes/admin.js';
+import teacherRouter from './routes/teacher.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -142,6 +143,7 @@ const activityRouter = createActivityRouter({ chatRegistry, dashboardRegistry, a
 const adminRouter = createAdminRouter({ dashboardRegistry });
 app.use('/api', activityRouter);
 app.use('/api', adminRouter);
+app.use('/api', teacherRouter);
 app.use('/api', dashboardRouter);
 
 /** Gibt das effektive Modell zurück: persönliche Präferenz > globaler DB-Wert. */
@@ -199,74 +201,6 @@ initDb();
   }
 }
 
-
-/** GET /api/teacher/preferences?token=… – Persönliche Präferenzen lesen */
-app.get('/api/teacher/preferences', requireTeacherAuth, (req, res) => {
-  const { userId } = req;
-  const pref = getTeacherPreference(userId);
-  res.json({ myModel: pref?.preferred_model || null, availableModels: AVAILABLE_MODELS });
-});
-
-/** PUT /api/teacher/preferences?token=… – Persönliches Modell setzen */
-app.put('/api/teacher/preferences', requireTeacherAuth, (req, res) => {
-  const { userId } = req;
-  const { model } = req.body;
-  const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
-  if (model && model !== '' && !validModel) return res.status(400).json({ error: 'Ungültiges Modell' });
-  setTeacherPreference(userId, validModel);
-  console.log(`[Teacher] ${userId} setzt Modell-Präferenz: ${validModel || 'Standard'}`);
-  res.json({ ok: true, myModel: validModel });
-});
-
-// ── P5b: Lehrer-Vorlagen-Bibliothek ──────────────────────────────────────────
-
-/** GET /api/teacher/templates?token= – alle Vorlagen der Lehrkraft */
-app.get('/api/teacher/templates', requireTeacherAuth, (req, res) => {
-  const { userId } = req;
-  res.json({ templates: getTeacherTemplates(userId) });
-});
-
-/** POST /api/teacher/templates?token= – neue Vorlage anlegen */
-app.post('/api/teacher/templates', requireTeacherAuth, (req, res) => {
-  const { userId } = req;
-  const { name, title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
-  if (!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
-  const validErr1 = validateTemplateFields(uploadMode, botIcon);
-  if (validErr1) return res.status(400).json({ error: validErr1 });
-  const id = createTeacherTemplate(userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate });
-  res.json({ ok: true, id });
-});
-
-/** PUT /api/teacher/templates/:id?token= – Vorlage aktualisieren */
-app.put('/api/teacher/templates/:id', requireTeacherAuth, (req, res) => {
-  const { userId } = req;
-  const id = parseInt(req.params.id, 10);
-  if (!id) return res.status(400).json({ error: 'Ungültige ID' });
-  const { name, title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
-  if (!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
-  const validErr2 = validateTemplateFields(uploadMode, botIcon);
-  if (validErr2) return res.status(400).json({ error: validErr2 });
-  updateTeacherTemplate(id, userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate });
-  res.json({ ok: true });
-});
-
-/** DELETE /api/teacher/templates/:id?token= – Vorlage löschen */
-app.delete('/api/teacher/templates/:id', requireTeacherAuth, (req, res) => {
-  const { userId } = req;
-  const id = parseInt(req.params.id, 10);
-  if (!id) return res.status(400).json({ error: 'Ungültige ID' });
-  deleteTeacherTemplate(id, userId);
-  res.json({ ok: true });
-});
-
-/** PUT /api/teacher/templates/:id/set-default?token= – als Standard markieren */
-app.put('/api/teacher/templates/:id/set-default', requireTeacherAuth, (req, res) => {
-  const { userId } = req;
-  const id = parseInt(req.params.id, 10);
-  if (!id) return res.status(400).json({ error: 'Ungültige ID' });
-  setTeacherTemplateDefault(id, userId);
-  res.json({ ok: true });
-});
 
 // ── Issue #20: Erfahrungsprompt-Verwaltung + Prompt-Optimierung ──────────────
 
