@@ -6,27 +6,29 @@ import expressWs from "express-ws";
 import http from "http";
 import https from "https";
 import cors from "cors";
-import { initDb, saveThread, saveMessage, findThread, touchThread, getMessages, getMessagesAll, getStudents, updateThreadName, upsertActivity, getActivity, setActivityConfig, isAdmin, addAdmin, removeAdmin, getAdmins, getActiveSystemPrompt, saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry, getActiveErfahrungsprompt, getTeacherPreference, setTeacherPreference, getTeacherTemplates, getTeacherDefaultTemplate, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault, getSystemTemplate, setSystemTemplate, saveErkenntnisse, getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser, getCriteria } from "./db.js";
+import {
+  initDb,
+  getActiveSystemPrompt, saveSystemPrompt,
+  addAdmin,
+  getStudents, getActivity,
+  getMessages,
+  getMessagesAll,
+  getActiveErfahrungsprompt,
+  getTeacherPreference,
+  saveMessage,
+} from './db.js';
 import { ChatSession } from "./chat-session.js";
 import { buildInstructions } from "./prompt-builder.js";
 import { getCachedConfig, updateCachedConfig } from './config-cache.js';
 import { oai, aiClient } from './ai-instance.js';
-import { MODEL_NAME, AVAILABLE_MODELS, GEN_MODEL, GEN_MODELS } from './env-config.js';
+import { MODEL_NAME, AVAILABLE_MODELS } from './env-config.js';
 import {
   isOriginAllowed,
   generateDashboardToken,
   validateDashboardToken,
-  getUserNameFromToken,
-  requireTeacherAuth,
-  requireDashboardAuth,
-  requireAdminAuth,
 } from './auth-middleware.js';
-import { recordUsage, enrichMessagesWithCost, computeThreadCost, computeActivityCost, computeRunCost } from './token-log.js';
-import { runSimulation } from './simulation.js';
-import { augmentCriteria } from './criteria.js';
-import { generateOptimizeProposal } from './optimize.js';
+import { recordUsage, enrichMessagesWithCost, computeThreadCost, computeActivityCost } from './token-log.js';
 import { ClientRegistry } from './client-registry.js';
-import { validateTemplateFields } from './routes/validators.js';
 import { createActivityRouter } from './routes/activity.js';
 import dashboardRouter, { enrichStudentsWithCost } from './routes/dashboard.js';
 import { createAdminRouter } from './routes/admin.js';
@@ -143,39 +145,6 @@ const chatRegistry      = new ClientRegistry();
 /** P3: activityId → { timerHandle? } für Plenum-Sperre. */
 const activityLocks = new Map();
 
-const activityRouter = createActivityRouter({ chatRegistry, dashboardRegistry, activityLocks });
-const adminRouter = createAdminRouter({ dashboardRegistry });
-app.use('/api', activityRouter);
-app.use('/api', adminRouter);
-app.use('/api', teacherRouter);
-app.use('/api', erfahrungspromptRouter);
-app.use('/api', personasRouter);
-app.use('/api', criteriaRouter);
-app.use('/api', simulationRouter);
-app.use('/api', dashboardRouter);
-
-/** Gibt das effektive Modell zurück: persönliche Präferenz > globaler DB-Wert. */
-function getEffectiveModel(isTeacher, userId) {
-  if (isTeacher && userId) {
-    const pref = getTeacherPreference(userId);
-    if (pref?.preferred_model && AVAILABLE_MODELS.includes(pref.preferred_model)) {
-      return pref.preferred_model;
-    }
-  }
-  return getCachedConfig().model || MODEL_NAME;
-}
-
-// ---------------------------------------------------------------------------
-
-function checkFormat(ws, msgObj, next) {
-  const sendErr = (msg) => { ws.send(JSON.stringify({ end: true, messages: msg })); console.log(msg); };
-  if (!msgObj.hasOwnProperty("type"))       return sendErr("Error: Missing or wrong Parameter 'type' in JSON message");
-  if (typeof msgObj.type !== "string")       return sendErr("Error: Parameter 'type' is not a string in JSON message");
-  if (!msgObj.hasOwnProperty("data"))       return sendErr("Error: Missing or wrong Parameter 'data' in JSON message");
-  if (typeof msgObj.data !== "object")      return sendErr("Error: Parameter 'data' is not a object in JSON message");
-  next();
-}
-
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -209,7 +178,38 @@ initDb();
   }
 }
 
+const activityRouter = createActivityRouter({ chatRegistry, dashboardRegistry, activityLocks });
+const adminRouter    = createAdminRouter({ dashboardRegistry });
+app.use('/api', activityRouter);
+app.use('/api', adminRouter);
+app.use('/api', teacherRouter);
+app.use('/api', erfahrungspromptRouter);
+app.use('/api', personasRouter);
+app.use('/api', criteriaRouter);
+app.use('/api', simulationRouter);
+app.use('/api', dashboardRouter);
 
+/** Gibt das effektive Modell zurück: persönliche Präferenz > globaler DB-Wert. */
+function getEffectiveModel(isTeacher, userId) {
+  if (isTeacher && userId) {
+    const pref = getTeacherPreference(userId);
+    if (pref?.preferred_model && AVAILABLE_MODELS.includes(pref.preferred_model)) {
+      return pref.preferred_model;
+    }
+  }
+  return getCachedConfig().model || MODEL_NAME;
+}
+
+// ---------------------------------------------------------------------------
+
+function checkFormat(ws, msgObj, next) {
+  const sendErr = (msg) => { ws.send(JSON.stringify({ end: true, messages: msg })); console.log(msg); };
+  if (!msgObj.hasOwnProperty("type"))       return sendErr("Error: Missing or wrong Parameter 'type' in JSON message");
+  if (typeof msgObj.type !== "string")       return sendErr("Error: Parameter 'type' is not a string in JSON message");
+  if (!msgObj.hasOwnProperty("data"))       return sendErr("Error: Missing or wrong Parameter 'data' in JSON message");
+  if (typeof msgObj.data !== "object")      return sendErr("Error: Parameter 'data' is not a object in JSON message");
+  next();
+}
 
 // ── Issue #5: Teacher-Dashboard WebSocket (Live-Updates) ────────────────────
 
