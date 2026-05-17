@@ -29,6 +29,7 @@ import { generateOptimizeProposal } from './optimize.js';
 import { ClientRegistry } from './client-registry.js';
 import { validateTemplateFields } from './routes/validators.js';
 import { createActivityRouter } from './routes/activity.js';
+import dashboardRouter, { enrichStudentsWithCost } from './routes/dashboard.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -139,6 +140,7 @@ const activityLocks = new Map();
 
 const activityRouter = createActivityRouter({ chatRegistry, dashboardRegistry, activityLocks });
 app.use('/api', activityRouter);
+app.use('/api', dashboardRouter);
 
 /** Gibt das effektive Modell zurück: persönliche Präferenz > globaler DB-Wert. */
 function getEffectiveModel(isTeacher, userId) {
@@ -170,16 +172,6 @@ app.use(express.static("public"));
 // Issue #13: System-Prompt aus Env (Fallback, wenn DB noch leer)
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || '';
 
-/**
- * Reichert eine Schülerliste mit Kosten-Feldern an (Issue #12).
- */
-function enrichStudentsWithCost(students) {
-  return students.map(s => ({
-    ...s,
-    threadCost: computeRunCost(s.cost_prompt || 0, s.cost_completion || 0),
-  }));
-}
-
 // SQLite-DB initialisieren
 initDb();
 
@@ -205,39 +197,6 @@ initDb();
   }
 }
 
-
-// ── Issue #5: Teacher-Dashboard REST-Endpoints ──────────────────────────────
-
-/** GET /api/dashboard/students?activityId=…&token=… */
-app.get('/api/dashboard/students', requireDashboardAuth, (req, res) => {
-  const { activityId } = req;
-  try {
-    const students = getStudents(activityId);
-    const act      = getActivity(activityId);
-    res.json({ students, activityName: act?.activity_name, opener: act?.opener });
-  } catch (e) {
-    console.error('[Dashboard] getStudents error:', e);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-/** GET /api/dashboard/messages/:threadDbId?activityId=…&token=… */
-app.get('/api/dashboard/messages/:threadDbId', requireDashboardAuth, (req, res) => {
-  const { activityId } = req;
-  const threadDbId = parseInt(req.params.threadDbId);
-  if (isNaN(threadDbId)) return res.status(400).json({ error: 'Invalid threadDbId' });
-  try {
-    const students = getStudents(activityId);
-    const student  = students.find(s => s.thread_db_id === threadDbId);
-    if (!student) return res.status(403).json({ error: 'Forbidden' });
-    const messages   = enrichMessagesWithCost(getMessages(threadDbId));
-    const threadCost = computeThreadCost(threadDbId);
-    res.json({ student, messages, threadCost });
-  } catch (e) {
-    console.error('[Dashboard] getMessages error:', e);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
 
 // ── Issue #17: Admin/Teacher-Config-Endpunkte ────────────────────────────────
 
