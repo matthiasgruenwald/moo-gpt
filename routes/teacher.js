@@ -4,7 +4,7 @@ import {
   getTeacherPreference, setTeacherPreference,
   getTeacherTemplates, createTeacherTemplate, updateTeacherTemplate,
   deleteTeacherTemplate, setTeacherTemplateDefault,
-} from '../db.js';
+} from '../stores/teacher.js';
 import { AVAILABLE_MODELS } from '../env-config.js';
 import { validateTemplateFields } from './validators.js';
 

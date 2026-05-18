@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireDashboardAuth } from '../auth-middleware.js';
 import { getActivity, setActivityConfig } from '../stores/activity.js';
 import { getActiveErfahrungsprompt } from '../stores/prompt.js';
-import { getTeacherPreference } from '../db.js';
+import { getTeacherPreference } from '../stores/teacher.js';
 import { AVAILABLE_MODELS } from '../env-config.js';
 import { validateTemplateFields } from './validators.js';
 

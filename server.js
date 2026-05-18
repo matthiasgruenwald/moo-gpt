@@ -14,9 +14,9 @@ import {
   getStudents,
   getMessages,
   getMessagesAll,
-  getTeacherPreference,
   saveMessage,
 } from './db.js';
+import { getTeacherPreference } from './stores/teacher.js';
 import { ChatSession } from "./chat-session.js";
 import { buildInstructions } from "./prompt-builder.js";
 import { getCachedConfig, updateCachedConfig } from './config-cache.js';

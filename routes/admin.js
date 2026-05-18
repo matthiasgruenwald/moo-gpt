@@ -3,10 +3,7 @@ import { execFileSync, execFile } from 'child_process';
 import { requireAdminAuth, requireTeacherAuth } from '../auth-middleware.js';
 import { isAdmin, addAdmin, removeAdmin, getAdmins } from '../stores/admin.js';
 import { saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry } from '../stores/prompt.js';
-import {
-  getSystemTemplate, setSystemTemplate,
-  getTeacherPreference,
-} from '../db.js';
+import { getSystemTemplate, setSystemTemplate, getTeacherPreference } from '../stores/teacher.js';
 import { getCachedConfig, updateCachedConfig } from '../config-cache.js';
 import { AVAILABLE_MODELS, GEN_MODELS } from '../env-config.js';
 import { validateTemplateFields } from './validators.js';
