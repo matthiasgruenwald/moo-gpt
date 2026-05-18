@@ -1,10 +1,8 @@
 import { Router } from 'express';
 import { requireDashboardAuth } from '../auth-middleware.js';
 import { getActiveErfahrungsprompt } from '../stores/prompt.js';
-import {
-  getAllPersonasForUser, getGlobalPersonas, getTeacherPersonas,
-  getCriteria, saveErkenntnisse,
-} from '../db.js';
+import { getAllPersonasForUser, getGlobalPersonas, getTeacherPersonas } from '../db.js';
+import { getCriteria, saveErkenntnisse } from '../stores/criteria.js';
 import { runSimulation } from '../simulation.js';
 import { generateOptimizeProposal } from '../optimize.js';
 import { augmentCriteria } from '../criteria.js';

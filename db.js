@@ -299,21 +299,6 @@ export function updateThreadName(thread_db_id, moodle_user_name) {
 }
 
 
-export function getErkenntnisse(activityId) {
-  return db.prepare(`
-    SELECT id, activity_id, content, source, created_at
-    FROM erkenntnisse
-    WHERE activity_id = ? OR activity_id IS NULL
-    ORDER BY created_at DESC LIMIT 50
-  `).all(activityId || '');
-}
-
-export function saveErkenntnisse(activityId, content, source) {
-  db.prepare(`
-    INSERT INTO erkenntnisse (activity_id, content, source) VALUES (?, ?, ?)
-  `).run(activityId || null, content, source || 'ai');
-}
-
 // ── Personas & Simulation (P6) ───────────────────────────────────────────────
 
 export function getGlobalPersonas() {
@@ -356,30 +341,6 @@ export function getAllTeacherPersonasGrouped() {
   return db.prepare(`
     SELECT * FROM personas WHERE teacher_id IS NOT NULL ORDER BY COALESCE(teacher_name, teacher_id) ASC, name ASC
   `).all();
-}
-
-export function getCriteria(activityId) {
-  return db.prepare(`
-    SELECT * FROM erkenntnisse
-    WHERE source = 'criteria' AND COALESCE(status, 'active') = 'active' AND (activity_id = ? OR activity_id IS NULL)
-    ORDER BY created_at ASC
-  `).all(activityId);
-}
-
-export function getDeletedCriteria(activityId) {
-  return db.prepare(`
-    SELECT * FROM erkenntnisse
-    WHERE source = 'criteria' AND status = 'deleted' AND (activity_id = ? OR activity_id IS NULL)
-    ORDER BY created_at ASC
-  `).all(activityId);
-}
-
-export function softDeleteCriterion(id) {
-  db.prepare(`UPDATE erkenntnisse SET status = 'deleted' WHERE id = ? AND source = 'criteria'`).run(id);
-}
-
-export function restoreCriterion(id) {
-  db.prepare(`UPDATE erkenntnisse SET status = 'active' WHERE id = ? AND source = 'criteria'`).run(id);
 }
 
 export function getStudentMessages(activityId) {

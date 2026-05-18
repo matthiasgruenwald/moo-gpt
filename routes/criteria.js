@@ -3,7 +3,7 @@ import { requireDashboardAuth } from '../auth-middleware.js';
 import {
   getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion,
   saveErkenntnisse,
-} from '../db.js';
+} from '../stores/criteria.js';
 import { saveFeedback, getFeedbackByActivity } from '../stores/feedback.js';
 import { suggestCriteriaList } from '../criteria.js';
 import { aiClient } from '../ai-instance.js';
