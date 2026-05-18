@@ -24,11 +24,10 @@ Alle Konfiguration erfolgt über Umgebungsvariablen. Empfohlen: `/etc/moo-gpt.en
 | Variable | Pflicht | Beschreibung |
 |---|---|---|
 | `APIKEY` | ✅ | OpenAI API Key |
-| `MODEL_NAME` | ✅ | Standard-Modell beim Erststart, z. B. `gpt-5`. Wird beim ersten Start in die DB migriert – danach im Dashboard änderbar. |
-| `SYSTEM_PROMPT` | – | System-Prompt beim Erststart. Wird beim ersten Start in die DB migriert – danach im Dashboard änderbar. |
-| `ADMIN_USER_IDS` | – | Kommagetrennte Moodle-User-IDs der initialen Admins, z. B. `12345,67890`. Idempotent beim Start eingetragen. Danach im Dashboard verwaltbar. |
+| `MODEL_NAME` | ✅ | Fallback-Modell, z. B. `gpt-5`. Wird beim ersten Start in die DB migriert – danach im Dashboard änderbar. Hinweis: wird in einer späteren Version mit `AVAILABLE_MODELS` zusammengeführt. |
+| `ADMIN_USER_IDS` | empfohlen | Kommagetrennte Moodle-User-IDs der initialen Admins, z. B. `12345,67890`. Ohne diesen Eintrag ist das Dashboard nur per direktem SQL-Zugriff einrichtbar. Danach im Dashboard verwaltbar. |
 | `AVAILABLE_MODELS` | – | Kommagetrennte Liste der im Dashboard angebotenen Modelle, z. B. `gpt-5,gpt-4o,gpt-4.1-mini`. Alle Modelle müssen Vision unterstützen. Standard: nur `MODEL_NAME`. |
-| `TEACHER_USER_IDS` | – | Kommagetrennte Moodle-User-IDs, die serverseitig als Lehrkraft eingestuft werden – unabhängig vom Client-Flag. Nützlich als Fallback bei abweichenden Themes. |
+| `TEACHER_USER_IDS` | – | Kommagetrennte Moodle-User-IDs, die serverseitig als Lehrkraft eingestuft werden – unabhängig vom Client-Flag. Nützlich als Fallback bei abweichenden Themes. Wird in einer späteren Version im Dashboard verwaltbar sein. |
 | `ALLOWED_ORIGIN` | – | Kommagetrennte Liste erlaubter Origins, z. B. `https://moodle.beispiel.de`. Ohne diese Variable ist jede Origin erlaubt. |
 | `MAX_REQUESTS` | – | Max. Anfragen pro IP und Tag, z. B. `4`. |
 | `DB_PATH` | – | Pfad zur SQLite-Datenbankdatei. Standard: `./chats.db` |
@@ -38,10 +37,8 @@ Alle Konfiguration erfolgt über Umgebungsvariablen. Empfohlen: `/etc/moo-gpt.en
 ```env
 APIKEY=sk-proj-...
 MODEL_NAME=gpt-5
-SYSTEM_PROMPT=Du bist ein freundlicher Lern-Assistent...
 ADMIN_USER_IDS=12345,67890
 AVAILABLE_MODELS=gpt-5,gpt-4o,gpt-4.1-mini
-TEACHER_USER_IDS=12345,67890
 ALLOWED_ORIGIN=https://moodle.beispiel.de
 DB_PATH=/opt/moo-gpt/chats.db
 ```
@@ -95,9 +92,15 @@ docker run -d -p 3000:3000 \
 
 ## Reverse Proxy / HTTPS
 
-moo-gpt erwartet HTTPS und WebSocket-Upgrade. Empfohlen: Nginx oder Caddy als Reverse Proxy, Cloudflare Tunnel oder vergleichbar.
+moo-gpt erwartet HTTPS und WebSocket-Upgrade. Der Server lauscht auf Port `3000`, WebSocket-Pfad `/api/chat`.
 
-Der Server lauscht auf Port `3000`. WebSocket-Pfad: `/api/chat`
+Gängige Optionen: Nginx, Caddy als Reverse Proxy oder ein Cloudflare Tunnel. Letzteres ist die einfachste Variante ohne eigene TLS-Zertifikate:
+
+```bash
+# Cloudflare Tunnel (einmalige Einrichtung über das Cloudflare-Dashboard)
+cloudflared service install
+# Tunnel leitet moo-gpt.beispiel.de → localhost:3000 weiter
+```
 
 ## Zeitzone
 
@@ -109,6 +112,33 @@ timedatectl set-timezone Europe/Berlin
 
 Die Zeitstempel im Chat-Fenster werden unabhängig davon korrekt dargestellt (clientseitig aus UTC umgerechnet).
 
-## Dokumente für die KI (Vector Storage)
+---
 
-Dokumente, die der KI-Assistent lesen soll, müssen im OpenAI-Dashboard unter platform.openai.com hochgeladen werden. Sollen diese Dokumente auch für Schüler herunterladbar sein, die Dateien unter gleichem Namen in `public/storage/` ablegen.
+## Einbindung in Moodle (Admin)
+
+Dieser Abschnitt richtet sich an Moodle-Administratoren. Die Einbindung des Chat-Widgets erfordert Admin-Rechte in Moodle.
+
+### Voraussetzung: Snippet-Plugin installieren
+
+moo-gpt wird über das TinyMCE-Plugin **Snippet für TinyMCE** (`tiny_snippet`) in Moodle eingebunden. Das Plugin muss einmalig von einem Moodle-Administrator installiert werden.
+
+> 📸 *Screenshot: Plugin-Installation in der Moodle-Plugin-Verwaltung (folgt)*
+
+### Snippet importieren
+
+Im Verzeichnis `snippets/` liegen zwei fertige Snippet-Dateien:
+
+| Datei | Verwendung |
+|---|---|
+| `snippet1_aufgabe.html` | Für Moodle-Aufgaben |
+| `snippet2_testfrage.html` | Für Quiz-/Testfragen (iframe) |
+
+Import per Drag & Drop: Die `.html`-Datei direkt in das Snippet-Plugin ziehen. Vor dem Import die URL der eigenen moo-gpt-Instanz in der Datei anpassen (Suche nach `moo-gpt.beispiel.de`).
+
+> 📸 *Screenshot: Snippet-Import via Drag & Drop im TinyMCE-Snippet-Plugin (folgt)*
+
+### Snippet in einer Aufgabe verwenden
+
+Nach dem Import kann das Snippet in jeder Moodle-Aufgabe über den TinyMCE-Editor eingefügt werden.
+
+> 📸 *Screenshot: Snippet-Auswahl im TinyMCE-Editor (folgt)*

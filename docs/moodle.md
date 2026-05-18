@@ -17,25 +17,9 @@ Zwei fertige Snippets liegen im Verzeichnis `snippets/`:
 
 Einrichtung und Import im Detail: → [`snippets/SNIPPET-SETUP.md`](../snippets/SNIPPET-SETUP.md)
 
-## Manuell einbinden (Aufgabe)
+## Manuell einbinden
 
-```html
-<script type="module" async id="moo-bot">
-  const settings = {
-    "host": "moo-gpt.beispiel.de",
-    "protocol": "https",
-    "port": 443,
-    "opener": "Hallo, wie kann ich dir helfen?",
-    "title": "KI-Assistent",
-    "hints": "Du gibst nur Hinweise, keine fertigen Lösungen.",
-    "task": document.querySelector('.activity-description')?.innerHTML || ""
-  };
-  import { MMBBSBOT } from 'https://moo-gpt.beispiel.de/moo-bot.js';
-  const bot = new MMBBSBOT(settings);
-</script>
-```
-
-`host` und die Import-URL auf die eigene moo-gpt-Instanz anpassen.
+> ⚠️ **Aktuell nicht empfohlen.** Die Konfiguration des Widgets erfolgt serverseitig über das Dashboard – eine vollständige manuelle Einbindung per HTML-Snippet ist derzeit nicht funktional. Für diesen Anwendungsfall bitte ein [Issue anlegen](https://github.com/matthiasgruenwald/moo-gpt/issues/new).
 
 ## Manuell einbinden (Quiz-/Testfrage)
 
@@ -57,22 +41,10 @@ Lehrkräfte sehen nach dem Öffnen des Chat-Widgets automatisch einen Dashboard-
 
 ## Rollenerkennung
 
-Das Widget erkennt automatisch, ob der aktuelle Nutzer Lehrkraft oder Schüler ist:
-
-- **Lehrkraft:** `form[action*="editmode.php"]` (Bearbeiten-Button) im Moodle-DOM sichtbar
-- **„Als Teilnehmer ansehen":** Moodle setzt die Body-Klasse `userswitchedrole` – wird korrekt als Schüler erkannt
-- **Serverseitiger Override:** `TEACHER_USER_IDS` in der Serverkonfiguration setzen
-
-> ⚠️ **Theme-Abhängigkeit:** Funktioniert zuverlässig im Boost-Theme. Bei anderen Themes in der Browser-Konsole prüfen:
-> ```js
-> document.querySelector('form[action*="editmode.php"]') !== null
-> ```
-> Muss für Lehrkräfte `true` und für Schüler `false` ergeben.
+Das Widget erkennt automatisch, ob der aktuelle Nutzer Lehrkraft oder Schüler ist und zeigt die Oberfläche entsprechend an. Die Erkennung funktioniert zuverlässig im **Boost-Theme**. Bei anderen Themes oder nach Moodle-Updates kann es sein, dass die Erkennung nicht greift – in diesem Fall den Administrator bitten, die Lehrkraft-IDs in der Serverkonfiguration einzutragen (`TEACHER_USER_IDS`).
 
 ## Bilderkennung
 
-Bilder in der Aufgabenstellung werden automatisch erkannt und an die KI übergeben.
+Bilder in der Aufgabenstellung werden automatisch erkannt und an die KI übergeben. Das funktioniert zuverlässig für Grafiken und Diagramme in normaler Auflösung.
 
-- Bilder müssen im **Moodle-Medienpool** liegen (kein CORS-Problem)
-- SVG oder komprimierte PNGs bevorzugen – sehr große Bilder oder Fotos von Schulbuchseiten können fehlschlagen
-- Diagnose: `journalctl -u moo-gpt -f` – fehlendes „Füge X Bild(er) hinzu" bedeutet, das Bild kam nicht an
+**Vorsicht bei hochauflösenden Fotos** (z. B. fotografierte Schulbuchseiten): Ab einer bestimmten Dateigröße kann die Übertragung fehlschlagen. Bilder möglichst als komprimiertes PNG oder SVG einbinden. Bilder müssen im **Moodle-Medienpool** liegen – externe Quellen funktionieren nicht (CORS).
