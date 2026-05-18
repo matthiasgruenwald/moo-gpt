@@ -60,9 +60,9 @@ Jeder Schritt: Store anlegen + alle Caller aktualisieren + Funktionen aus db.js 
 
 | Schritt | Store | Funktionen | Caller-Updates |
 |---------|-------|-----------|----------------|
-| 01 | `stores/admin.js` | 4 | auth-middleware.js, routes/admin.js, server.js |
-| 02 | `stores/activity.js` | 3 | routes/activity.js, routes/dashboard.js, chat-session.js, server.js |
-| 03 | `stores/token.js` | 3 | token-log.js |
+| 01 ✅ | `stores/admin.js` | 4 | auth-middleware.js, routes/admin.js, server.js |
+| 02 ✅ | `stores/activity.js` | 3 | routes/activity.js, routes/dashboard.js, chat-session.js, server.js |
+| 03 ✅ | `stores/token.js` | 3 | token-log.js |
 | 04 | `stores/prompt.js` | 8 | routes/admin.js, routes/erfahrungsprompt.js, routes/activity.js, routes/simulation.js, server.js, criteria.js, optimize.js, chat-session.js |
 | 05 | `stores/teacher.js` | 10 | routes/teacher.js, routes/admin.js, routes/activity.js, server.js, chat-session.js |
 | 06 | `stores/feedback.js` | 2 | routes/criteria.js, optimize.js |

@@ -70,8 +70,39 @@ Funktionen `saveTokenUsage`, `getThreadCostTokens`, `getActivityCostTokens` aus 
 
 ---
 
+## Fix: total_tokens-Berechnung in token-log.js
+
+Die OpenAI Responses API liefert `input_tokens` und `output_tokens`, aber `total_tokens` ist nicht
+garantiert. Der bestehende Code speichert `undefined → null`. Fix in `recordUsage()`:
+
+```js
+// vorher
+const mapped = {
+  prompt_tokens:     usage.input_tokens,
+  completion_tokens: usage.output_tokens,
+  total_tokens:      usage.total_tokens,
+};
+
+// nachher
+const promptTokens     = usage.input_tokens  ?? null;
+const completionTokens = usage.output_tokens ?? null;
+const mapped = {
+  prompt_tokens:     promptTokens,
+  completion_tokens: completionTokens,
+  total_tokens:      usage.total_tokens
+    ?? (promptTokens != null && completionTokens != null
+        ? promptTokens + completionTokens
+        : null),
+};
+```
+
+Kein Schema-Change — nur der Insert bekommt zuverlässiger einen `total_tokens`-Wert.
+
+---
+
 ## Testen
 
 1. `systemctl restart moo-gpt && journalctl -u moo-gpt -n 5 --no-pager` → kein Importfehler
-2. Chat-Nachricht senden und Antwort abwarten
-3. Dashboard öffnen → Token-Kosten für den Thread erscheinen im Footer
+2. Chat-Nachricht senden und Antwort abwarten → `saveTokenUsage`-Pfad
+3. Dashboard öffnen → Schüler aufklappen → Thread-Footer zeigt Token-Kosten → `getThreadCostTokens`-Pfad
+4. Aktivitäts-Footer im Dashboard zeigt Gesamtkosten → `getActivityCostTokens`-Pfad
