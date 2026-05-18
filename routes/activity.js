@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import { requireDashboardAuth } from '../auth-middleware.js';
-import {
-  getActivity, getActiveErfahrungsprompt, getTeacherPreference, setActivityConfig,
-} from '../db.js';
+import { getActivity, setActivityConfig } from '../stores/activity.js';
+import { getActiveErfahrungsprompt, getTeacherPreference } from '../db.js';
 import { AVAILABLE_MODELS } from '../env-config.js';
 import { validateTemplateFields } from './validators.js';
 

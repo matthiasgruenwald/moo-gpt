@@ -1,5 +1,6 @@
+import { upsertActivity, getActivity } from './stores/activity.js';
 import {
-  getActivity, upsertActivity, getTeacherDefaultTemplate, getSystemTemplate,
+  getTeacherDefaultTemplate, getSystemTemplate,
   saveErfahrungsprompt, getActiveErfahrungsprompt,
   findThread, touchThread, updateThreadName, saveThread, saveMessage, getMessages,
 } from "./db.js";

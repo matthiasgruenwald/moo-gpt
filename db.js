@@ -299,45 +299,6 @@ export function updateThreadName(thread_db_id, moodle_user_name) {
 }
 
 /**
- * Speichert oder aktualisiert Aufgabentitel, Opener, Upload-Modus, Titel und Bot-Icon (P5a).
- * upload_mode: 'off' | 'images' | 'files'
- * NULL-Werte überschreiben bestehende DB-Werte nicht (COALESCE).
- */
-export function upsertActivity(activity_id, activity_name, opener, upload_mode, title, botIcon) {
-  if (!activity_id || !activity_name) return;
-  db.prepare(`
-    INSERT INTO activities (activity_id, activity_name, opener, upload_mode, title, bot_icon, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(activity_id) DO UPDATE SET
-      activity_name = excluded.activity_name,
-      opener        = COALESCE(excluded.opener, activities.opener),
-      upload_mode   = COALESCE(excluded.upload_mode, activities.upload_mode, 'off'),
-      title         = COALESCE(excluded.title, activities.title),
-      bot_icon      = COALESCE(excluded.bot_icon, activities.bot_icon, 'grw'),
-      updated_at    = CURRENT_TIMESTAMP
-  `).run(activity_id, activity_name, opener ?? null, upload_mode ?? null, title ?? null, botIcon ?? null);
-}
-
-/** Gibt activity_name, opener, upload_mode, title und bot_icon zurück (oder null). */
-export function getActivity(activity_id) {
-  return db.prepare('SELECT activity_name, opener, upload_mode, title, bot_icon FROM activities WHERE activity_id = ?').get(activity_id) || null;
-}
-
-/** Aktualisiert opener, upload_mode, title und bot_icon ohne activity_name zu überschreiben. */
-export function setActivityConfig(activity_id, opener, uploadMode, title, botIcon) {
-  db.prepare(`
-    INSERT INTO activities (activity_id, opener, upload_mode, title, bot_icon, updated_at)
-    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(activity_id) DO UPDATE SET
-      opener      = COALESCE(excluded.opener, activities.opener),
-      upload_mode = COALESCE(excluded.upload_mode, activities.upload_mode),
-      title       = COALESCE(excluded.title, activities.title),
-      bot_icon    = COALESCE(excluded.bot_icon, activities.bot_icon),
-      updated_at  = CURRENT_TIMESTAMP
-  `).run(activity_id, opener ?? null, uploadMode ?? null, title ?? null, botIcon ?? null);
-}
-
-/**
  * Speichert Token-Verbrauch nach einem Run (Issue #11).
  * usage: { prompt_tokens, completion_tokens, total_tokens } aus OpenAI-Response
  * messageId: DB-ID der zugehörigen Assistenten-Nachricht (Issue #12, für Kostenanzeige)
