@@ -298,51 +298,6 @@ export function updateThreadName(thread_db_id, moodle_user_name) {
   `).run(moodle_user_name, thread_db_id);
 }
 
-/**
- * Speichert Token-Verbrauch nach einem Run (Issue #11).
- * usage: { prompt_tokens, completion_tokens, total_tokens } aus OpenAI-Response
- * messageId: DB-ID der zugehörigen Assistenten-Nachricht (Issue #12, für Kostenanzeige)
- */
-export function saveTokenUsage(threadId, activityId, model, usage, messageId = null) {
-  if (!usage) return;
-  db.prepare(`
-    INSERT INTO token_log (thread_id, activity_id, model, prompt_tokens, completion_tokens, total_tokens, message_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    threadId       || null,
-    activityId     || null,
-    model          || null,
-    usage.prompt_tokens      ?? null,
-    usage.completion_tokens  ?? null,
-    usage.total_tokens       ?? null,
-    messageId      || null
-  );
-}
-
-/**
- * Aggregierte Token-Summen für einen Thread (Issue #12).
- * Rückgabe: { prompt_tokens, completion_tokens }
- */
-export function getThreadCostTokens(threadDbId) {
-  return db.prepare(`
-    SELECT COALESCE(SUM(prompt_tokens), 0)     AS prompt_tokens,
-           COALESCE(SUM(completion_tokens), 0) AS completion_tokens
-    FROM token_log WHERE thread_id = ?
-  `).get(threadDbId) || { prompt_tokens: 0, completion_tokens: 0 };
-}
-
-/**
- * Aggregierte Token-Summen für eine Aktivität (Issue #12).
- * Rückgabe: { prompt_tokens, completion_tokens }
- */
-export function getActivityCostTokens(activityId) {
-  return db.prepare(`
-    SELECT COALESCE(SUM(prompt_tokens), 0)     AS prompt_tokens,
-           COALESCE(SUM(completion_tokens), 0) AS completion_tokens
-    FROM token_log WHERE activity_id = ?
-  `).get(activityId) || { prompt_tokens: 0, completion_tokens: 0 };
-}
-
 // ── Prompt-Verwaltung (Issue #17/#18) ────────────────────────────────────────
 
 export function getActiveSystemPrompt() {

@@ -1,4 +1,4 @@
-import { saveTokenUsage, getThreadCostTokens, getActivityCostTokens } from './db.js';
+import { saveTokenUsage, getThreadCostTokens, getActivityCostTokens } from './stores/token.js';
 
 const MODEL_NAME = process.env.MODEL_NAME;
 
@@ -78,10 +78,15 @@ export function enrichMessagesWithCost(messages) {
 export function recordUsage(threadDbId, activityId, model, usage, msgId) {
   if (!usage || !threadDbId) return null;
   try {
+    const promptTokens     = usage.input_tokens  ?? null;
+    const completionTokens = usage.output_tokens ?? null;
     const mapped = {
-      prompt_tokens:     usage.input_tokens,
-      completion_tokens: usage.output_tokens,
-      total_tokens:      usage.total_tokens,
+      prompt_tokens:     promptTokens,
+      completion_tokens: completionTokens,
+      total_tokens:      usage.total_tokens
+        ?? (promptTokens != null && completionTokens != null
+            ? promptTokens + completionTokens
+            : null),
     };
     saveTokenUsage(threadDbId, activityId, model, mapped, msgId);
     console.log(`[Token] ${model} – input=${usage.input_tokens} output=${usage.output_tokens}`);
