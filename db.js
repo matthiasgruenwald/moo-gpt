@@ -9,6 +9,8 @@ const DB_PATH = process.env.DB_PATH || '/opt/moo-gpt/chats.db';
 
 let db;
 
+export function getDb() { return db; }
+
 export function initDb() {
   db = new Database(DB_PATH);
   db.pragma('journal_mode = WAL');
@@ -378,27 +380,6 @@ export function getActivityCostTokens(activityId) {
            COALESCE(SUM(completion_tokens), 0) AS completion_tokens
     FROM token_log WHERE activity_id = ?
   `).get(activityId) || { prompt_tokens: 0, completion_tokens: 0 };
-}
-
-// ── Admin-Verwaltung (Issue #17) ─────────────────────────────────────────────
-
-export function isAdmin(userId) {
-  if (!userId) return false;
-  return !!db.prepare('SELECT 1 FROM admin_users WHERE moodle_user_id = ?').get(userId);
-}
-
-export function addAdmin(userId, grantedBy = null) {
-  db.prepare(`
-    INSERT OR IGNORE INTO admin_users (moodle_user_id, granted_by) VALUES (?, ?)
-  `).run(userId, grantedBy);
-}
-
-export function removeAdmin(userId) {
-  db.prepare('DELETE FROM admin_users WHERE moodle_user_id = ?').run(userId);
-}
-
-export function getAdmins() {
-  return db.prepare('SELECT * FROM admin_users ORDER BY granted_at ASC').all();
 }
 
 // ── Prompt-Verwaltung (Issue #17/#18) ────────────────────────────────────────

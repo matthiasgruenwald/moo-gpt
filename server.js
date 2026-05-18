@@ -6,10 +6,10 @@ import expressWs from "express-ws";
 import http from "http";
 import https from "https";
 import cors from "cors";
+import { addAdmin } from './stores/admin.js';
 import {
   initDb,
   getActiveSystemPrompt, saveSystemPrompt,
-  addAdmin,
   getStudents, getActivity,
   getMessages,
   getMessagesAll,

@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { isAdmin } from './db.js';
+import { isAdmin } from './stores/admin.js';
 
 const dashboardTokens = new Map(); // token → { activityId, userId, userName, expires }
 

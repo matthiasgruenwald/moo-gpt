@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { execFileSync, execFile } from 'child_process';
 import { requireAdminAuth, requireTeacherAuth } from '../auth-middleware.js';
+import { isAdmin, addAdmin, removeAdmin, getAdmins } from '../stores/admin.js';
 import {
-  isAdmin, addAdmin, removeAdmin, getAdmins,
   saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry,
   getSystemTemplate, setSystemTemplate,
   getTeacherPreference,
