@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { requireDashboardAuth } from '../auth-middleware.js';
+import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import {
   getAllPersonasForUser, getGlobalPersonas, getTeacherPersonas,
-  getCriteria, getActiveErfahrungsprompt, saveErkenntnisse,
+  getCriteria, saveErkenntnisse,
 } from '../db.js';
 import { runSimulation } from '../simulation.js';
 import { generateOptimizeProposal } from '../optimize.js';

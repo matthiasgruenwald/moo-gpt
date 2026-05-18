@@ -8,13 +8,12 @@ import https from "https";
 import cors from "cors";
 import { addAdmin } from './stores/admin.js';
 import { getActivity } from './stores/activity.js';
+import { getActiveSystemPrompt, saveSystemPrompt, getActiveErfahrungsprompt } from './stores/prompt.js';
 import {
   initDb,
-  getActiveSystemPrompt, saveSystemPrompt,
   getStudents,
   getMessages,
   getMessagesAll,
-  getActiveErfahrungsprompt,
   getTeacherPreference,
   saveMessage,
 } from './db.js';

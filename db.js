@@ -298,55 +298,6 @@ export function updateThreadName(thread_db_id, moodle_user_name) {
   `).run(moodle_user_name, thread_db_id);
 }
 
-// ── Prompt-Verwaltung (Issue #17/#18) ────────────────────────────────────────
-
-export function getActiveSystemPrompt() {
-  return db.prepare(`
-    SELECT content, model, version, created_by, created_at
-    FROM prompts WHERE scope = 'global' AND type = 'system'
-    ORDER BY id DESC LIMIT 1
-  `).get() || null;
-}
-
-export function saveSystemPrompt(content, model, createdBy) {
-  const last = db.prepare(`
-    SELECT version FROM prompts WHERE scope = 'global' AND type = 'system' ORDER BY id DESC LIMIT 1
-  `).get();
-  const version = last ? last.version + 1 : 1;
-  db.prepare(`
-    INSERT INTO prompts (scope, type, model, content, version, created_by)
-    VALUES ('global', 'system', ?, ?, ?, ?)
-  `).run(model, content, version, createdBy || null);
-}
-
-export function getPromptHistory() {
-  return db.prepare(`
-    SELECT id, version, model, content, created_by, created_at
-    FROM prompts WHERE scope = 'global' AND type = 'system'
-    ORDER BY id DESC LIMIT 20
-  `).all();
-}
-
-export function getActiveErfahrungsprompt(activityId) {
-  if (!activityId) return null;
-  return db.prepare(`
-    SELECT content, version, created_at
-    FROM prompts WHERE scope = ? AND type = 'erfahrung'
-    ORDER BY id DESC LIMIT 1
-  `).get(activityId) || null;
-}
-
-export function saveErfahrungsprompt(activityId, content, createdBy) {
-  const last = db.prepare(`
-    SELECT version FROM prompts WHERE scope = ? AND type = 'erfahrung' ORDER BY id DESC LIMIT 1
-  `).get(activityId);
-  const version = last ? last.version + 1 : 1;
-  db.prepare(`
-    INSERT INTO prompts (scope, type, content, version, created_by)
-    VALUES (?, 'erfahrung', ?, ?, ?)
-  `).run(activityId, content, version, createdBy || null);
-}
-
 // ── Lehrkraft-Präferenzen (Issue #17) ────────────────────────────────────────
 
 export function getTeacherPreference(userId) {
@@ -432,33 +383,6 @@ export function saveFeedback({ messageId, threadId, activityId, rating, comment,
       improved_text = excluded.improved_text,
       rated_by      = excluded.rated_by
   `).run(messageId, threadId, activityId || null, rating, comment || null, improvedText || null, ratedBy || null);
-}
-
-export function getErfahrungspromptHistory(activityId) {
-  if (!activityId) return [];
-  return db.prepare(`
-    SELECT id, version, content, created_by, created_at
-    FROM prompts WHERE scope = ? AND type = 'erfahrung'
-    ORDER BY id DESC LIMIT 10
-  `).all(activityId);
-}
-
-export function deletePromptHistoryEntry(id) {
-  const latest = db.prepare(
-    `SELECT id FROM prompts WHERE scope = 'global' AND type = 'system' ORDER BY id DESC LIMIT 1`
-  ).get();
-  if (!latest || latest.id === id) return { ok: false, error: 'Aktuelle Version kann nicht gelöscht werden' };
-  db.prepare(`DELETE FROM prompts WHERE id = ? AND scope = 'global' AND type = 'system'`).run(id);
-  return { ok: true };
-}
-
-export function deleteErfahrungspromptHistoryEntry(activityId, id) {
-  const latest = db.prepare(
-    `SELECT id FROM prompts WHERE scope = ? AND type = 'erfahrung' ORDER BY id DESC LIMIT 1`
-  ).get(activityId);
-  if (!latest || latest.id === id) return { ok: false, error: 'Aktuelle Version kann nicht gelöscht werden' };
-  db.prepare(`DELETE FROM prompts WHERE id = ? AND scope = ? AND type = 'erfahrung'`).run(id, activityId);
-  return { ok: true };
 }
 
 export function getErkenntnisse(activityId) {

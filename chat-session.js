@@ -1,7 +1,7 @@
 import { upsertActivity, getActivity } from './stores/activity.js';
+import { getActiveErfahrungsprompt, saveErfahrungsprompt } from './stores/prompt.js';
 import {
   getTeacherDefaultTemplate, getSystemTemplate,
-  saveErfahrungsprompt, getActiveErfahrungsprompt,
   findThread, touchThread, updateThreadName, saveThread, saveMessage, getMessages,
 } from "./db.js";
 

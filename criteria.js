@@ -1,4 +1,4 @@
-import { getActiveErfahrungsprompt } from './db.js';
+import { getActiveErfahrungsprompt } from './stores/prompt.js';
 
 const DEFAULT_GEN_MODEL = 'gpt-4.1-nano';
 

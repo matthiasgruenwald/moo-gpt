@@ -3,7 +3,7 @@ import { requireDashboardAuth } from '../auth-middleware.js';
 import {
   getActiveErfahrungsprompt, saveErfahrungsprompt,
   getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry,
-} from '../db.js';
+} from '../stores/prompt.js';
 import { generateOptimizeProposal } from '../optimize.js';
 import { aiClient } from '../ai-instance.js';
 import { getCachedConfig } from '../config-cache.js';
