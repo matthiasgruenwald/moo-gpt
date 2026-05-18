@@ -1,6 +1,6 @@
-# Schritt 05: stores/teacher.js
+# Schritt 05: stores/teacher.js ✅
 
-Lehrkraft-Präferenzen und Vorlagen-Bibliothek. Zwei Tabellen (teacher_preferences,
+Lehrkraft-Präferenzen und Vorlagen-Bibliothek. Drei Tabellen (teacher_preferences,
 teacher_templates, system_template), eine fachliche Domäne: Personalisierung durch Lehrkräfte.
 
 ---
@@ -121,15 +121,29 @@ Alle 10 Teacher-Funktionen aus db.js entfernen.
 | Datei | Neuer Import |
 |-------|-------------|
 | `routes/teacher.js` | `import { getTeacherPreference, setTeacherPreference, getTeacherTemplates, createTeacherTemplate, updateTeacherTemplate, deleteTeacherTemplate, setTeacherTemplateDefault } from '../stores/teacher.js';` |
-| `routes/admin.js` | `import { getSystemTemplate, setSystemTemplate, getTeacherPreference } from '../stores/teacher.js';` |
+| `routes/admin.js` | `import { getSystemTemplate, setSystemTemplate, getTeacherPreference } from '../stores/teacher.js';` — **gesamten bisherigen `from '../db.js'`-Block löschen** (alle 3 Funktionen wandern komplett raus) |
 | `routes/activity.js` | `import { getTeacherPreference } from '../stores/teacher.js';` |
-| `server.js` | `import { getTeacherPreference } from './stores/teacher.js';` |
+| `server.js` | `import { getTeacherPreference } from './stores/teacher.js';` — `getTeacherPreference` aus dem `db.js`-Block entfernen |
 | `chat-session.js` | `import { getTeacherDefaultTemplate, getSystemTemplate } from './stores/teacher.js';` |
+
+### server.js: db.js-Importblock nach Schritt 05
+
+```js
+import {
+  initDb,
+  getStudents,
+  getMessages,
+  getMessagesAll,
+  saveMessage,
+} from './db.js';
+```
+
+(`getTeacherPreference` entfernt; `getStudents`, `getMessages`, `getMessagesAll`, `saveMessage` bleiben bis Schritt 09)
 
 ---
 
 ## Testen
 
 1. `systemctl restart moo-gpt && journalctl -u moo-gpt -n 5 --no-pager` → kein Importfehler
-2. Lehrer-Template anlegen und als Standard setzen → bleibt nach Reload gesetzt
-3. Chat starten → richtiges Modell laut Lehrer-Präferenz wird genutzt (Logs prüfen)
+2. Im Chat-Widget als Lehrer einloggen → Einstellungen öffnen → Template anlegen, dann „Als Standard setzen" → Seite neu laden → Template ist noch als Standard markiert
+3. Als Lehrer Modell-Präferenz auf ein anderes Modell setzen (z.B. `gpt-4o-mini`), dann Chat starten → in `journalctl -u moo-gpt -f` nach `[Token]` suchen: das geloggte Modell muss der gesetzten Präferenz entsprechen
