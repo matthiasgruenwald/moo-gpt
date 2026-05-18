@@ -1,5 +1,6 @@
 import { getActiveErfahrungsprompt } from './stores/prompt.js';
-import { getFeedbackByActivity, getErkenntnisse } from './db.js';
+import { getErkenntnisse } from './db.js';
+import { getFeedbackByActivity } from './stores/feedback.js';
 
 export async function generateOptimizeProposal(activityId, simResultsText = '', config, aiClient) {
   const feedbacks    = getFeedbackByActivity(activityId);

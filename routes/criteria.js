@@ -2,8 +2,9 @@ import { Router } from 'express';
 import { requireDashboardAuth } from '../auth-middleware.js';
 import {
   getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion,
-  saveErkenntnisse, saveFeedback, getFeedbackByActivity,
+  saveErkenntnisse,
 } from '../db.js';
+import { saveFeedback, getFeedbackByActivity } from '../stores/feedback.js';
 import { suggestCriteriaList } from '../criteria.js';
 import { aiClient } from '../ai-instance.js';
 import { getCachedConfig } from '../config-cache.js';
