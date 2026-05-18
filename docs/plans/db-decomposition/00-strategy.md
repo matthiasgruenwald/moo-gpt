@@ -65,8 +65,8 @@ Jeder Schritt: Store anlegen + alle Caller aktualisieren + Funktionen aus db.js 
 | 03 ✅ | `stores/token.js` | 3 | token-log.js |
 | 04 ✅ | `stores/prompt.js` | 8 | routes/admin.js, routes/erfahrungsprompt.js, routes/activity.js, routes/simulation.js, server.js, criteria.js, optimize.js, chat-session.js |
 | 05 ✅ | `stores/teacher.js` | 10 | routes/teacher.js, routes/admin.js, routes/activity.js, server.js, chat-session.js |
-| 06 | `stores/feedback.js` | 2 | routes/criteria.js, optimize.js |
-| 07 | `stores/criteria.js` | 6 | routes/criteria.js, routes/simulation.js, optimize.js |
+| 06 ✅ | `stores/feedback.js` | 2 | routes/criteria.js, optimize.js |
+| 07 ✅ | `stores/criteria.js` | 6 | routes/criteria.js, routes/simulation.js, optimize.js |
 | 08 | `stores/persona.js` | 8 | routes/personas.js, routes/simulation.js |
 | 09 | `stores/chat.js` + `stores/dashboard.js` | 7 + 1 | server.js, chat-session.js, routes/dashboard.js |
 | 10 | `db.js` cleanup | — | nur initDb + getDb, alle Funktionen entfernt |

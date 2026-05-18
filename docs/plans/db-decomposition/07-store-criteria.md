@@ -84,14 +84,26 @@ Alle 6 Criteria-Funktionen aus db.js entfernen.
 
 | Datei | Neuer Import |
 |-------|-------------|
-| `routes/criteria.js` | `import { getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, getErkenntnisse, saveErkenntnisse } from '../stores/criteria.js';` |
-| `routes/simulation.js` | `import { getCriteria, saveErkenntnisse } from '../stores/criteria.js';` |
+| `routes/criteria.js` | `import { getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion, saveErkenntnisse } from '../stores/criteria.js';` |
+| `routes/simulation.js` | siehe unten — split import |
 | `optimize.js` | `import { getErkenntnisse } from './stores/criteria.js';` |
+
+### routes/simulation.js — Endzustand nach Schritt 07
+
+`getCriteria` und `saveErkenntnisse` wandern nach `stores/criteria.js`. Die Personas-Funktionen bleiben bis Schritt 08 in `db.js`:
+
+```js
+// Personas bleiben in db.js bis Schritt 08
+import { getAllPersonasForUser, getGlobalPersonas, getTeacherPersonas } from '../db.js';
+// Criteria-Funktionen jetzt aus dem Store
+import { getCriteria, saveErkenntnisse } from '../stores/criteria.js';
+```
 
 ---
 
 ## Testen
 
 1. `systemctl restart moo-gpt && journalctl -u moo-gpt -n 5 --no-pager` → kein Importfehler
-2. Im Dashboard ein Kriterium anlegen → löschen → wiederherstellen → Status korrekt
-3. Simulation starten → Erkenntnis wird gespeichert und erscheint in der Erkenntnisliste
+2. Im Dashboard ein Kriterium anlegen → löschen → wiederherstellen → Status korrekt (testet `getCriteria`, `getDeletedCriteria`, `softDeleteCriterion`, `restoreCriterion`, `saveErkenntnisse`)
+3. Erfahrungsprompt-Optimierung anstoßen → Vorschlag erscheint (testet `getErkenntnisse` via `optimize.js`)
+4. Simulation starten → neue Kriterien werden gespeichert (testet `saveErkenntnisse` via `simulation.js`)

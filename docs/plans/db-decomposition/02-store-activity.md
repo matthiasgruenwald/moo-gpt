@@ -65,12 +65,48 @@ Funktionen `upsertActivity`, `getActivity`, `setActivityConfig` aus db.js entfer
 
 ## Aufrufer aktualisieren
 
-| Datei | Neuer Import |
-|-------|-------------|
-| `routes/activity.js` | `import { getActivity, setActivityConfig } from '../stores/activity.js';` |
-| `routes/dashboard.js` | `import { getActivity } from '../stores/activity.js';` |
-| `chat-session.js` | `import { upsertActivity, getActivity } from './stores/activity.js';` |
-| `server.js` | `import { getActivity } from './stores/activity.js';` |
+Jede Datei bekommt eine neue Store-Import-Zeile; der bestehende `db.js`-Import wird gleichzeitig auf die verbleibenden Funktionen reduziert.
+
+### `routes/activity.js`
+
+```js
+import { getActivity, setActivityConfig } from '../stores/activity.js';
+import { getActiveErfahrungsprompt, getTeacherPreference } from '../db.js';
+```
+
+### `routes/dashboard.js`
+
+```js
+import { getActivity } from '../stores/activity.js';
+import { getStudents, getMessages } from '../db.js';
+```
+
+### `chat-session.js`
+
+```js
+import { upsertActivity, getActivity } from './stores/activity.js';
+import {
+  getTeacherDefaultTemplate, getSystemTemplate,
+  saveErfahrungsprompt, getActiveErfahrungsprompt,
+  findThread, touchThread, updateThreadName, saveThread, saveMessage, getMessages,
+} from "./db.js";
+```
+
+### `server.js`
+
+```js
+import { getActivity } from './stores/activity.js';
+import {
+  initDb,
+  getActiveSystemPrompt, saveSystemPrompt,
+  getStudents,
+  getMessages,
+  getMessagesAll,
+  getActiveErfahrungsprompt,
+  getTeacherPreference,
+  saveMessage,
+} from './db.js';
+```
 
 ---
 
@@ -79,3 +115,4 @@ Funktionen `upsertActivity`, `getActivity`, `setActivityConfig` aus db.js entfer
 1. `systemctl restart moo-gpt && journalctl -u moo-gpt -n 5 --no-pager` → kein Importfehler
 2. Chat-Widget öffnen → Logs zeigen activity_name korrekt gesetzt
 3. GET /api/activity-config → antwortet mit opener/uploadMode/title
+4. Im Lehrer-Dashboard Aktivitätskonfiguration ändern (z. B. Opener-Text), speichern → PUT /api/activity-config antwortet 200; Seite neu laden → Wert bleibt

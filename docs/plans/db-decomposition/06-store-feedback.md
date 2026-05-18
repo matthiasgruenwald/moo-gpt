@@ -1,4 +1,4 @@
-# Schritt 06: stores/feedback.js
+# Schritt 06: stores/feedback.js ✅
 
 Nachrichten-Feedback durch Lehrkräfte (Daumen hoch/runter, Kommentar, Verbesserungsvorschlag).
 
@@ -54,15 +54,42 @@ Funktionen `saveFeedback`, `getFeedbackByActivity` aus db.js entfernen.
 
 ## Aufrufer aktualisieren
 
-| Datei | Neuer Import |
-|-------|-------------|
-| `routes/criteria.js` | `import { saveFeedback, getFeedbackByActivity } from '../stores/feedback.js';` |
-| `optimize.js` | `import { getFeedbackByActivity } from './stores/feedback.js';` |
+### `routes/criteria.js`
+
+Der db.js-Import muss aufgespalten werden — `getCriteria` usw. bleiben bis Schritt 07 in db.js:
+
+```js
+// vorher (eine Zeile)
+import {
+  getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion,
+  saveErkenntnisse, saveFeedback, getFeedbackByActivity,
+} from '../db.js';
+
+// nachher (zwei Zeilen)
+import {
+  getCriteria, getDeletedCriteria, softDeleteCriterion, restoreCriterion,
+  saveErkenntnisse,
+} from '../db.js';
+import { saveFeedback, getFeedbackByActivity } from '../stores/feedback.js';
+```
+
+### `optimize.js`
+
+Auch hier Split — `getErkenntnisse` bleibt bis Schritt 07 in db.js:
+
+```js
+// vorher (eine Zeile)
+import { getFeedbackByActivity, getErkenntnisse } from './db.js';
+
+// nachher (zwei Zeilen)
+import { getErkenntnisse } from './db.js';
+import { getFeedbackByActivity } from './stores/feedback.js';
+```
 
 ---
 
 ## Testen
 
 1. `systemctl restart moo-gpt && journalctl -u moo-gpt -n 5 --no-pager` → kein Importfehler
-2. Im Dashboard eine Schüler-Antwort mit Daumen hoch/runter bewerten → Feedback erscheint gespeichert
-3. Optimize-Prompt-Button drücken → läuft durch (nutzt Feedback intern)
+2. Im Dashboard eine Schüler-Antwort mit Daumen hoch/runter bewerten → kein 4xx/5xx im Netzwerk-Tab, Daumen-Icon bleibt aktiv nach Reload
+3. Optimize-Prompt-Button drücken → Request läuft durch ohne 500, Vorschlag erscheint im UI
