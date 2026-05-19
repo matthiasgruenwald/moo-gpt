@@ -6,7 +6,7 @@ import { saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry } from '..
 import { getSystemTemplate, setSystemTemplate, getTeacherPreference } from '../stores/teacher.js';
 import { getCachedConfig, updateCachedConfig } from '../config-cache.js';
 import { AVAILABLE_MODELS, GEN_MODELS } from '../env-config.js';
-import { validateTemplateFields } from './validators.js';
+import { validateWidgetConfig } from '../validators.js';
 
 export function createAdminRouter({ dashboardRegistry }) {
   const router = Router();
@@ -85,7 +85,7 @@ export function createAdminRouter({ dashboardRegistry }) {
   router.put('/admin/system-template', requireAdminAuth, (req, res) => {
     const { userId } = req;
     const { title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
-    const validErr = validateTemplateFields(uploadMode, botIcon);
+    const validErr = validateWidgetConfig(uploadMode, botIcon);
     if (validErr) return res.status(400).json({ error: validErr });
     setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTemplate });
     console.log(`[P5b] Systemvorlage gespeichert von ${userId}`);

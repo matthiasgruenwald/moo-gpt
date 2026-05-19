@@ -4,7 +4,7 @@ import { getActivity, setActivityConfig } from '../stores/activity.js';
 import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { getTeacherPreference } from '../stores/teacher.js';
 import { AVAILABLE_MODELS } from '../env-config.js';
-import { validateTemplateFields } from './validators.js';
+import { validateWidgetConfig } from '../validators.js';
 
 export function createActivityRouter({ chatRegistry, dashboardRegistry, activityLocks }) {
   const router = Router();
@@ -30,7 +30,7 @@ export function createActivityRouter({ chatRegistry, dashboardRegistry, activity
   router.put('/activity-config/:activityId', requireDashboardAuth, (req, res) => {
     const { activityId, userId } = req;
     const { opener, uploadMode, title, botIcon } = req.body;
-    const validErr = validateTemplateFields(uploadMode, botIcon);
+    const validErr = validateWidgetConfig(uploadMode, botIcon);
     if (validErr) return res.status(400).json({ error: validErr });
     setActivityConfig(activityId, opener ?? null, uploadMode ?? null, title ?? null, botIcon ?? null);
     console.log(`[Config] Aktivität ${activityId} aktualisiert von ${userId}`);
