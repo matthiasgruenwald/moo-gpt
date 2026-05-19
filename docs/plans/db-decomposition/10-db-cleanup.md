@@ -4,17 +4,22 @@ Nach Extraktion aller Stores und Umstellen aller Caller: db.js auf reinen
 Initialisierungs-Hub reduzieren. Keine Re-Exports — alle Aufrufer importieren
 bereits direkt aus den Stores.
 
+**Hinweis:** Alle Code-Änderungen wurden bereits in Schritte 01–09 integriert
+(Strategie: Caller-Update im selben Schritt wie Store-Extraktion). Schritt 10
+ist ein reiner Verifikations- und Smoke-Test-Schritt ohne weiteren Implementierungs-
+aufwand.
+
 ---
 
 ## Erwartete Struktur von db.js danach
 
 ```
-db.js (~40 Zeilen)
+db.js (~193 Zeilen)
 ├── import Database from 'better-sqlite3'
 ├── const DB_PATH
-├── let _db (privat)
-├── export function initDb()    ← Schema + Migrationen (unverändert)
-└── export function getDb()     ← interner Handle für Stores
+├── let db (privat, nicht exportiert)
+├── export function getDb()    ← interner Handle für Stores
+└── export function initDb()   ← Schema + Migrationen (unverändert, ~180 Zeilen)
 ```
 
 ---
@@ -25,19 +30,19 @@ db.js (~40 Zeilen)
 import Database from 'better-sqlite3';
 
 const DB_PATH = process.env.DB_PATH || '/opt/moo-gpt/chats.db';
-let _db;
+let db;
+
+export function getDb() { return db; }
 
 export function initDb() {
-  _db = new Database(DB_PATH);
-  _db.pragma('journal_mode = WAL');
-  _db.pragma('foreign_keys = OFF');
-  // ... CREATE TABLE IF NOT EXISTS (unverändert)
-  // ... Migrationen (unverändert)
+  db = new Database(DB_PATH);
+  db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = OFF');
+  // ... CREATE TABLE IF NOT EXISTS (unverändert, alle 11 Tabellen)
+  // ... Migrationen (unverändert, try/catch ALTER TABLE + 2 komplexe Migrationen)
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
-  return _db;
+  return db;
 }
-
-export function getDb() { return _db; }
 ```
 
 Keine weiteren Exports. Alle Stores importieren `getDb` aus `'../db.js'`.
@@ -56,20 +61,25 @@ grep -rn "from ['\"].*db\.js['\"]" /opt/moo-gpt --include="*.js" \
 
 Erwartetes Ergebnis: nur `server.js` (für `initDb`) und die 10 Store-Dateien (für `getDb`).
 
+Dieser Check ist bereits im Soll-Zustand — Ausgabe beim letzten Lauf:
+```
+/opt/moo-gpt/server.js:12:import { initDb } from './db.js';
+```
+
 ---
 
 ## Ergebnis
 
-| Metrik | Vorher | Nachher |
-|--------|--------|---------|
-| db.js Zeilen | 701 | ~40 |
-| db.js Exports (direkt) | 53 | 2 (initDb, getDb) |
-| Neue Dateien | — | 10 (stores/*.js) |
-| Gesamt-Zeilen (JS) | ~2.600 | ~2.700 |
+| Metrik | Vorher (nach Schritt 09) | Nachher |
+|--------|--------------------------|---------|
+| db.js Zeilen | ~193 | ~193 (unverändert) |
+| db.js Exports (direkt) | 2 (initDb, getDb) | 2 (initDb, getDb) |
+| Store-Dateien | 10 | 10 |
+| Domain-Funktionen in db.js | 0 | 0 |
 
 ---
 
-## Finaler Smoke-Test
+## Testen
 
 ```bash
 systemctl restart moo-gpt
@@ -83,3 +93,5 @@ journalctl -u moo-gpt -n 20 --no-pager
 5. Simulation starten → SSE-Stream läuft durch
 6. Persona anlegen → erscheint in Liste
 7. Erfahrungsprompt bearbeiten → gespeichert
+8. Dashboard → Chat-Nachricht bewerten (👍/👎) → Feedback gespeichert
+9. Dashboard → Erfahrungsprompt-Vorschlag generieren → SSE-Stream läuft durch

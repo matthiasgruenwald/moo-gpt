@@ -68,8 +68,8 @@ Jeder Schritt: Store anlegen + alle Caller aktualisieren + Funktionen aus db.js 
 | 06 ✅ | `stores/feedback.js` | 2 | routes/criteria.js, optimize.js |
 | 07 ✅ | `stores/criteria.js` | 6 | routes/criteria.js, routes/simulation.js, optimize.js |
 | 08 ✅ | `stores/persona.js` | 8 | routes/personas.js, routes/simulation.js |
-| 09 | `stores/chat.js` + `stores/dashboard.js` | 7 + 1 | server.js, chat-session.js, routes/dashboard.js |
-| 10 | `db.js` cleanup | — | nur initDb + getDb, alle Funktionen entfernt |
+| 09 ✅ | `stores/chat.js` + `stores/dashboard.js` | 7 + 1 | server.js, chat-session.js, routes/dashboard.js |
+| 10 ✅ | `db.js` cleanup | — | nur initDb + getDb, alle Funktionen entfernt |
 
 **Hinweis Schritt 09:** `stores/dashboard.js` enthält `getStudents` (cross-domain Join
 über threads + messages + token_log). Es wird im selben Schritt angelegt wie `stores/chat.js`,
