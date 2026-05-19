@@ -65,7 +65,6 @@ body {
     align-items: center;
     border-bottom: 1px solid #004085;
     position: relative;
-    z-index: 11;
 }
 
 .chat-header h1 {
@@ -80,7 +79,7 @@ body {
     position: absolute;
     top: -25px; /* Hält die untere Seite bündig */
     left: 10px; /* Abstand vom linken Rand */
-    z-index: 2;
+    z-index: 11;
 }
 
 .chat-header-icon {
