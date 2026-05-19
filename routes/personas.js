@@ -3,10 +3,10 @@ import {
   requireTeacherAuth, requireDashboardAuth, requireAdminAuth, getUserNameFromToken,
 } from '../auth-middleware.js';
 import {
-  getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser,
+  getGlobalPersonas, getTeacherPersonas,
   createPersona, deletePersona, promotePersonaToGlobal, getAllTeacherPersonasGrouped,
   getStudentMessages,
-} from '../db.js';
+} from '../stores/persona.js';
 import { aiClient } from '../ai-instance.js';
 import { GEN_MODEL } from '../env-config.js';
 
