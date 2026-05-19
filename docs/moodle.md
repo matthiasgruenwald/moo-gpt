@@ -6,16 +6,19 @@
 - Plugin **Snippet für TinyMCE** (`tiny_snippet`) installiert
 - Zugang zu einer laufenden moo-gpt-Instanz
 
-## Schnellstart: TinyMCE-Snippets
+## Schnellstart: KI-Widget in eine Aufgabe einbetten
 
-Zwei fertige Snippets liegen im Verzeichnis `snippets/`:
+Sobald der Administrator das Snippet installiert hat, kann jede Lehrkraft das Widget in eigene Aufgaben einbetten:
 
-| Snippet | Datei | Einsatz |
-|---|---|---|
-| `abgpt` | `snippets/snippet1_aufgabe.html` | Moodle-Aufgaben – liest Aufgabentext und Bilder automatisch |
-| `tegpt` | `snippets/snippet2_testfrage.html` | Quiz-/Testfragen – iframe-Variante |
+1. Aufgabe in Moodle öffnen und den TinyMCE-Editor aufrufen
+2. Im Editor-Menü das Snippet **„KI-Chat"** auswählen
+3. Das Widget erscheint direkt in der Aufgabe – keine weitere Konfiguration nötig
 
-Einrichtung und Import im Detail: → [`snippets/SNIPPET-SETUP.md`](../snippets/SNIPPET-SETUP.md)
+> 📸 *Screenshot: Snippet-Auswahl im TinyMCE-Editor (folgt)*
+
+Für Quiz-/Testfragen das Snippet **„KI-Chat (Testfrage)"** verwenden.
+
+Die verfügbaren Snippets und deren Import sind in [`snippets/SNIPPET-SETUP.md`](../snippets/SNIPPET-SETUP.md) beschrieben (für Administratoren).
 
 ## Manuell einbinden
 

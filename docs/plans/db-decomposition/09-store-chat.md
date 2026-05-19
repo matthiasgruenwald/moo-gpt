@@ -1,4 +1,4 @@
-# Schritt 09: stores/chat.js + stores/dashboard.js
+# Schritt 09: stores/chat.js + stores/dashboard.js ✅
 
 Größte Domäne. Threads und Nachrichten – das Herzstück der Chat-Persistenz.
 Zuletzt extrahiert, weil am meisten genutzt und am kritischsten für den laufenden Betrieb.
@@ -151,11 +151,38 @@ Funktionen `saveThread`, `touchThread`, `findThread`, `updateThreadName`,
 
 ## Aufrufer aktualisieren
 
-| Datei | Neuer Import |
-|-------|-------------|
-| `chat-session.js` | `import { saveThread, touchThread, findThread, updateThreadName, saveMessage, getMessages } from './stores/chat.js';` |
-| `server.js` | `import { saveMessage, getMessages, getMessagesAll } from './stores/chat.js';` und `import { getStudents } from './stores/dashboard.js';` |
-| `routes/dashboard.js` | `import { getMessages } from '../stores/chat.js';` und `import { getStudents } from '../stores/dashboard.js';` |
+### chat-session.js
+
+```js
+// vorher
+import { findThread, touchThread, updateThreadName, saveThread, saveMessage, getMessages } from "./db.js";
+
+// nachher
+import { saveThread, touchThread, findThread, updateThreadName, saveMessage, getMessages } from './stores/chat.js';
+```
+
+### server.js
+
+```js
+// vorher
+import { initDb, getStudents, getMessages, getMessagesAll, saveMessage } from './db.js';
+
+// nachher — nur noch initDb in db.js
+import { initDb } from './db.js';
+import { saveMessage, getMessages, getMessagesAll } from './stores/chat.js';
+import { getStudents } from './stores/dashboard.js';
+```
+
+### routes/dashboard.js
+
+```js
+// vorher
+import { getStudents, getMessages } from '../db.js';
+
+// nachher
+import { getMessages } from '../stores/chat.js';
+import { getStudents } from '../stores/dashboard.js';
+```
 
 ---
 
@@ -163,4 +190,5 @@ Funktionen `saveThread`, `touchThread`, `findThread`, `updateThreadName`,
 
 1. `systemctl restart moo-gpt && journalctl -u moo-gpt -n 5 --no-pager` → kein Importfehler
 2. Chat-Widget öffnen → Nachricht senden → Antwort kommt → kein Fehler in Logs
-3. Dashboard öffnen → Schülerliste erscheint → Chat-Detail eines Schülers öffnen → Nachrichten + Kosten sichtbar
+3. Chat-Widget schließen → neu öffnen → Chatverlauf erscheint wieder (Reconnect: findThread + getMessages)
+4. Dashboard öffnen → Schülerliste erscheint → Chat-Detail eines Schülers öffnen → Nachrichten + Kosten sichtbar

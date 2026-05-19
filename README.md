@@ -30,6 +30,7 @@ KI-Chatbot-Widget für Moodle. Lehrkräfte betten einen KI-Assistenten direkt in
 - Thread-Persistenz: Schüler setzen den Chat nach Seitenreload nahtlos fort
 - Lehrer-Dashboard mit Chatverlauf, Live-Updates und Token-Kosten
 - Rollenerkennung (Lehrer/Schüler) per Moodle-DOM, serverseitiger Override möglich
+- Plenumsmodus: Chat für alle Schüler einer Aufgabe gleichzeitig sperren – manuell oder mit Timer
 - Schülerantworten im Dashboard bewertbar; Bewertungen und Erkenntnisse fließen in KI-gestützte Prompt-Verbesserungsvorschläge ein
 - Prompt-Optimierung per Simulation: vollautomatisch mit einem Klick oder manuell Schritt für Schritt – auch ohne echte Schüler-Chats
 

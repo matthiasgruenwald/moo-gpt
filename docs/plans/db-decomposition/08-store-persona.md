@@ -98,13 +98,16 @@ Alle 8 Persona-Funktionen aus db.js entfernen.
 
 | Datei | Neuer Import |
 |-------|-------------|
-| `routes/personas.js` | `import { getGlobalPersonas, getTeacherPersonas, getAllPersonasForUser, createPersona, deletePersona, promotePersonaToGlobal, getAllTeacherPersonasGrouped, getStudentMessages } from '../stores/persona.js';` |
+| `routes/personas.js` | `import { getGlobalPersonas, getTeacherPersonas, createPersona, deletePersona, promotePersonaToGlobal, getAllTeacherPersonasGrouped, getStudentMessages } from '../stores/persona.js';` |
 | `routes/simulation.js` | `import { getAllPersonasForUser, getGlobalPersonas, getTeacherPersonas } from '../stores/persona.js';` |
+
+**Hinweis:** `getAllPersonasForUser` ist im aktuellen `routes/personas.js` importiert aber nie aufgerufen (toter Import). Beim Umstellen weglassen — kein Re-Export nötig.
 
 ---
 
 ## Testen
 
 1. `systemctl restart moo-gpt && journalctl -u moo-gpt -n 5 --no-pager` → kein Importfehler
-2. Persona anlegen (als Lehrer) → zur globalen Persona promoten (als Admin) → erscheint in globaler Liste
+2. Persona anlegen (als Lehrer) → Persona löschen (als Lehrer) → verschwindet aus Liste → neue Persona anlegen → zur globalen Persona promoten (als Admin) → erscheint in globaler Liste
 3. Personas-Vorschlag-Button drücken → KI-Vorschlag auf Basis echter Schülernachrichten erscheint
+4. Simulation starten (beliebige Persona wählen, `/simulate`-Endpoint) → mind. 1 Äußerungs-/Antwort-Paar erscheint ohne Fehler
