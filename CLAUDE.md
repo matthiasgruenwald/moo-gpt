@@ -40,7 +40,7 @@ KI-Chatbot-Widget für Moodle (IGS Mittelstufe, v.a. Jg. 9). Floating-Chat-Widge
 | `criteria.js` | suggestCriteriaList, augmentCriteria |
 | `optimize.js` | generateOptimizeProposal (Erfahrungsprompt-Vorschlag) |
 | `prompt-builder.js` | buildInstructions: System-Prompt zusammensetzen |
-| `routes/validators.js` | validateTemplateFields (uploadMode, botIcon) |
+| `validators.js` | validateWidgetConfig (uploadMode, botIcon) — Domain-Validierung, kein HTTP-Bezug |
 | `routes/activity.js` | createActivityRouter: GET/PUT activity-config, POST/DELETE activity lock |
 | `routes/dashboard.js` | students, messages (HTTP) |
 | `routes/admin.js` | createAdminRouter: System-Prompt, Prompt-History, Admin-Liste, System-Template, Logs, Neustart |
