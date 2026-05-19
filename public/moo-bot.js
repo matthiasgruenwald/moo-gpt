@@ -1126,7 +1126,6 @@ export class MOOBOT {
         '<div style="font-size:13px;opacity:0.8;text-align:center;padding:0 24px">Die Lehrperson hat den Chat vorübergehend gesperrt.</div>';
       const container = document.getElementById('chat-container');
       if (container) {
-        container.style.position = 'relative';
         container.appendChild(overlay);
       }
     }

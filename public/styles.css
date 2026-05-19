@@ -65,6 +65,7 @@ body {
     align-items: center;
     border-bottom: 1px solid #004085;
     position: relative;
+    z-index: 11;
 }
 
 .chat-header h1 {
