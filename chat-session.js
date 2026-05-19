@@ -1,9 +1,7 @@
 import { upsertActivity, getActivity } from './stores/activity.js';
 import { getActiveErfahrungsprompt, saveErfahrungsprompt } from './stores/prompt.js';
 import { getTeacherDefaultTemplate, getSystemTemplate } from './stores/teacher.js';
-import {
-  findThread, touchThread, updateThreadName, saveThread, saveMessage, getMessages,
-} from "./db.js";
+import { saveThread, touchThread, findThread, updateThreadName, saveMessage, getMessages } from './stores/chat.js';
 
 function detectRole(settings) {
   const teacherIds = process.env.TEACHER_USER_IDS

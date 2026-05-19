@@ -9,13 +9,9 @@ import cors from "cors";
 import { addAdmin } from './stores/admin.js';
 import { getActivity } from './stores/activity.js';
 import { getActiveSystemPrompt, saveSystemPrompt, getActiveErfahrungsprompt } from './stores/prompt.js';
-import {
-  initDb,
-  getStudents,
-  getMessages,
-  getMessagesAll,
-  saveMessage,
-} from './db.js';
+import { initDb } from './db.js';
+import { saveMessage, getMessages, getMessagesAll } from './stores/chat.js';
+import { getStudents } from './stores/dashboard.js';
 import { getTeacherPreference } from './stores/teacher.js';
 import { ChatSession } from "./chat-session.js";
 import { buildInstructions } from "./prompt-builder.js";

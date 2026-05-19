@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { requireDashboardAuth } from '../auth-middleware.js';
 import { getActivity } from '../stores/activity.js';
-import { getStudents, getMessages } from '../db.js';
+import { getMessages } from '../stores/chat.js';
+import { getStudents } from '../stores/dashboard.js';
 import { enrichMessagesWithCost, computeThreadCost, computeRunCost } from '../token-log.js';
 
 export function enrichStudentsWithCost(students) {
