@@ -1,5 +1,7 @@
 import { buildInstructions } from './prompt-builder.js';
 
+const SIMULATION_TIMEOUT_MS = 90_000;
+
 async function generateSimulatedUtterances(persona, count, model, aiClient) {
   return aiClient.jsonCall(
     `Du simulierst Schüleräußerungen für Prompt-Engineering-Tests an einer IGS (Klasse 9).
@@ -7,13 +9,14 @@ Generiere exakt ${count} kurze Schüleräußerungen für den beschriebenen Schü
 Antworte NUR mit einem JSON-Array von Strings: ["Äußerung 1", "Äußerung 2", ...]`,
     `Schüler-Typ: ${persona.name}\nBeschreibung: ${persona.description || '–'}\n` +
     (persona.example_msgs ? `Typische Formulierungen: ${persona.example_msgs}` : ''),
-    model
+    model,
+    { timeout: SIMULATION_TIMEOUT_MS }
   );
 }
 
 async function generateAIResponse(config, erfahrungContent, utterance, aiClient) {
   const instructions = buildInstructions({ systemContent: config.content, erfahrungContent });
-  return aiClient.textCall(instructions, utterance, config.model);
+  return aiClient.textCall(instructions, utterance, config.model, { timeout: SIMULATION_TIMEOUT_MS });
 }
 
 async function evaluateResponse(utterance, aiResponse, criteria, model, aiClient) {
@@ -32,7 +35,8 @@ Antworte AUSSCHLIESSLICH mit validem JSON (keine Markdown-Blöcke):
 }
 Wähle nur Highlights deren Wortlaut EXAKT so in der KI-Antwort steht.`,
     `Kriterien:\n${criteriaText}\n\nSchüler-Äußerung: ${utterance}\n\nKI-Antwort:\n${aiResponse}`,
-    model
+    model,
+    { timeout: SIMULATION_TIMEOUT_MS }
   );
 }
 
