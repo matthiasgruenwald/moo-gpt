@@ -40,7 +40,7 @@ Wähle nur Highlights deren Wortlaut EXAKT so in der KI-Antwort steht.`,
   );
 }
 
-export async function runSimulation({ persona, config, erfahrungsprompt, criteria, models, aiClient }) {
+export async function runSimulation({ persona, config, erfahrungsprompt, criteria, models, aiClient, onPair }) {
   const { utteranceModel, evalModel } = models;
   const count = 4;
 
@@ -55,7 +55,9 @@ export async function runSimulation({ persona, config, erfahrungsprompt, criteri
     } catch (_) {
       evaluation = { overall: 'gemischt', score: 3, highlights: [], summary: 'Evaluierung nicht möglich.' };
     }
-    pairs.push({ utterance, aiResponse, evaluation });
+    const pair = { utterance, aiResponse, evaluation };
+    pairs.push(pair);
+    onPair?.(pair, pairs.length - 1);
   }
 
   const simResultsText = pairs.map((r, i) =>

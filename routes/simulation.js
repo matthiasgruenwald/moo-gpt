@@ -96,12 +96,10 @@ router.post('/simulate', requireDashboardAuth, async (req, res) => {
       criteria,
       models:           { utteranceModel: uModel, evalModel: eModel },
       aiClient,
+      onPair: (pair, index) => sendEvent('pair', { index, pair, personaName: persona.name }),
     });
 
     console.log(`[Simulate] ${pairs.length} Paare abgeschlossen, generiere Erfahrungsprompt-Vorschlag`);
-    for (let i = 0; i < pairs.length; i++) {
-      sendEvent('pair', { index: i, pair: pairs[i], personaName: persona.name });
-    }
 
     sendEvent('progress', { label: 'Generiere Erfahrungsprompt-Vorschlag…' });
 
@@ -154,25 +152,23 @@ router.post('/one-click-optimize', requireDashboardAuth, async (req, res) => {
     sendEvent('sim_start', { total });
 
     await Promise.allSettled(personas.map(async (persona) => {
-      let result;
       try {
-        result = await runSimulation({
+        await runSimulation({
           persona,
           config:           getCachedConfig(),
           erfahrungsprompt: erfahrungsprompt?.content || '',
           criteria:         currentCriteria,
           models:           { utteranceModel: GEN_MODEL, evalModel: GEN_MODEL },
           aiClient,
+          onPair: (pair, index) => {
+            allPairs.push({ personaName: persona.name, pair });
+            pairsEmitted++;
+            sendEvent('sim_pair', { personaName: persona.name, index, pair, emitted: pairsEmitted, total });
+          },
         });
       } catch (e) {
         console.warn(`[OneClick] Simulation fehlgeschlagen für ${persona.name}:`, e.message);
         return;
-      }
-      for (let i = 0; i < result.pairs.length; i++) {
-        const pair = result.pairs[i];
-        allPairs.push({ personaName: persona.name, pair });
-        pairsEmitted++;
-        sendEvent('sim_pair', { personaName: persona.name, index: i, pair, emitted: pairsEmitted, total });
       }
     }));
 
