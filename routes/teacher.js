@@ -6,7 +6,7 @@ import {
   deleteTeacherTemplate, setTeacherTemplateDefault,
 } from '../stores/teacher.js';
 import { AVAILABLE_MODELS } from '../env-config.js';
-import { validateTemplateFields } from './validators.js';
+import { validateWidgetConfig } from '../validators.js';
 
 const router = Router();
 
@@ -35,7 +35,7 @@ router.post('/teacher/templates', requireTeacherAuth, (req, res) => {
   const { userId } = req;
   const { name, title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
-  const validErr = validateTemplateFields(uploadMode, botIcon);
+  const validErr = validateWidgetConfig(uploadMode, botIcon);
   if (validErr) return res.status(400).json({ error: validErr });
   const id = createTeacherTemplate(userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate });
   res.json({ ok: true, id });
@@ -47,7 +47,7 @@ router.put('/teacher/templates/:id', requireTeacherAuth, (req, res) => {
   if (!id) return res.status(400).json({ error: 'Ungültige ID' });
   const { name, title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
-  const validErr = validateTemplateFields(uploadMode, botIcon);
+  const validErr = validateWidgetConfig(uploadMode, botIcon);
   if (validErr) return res.status(400).json({ error: validErr });
   updateTeacherTemplate(id, userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate });
   res.json({ ok: true });

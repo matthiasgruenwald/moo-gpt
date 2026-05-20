@@ -1,12 +1,4 @@
-import { getActiveErfahrungsprompt } from './stores/prompt.js';
-import { getErkenntnisse } from './stores/criteria.js';
-import { getFeedbackByActivity } from './stores/feedback.js';
-
-export async function generateOptimizeProposal(activityId, simResultsText = '', config, aiClient) {
-  const feedbacks    = getFeedbackByActivity(activityId);
-  const erkenntnisse = getErkenntnisse(activityId);
-  const erf          = getActiveErfahrungsprompt(activityId);
-
+export async function generateOptimizeProposal({ erfahrungsprompt, erkenntnisse, feedbacks, simResultsText = '', config, aiClient }) {
   const feedbackText = feedbacks.length === 0
     ? 'Noch keine Bewertungen vorhanden.'
     : feedbacks.map(f => {
@@ -35,7 +27,7 @@ Antworte AUSSCHLIESSLICH mit validem JSON ohne Markdown-Blöcke:
 }`;
 
   const userMessage = `Globaler Systemprompt:\n${config.content}\n\n` +
-    `Aktueller Erfahrungsprompt:\n${erf?.content || '(noch keiner)'}\n\n` +
+    `Aktueller Erfahrungsprompt:\n${erfahrungsprompt || '(noch keiner)'}\n\n` +
     `Feedback zu KI-Antworten dieser Aufgabe:\n${feedbackText}\n\n` +
     (simResultsText ? `Simulations-Ergebnisse (frisch):\n${simResultsText}\n\n` : '') +
     `Bisherige Erkenntnisse:\n${erkenntnisText}\n\n` +
@@ -46,7 +38,7 @@ Antworte AUSSCHLIESSLICH mit validem JSON ohne Markdown-Blöcke:
     throw new Error('Unvollständige KI-Antwort');
 
   return {
-    erfahrungsprompt_alt: erf?.content || '',
+    erfahrungsprompt_alt: erfahrungsprompt || '',
     erfahrungsprompt_neu: parsed.erfahrungsprompt_neu,
     kausalkette:          parsed.kausalkette,
   };

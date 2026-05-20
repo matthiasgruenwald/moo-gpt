@@ -4,6 +4,8 @@ import {
   getActiveErfahrungsprompt, saveErfahrungsprompt,
   getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry,
 } from '../stores/prompt.js';
+import { getErkenntnisse } from '../stores/criteria.js';
+import { getFeedbackByActivity } from '../stores/feedback.js';
 import { generateOptimizeProposal } from '../optimize.js';
 import { aiClient } from '../ai-instance.js';
 import { getCachedConfig } from '../config-cache.js';
@@ -42,7 +44,17 @@ router.delete('/erfahrungsprompt-history/:id', requireDashboardAuth, (req, res) 
 router.post('/optimize-prompt', requireDashboardAuth, async (req, res) => {
   const { activityId } = req;
   try {
-    const result = await generateOptimizeProposal(activityId, '', getCachedConfig(), aiClient);
+    const erf          = getActiveErfahrungsprompt(activityId);
+    const erkenntnisse = getErkenntnisse(activityId);
+    const feedbacks    = getFeedbackByActivity(activityId);
+    const result = await generateOptimizeProposal({
+      erfahrungsprompt: erf?.content || null,
+      erkenntnisse,
+      feedbacks,
+      simResultsText: '',
+      config: getCachedConfig(),
+      aiClient,
+    });
     console.log(`[Optimize] Vorschlag für ${activityId} generiert (${result.kausalkette.length} Kausalketten-Einträge)`);
     res.json(result);
   } catch (e) {

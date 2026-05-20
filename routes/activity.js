@@ -4,9 +4,9 @@ import { getActivity, setActivityConfig } from '../stores/activity.js';
 import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { getTeacherPreference } from '../stores/teacher.js';
 import { AVAILABLE_MODELS } from '../env-config.js';
-import { validateTemplateFields } from './validators.js';
+import { validateWidgetConfig } from '../validators.js';
 
-export function createActivityRouter({ chatRegistry, dashboardRegistry, activityLocks }) {
+export function createActivityRouter({ chatRegistry, dashboardRegistry, lockManager }) {
   const router = Router();
 
   router.get('/activity-config/:activityId', requireDashboardAuth, (req, res) => {
@@ -30,7 +30,7 @@ export function createActivityRouter({ chatRegistry, dashboardRegistry, activity
   router.put('/activity-config/:activityId', requireDashboardAuth, (req, res) => {
     const { activityId, userId } = req;
     const { opener, uploadMode, title, botIcon } = req.body;
-    const validErr = validateTemplateFields(uploadMode, botIcon);
+    const validErr = validateWidgetConfig(uploadMode, botIcon);
     if (validErr) return res.status(400).json({ error: validErr });
     setActivityConfig(activityId, opener ?? null, uploadMode ?? null, title ?? null, botIcon ?? null);
     console.log(`[Config] Aktivität ${activityId} aktualisiert von ${userId}`);
@@ -39,34 +39,15 @@ export function createActivityRouter({ chatRegistry, dashboardRegistry, activity
 
   router.post('/activity/:activityId/lock', requireDashboardAuth, (req, res) => {
     const { activityId, userId } = req;
-    const existing = activityLocks.get(String(activityId));
-    if (existing?.timerHandle) clearTimeout(existing.timerHandle);
-
-    const entry = {};
-    const durationMinutes = Math.min(120, Math.max(0, Number(req.body.durationMinutes) || 0));
-    if (durationMinutes > 0) {
-      entry.timerHandle = setTimeout(() => {
-        activityLocks.delete(String(activityId));
-        chatRegistry.broadcast(activityId, { type: 'unlocked' });
-        dashboardRegistry.broadcast(activityId, { type: 'unlocked' });
-        console.log(`[Lock] Aktivität ${activityId} automatisch entsperrt nach ${durationMinutes} min`);
-      }, durationMinutes * 60 * 1000);
-    }
-
-    activityLocks.set(String(activityId), entry);
-    chatRegistry.broadcast(activityId, { type: 'locked' });
-    dashboardRegistry.broadcast(activityId, { type: 'locked' });
+    const durationMinutes = Number(req.body.durationMinutes) || 0;
+    lockManager.lock(activityId, durationMinutes);
     console.log(`[Lock] Aktivität ${activityId} gesperrt von ${userId}, Timer: ${durationMinutes} min`);
     res.json({ ok: true, locked: true });
   });
 
   router.delete('/activity/:activityId/lock', requireDashboardAuth, (req, res) => {
     const { activityId, userId } = req;
-    const existing = activityLocks.get(String(activityId));
-    if (existing?.timerHandle) clearTimeout(existing.timerHandle);
-    activityLocks.delete(String(activityId));
-    chatRegistry.broadcast(activityId, { type: 'unlocked' });
-    dashboardRegistry.broadcast(activityId, { type: 'unlocked' });
+    lockManager.unlock(activityId);
     console.log(`[Lock] Aktivität ${activityId} entsperrt von ${userId}`);
     res.json({ ok: true, locked: false });
   });
