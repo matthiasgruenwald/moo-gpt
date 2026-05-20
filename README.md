@@ -2,7 +2,7 @@
 
 KI-Chatbot-Widget für Moodle. Lehrkräfte betten einen KI-Assistenten direkt in Aufgaben und Quiz-Fragen ein – ohne separaten Login für Schülerinnen und Schüler.
 
-> 📸 *Screenshot: Chat-Widget in einer Moodle-Aufgabe + Lehrer-Dashboard (folgt)*
+![moo-gpt Chat-Widget in einer Moodle-Aufgabe](docs/images/Schülerchat.png)
 
 ---
 

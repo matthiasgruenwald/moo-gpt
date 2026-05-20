@@ -14,7 +14,7 @@ Sobald der Administrator das Snippet installiert hat, kann jede Lehrkraft das Wi
 2. Im Editor-Menü das Snippet **„KI-Chat"** auswählen
 3. Das Widget erscheint direkt in der Aufgabe – keine weitere Konfiguration nötig
 
-> 📸 *Screenshot: Snippet-Auswahl im TinyMCE-Editor (folgt)*
+![Snippet-Auswahl im TinyMCE-Editor](images/Snippet-in-Tiny-einfuegen.png)
 
 Für Quiz-/Testfragen das Snippet **„KI-Chat (Testfrage)"** verwenden.
 
@@ -41,6 +41,44 @@ Lehrkräfte sehen nach dem Öffnen des Chat-Widgets automatisch einen Dashboard-
 - Token-Kosten je Session
 
 **Zugang:** Nur mit automatisch generiertem Token möglich (8 Stunden gültig). Nach Ablauf Chat-Widget einmal öffnen – neuer Token wird automatisch zugeschickt.
+
+<details>
+<summary>Screenshot: Dashboard mit Schülerliste und Chatverlauf anzeigen</summary>
+
+![Lehrer-Dashboard](images/Dashboard-Chats.png)
+
+</details>
+
+## Aufgabe konfigurieren
+
+Über das Dashboard können Lehrkräfte den KI-Assistenten je Aufgabe anpassen: Titel, Bot-Typ, Erfahrungsprompt (Hinweise zum Lösungsweg) und weitere Einstellungen. Die Konfiguration öffnet sich über den Einstellungen-Button im Dashboard.
+
+![Aktivitätseinstellungen](images/Aktivitätseinstellungen.png)
+
+## Prompt optimieren
+
+Über den Tab **Optimierung** im Dashboard kann der Erfahrungsprompt einer Aufgabe verbessert werden – entweder vollautomatisch oder manuell:
+
+- **One-Click-Optimierung:** Die KI generiert Kriterien, simuliert verschiedene Schüler-Personas und schlägt einen verbesserten Erfahrungsprompt vor – ohne weiteren Eingriff.
+- **Manuelle Simulation:** Kriterien selbst festlegen oder von der KI vorschlagen lassen, eigene Personas ergänzen und die Simulation Schritt für Schritt durchführen.
+
+<details>
+<summary>Screenshot: Optimierung-Tab anzeigen</summary>
+
+![Dashboard Optimierung-Tab](images/Dashboard-Optimierung.png)
+
+</details>
+
+## Einstellungen (Admin)
+
+Der Tab **Einstellungen** ist für Administratoren. Hier wird der globale System-Prompt und das Standard-Modell für alle Aufgaben festgelegt. Lehrkräfte können außerdem eigene Personas verwalten, die in der Simulation zur Verfügung stehen.
+
+<details>
+<summary>Screenshot: Einstellungen-Tab anzeigen</summary>
+
+![Dashboard Einstellungen-Tab](images/DashboardEinstellungen.png)
+
+</details>
 
 ## Rollenerkennung
 

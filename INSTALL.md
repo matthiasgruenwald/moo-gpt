@@ -141,4 +141,4 @@ Import per Drag & Drop: Die `.html`-Datei direkt in das Snippet-Plugin ziehen. V
 
 Nach dem Import kann das Snippet in jeder Moodle-Aufgabe über den TinyMCE-Editor eingefügt werden.
 
-> 📸 *Screenshot: Snippet-Auswahl im TinyMCE-Editor (folgt)*
+![Snippet-Auswahl im TinyMCE-Editor](docs/images/Snippet-in-Tiny-einfuegen.png)
