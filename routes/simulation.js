@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { requireDashboardAuth } from '../auth-middleware.js';
 import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { getAllPersonasForUser, getGlobalPersonas, getTeacherPersonas } from '../stores/persona.js';
-import { getCriteria, saveErkenntnisse } from '../stores/criteria.js';
+import { getCriteria, saveErkenntnisse, getErkenntnisse } from '../stores/criteria.js';
+import { getFeedbackByActivity } from '../stores/feedback.js';
 import { runSimulation } from '../simulation.js';
 import { generateOptimizeProposal } from '../optimize.js';
 import { augmentCriteria } from '../criteria.js';
@@ -104,7 +105,16 @@ router.post('/simulate', requireDashboardAuth, async (req, res) => {
     sendEvent('progress', { label: 'Generiere Erfahrungsprompt-Vorschlag…' });
 
     try {
-      const suggestion = await generateOptimizeProposal(activityId, simResultsText, getCachedConfig(), aiClient);
+      const erkenntnisse = getErkenntnisse(activityId);
+      const feedbacks    = getFeedbackByActivity(activityId);
+      const suggestion = await generateOptimizeProposal({
+        erfahrungsprompt: erfahrungsprompt?.content || null,
+        erkenntnisse,
+        feedbacks,
+        simResultsText,
+        config: getCachedConfig(),
+        aiClient,
+      });
       sendEvent('suggestion', suggestion);
       console.log(`[Simulate] Erfahrungsprompt-Vorschlag gesendet`);
     } catch (optErr) {
@@ -133,7 +143,8 @@ router.post('/one-click-optimize', requireDashboardAuth, async (req, res) => {
 
   try {
     const existing    = getCriteria(activityId);
-    const newCriteria = await augmentCriteria(activityId, existing, getCachedConfig(), aiClient);
+    const erf         = getActiveErfahrungsprompt(activityId);
+    const newCriteria = await augmentCriteria({ config: getCachedConfig(), erfahrungsprompt: erf?.content || null, existingCriteria: existing, aiClient });
     for (const c of newCriteria) saveErkenntnisse(activityId, c, 'criteria');
     sendEvent('criteria', { added: newCriteria.length, total: existing.length + newCriteria.length });
     console.log(`[OneClick] Kriterien: ${existing.length} vorhanden, ${newCriteria.length} ergänzt`);
@@ -144,7 +155,7 @@ router.post('/one-click-optimize', requireDashboardAuth, async (req, res) => {
     console.log(`[OneClick] Personas: ${personas.map(p => p.name).join(', ')}`);
 
     const currentCriteria  = getCriteria(activityId);
-    const erfahrungsprompt = getActiveErfahrungsprompt(activityId);
+    const erfahrungsprompt = erf;
     const allPairs         = [];
     const total            = personas.length * 4;
     let   pairsEmitted     = 0;
@@ -181,7 +192,16 @@ router.post('/one-click-optimize', requireDashboardAuth, async (req, res) => {
       `Bewertung: ${r.pair.evaluation.overall} (Score ${r.pair.evaluation.score}/5) – ${r.pair.evaluation.summary || ''}`
     ).join('\n---\n');
 
-    const proposal = await generateOptimizeProposal(activityId, simResultsText, getCachedConfig(), aiClient);
+    const erkenntnisse = getErkenntnisse(activityId);
+    const feedbacks    = getFeedbackByActivity(activityId);
+    const proposal = await generateOptimizeProposal({
+      erfahrungsprompt: erfahrungsprompt?.content || null,
+      erkenntnisse,
+      feedbacks,
+      simResultsText,
+      config: getCachedConfig(),
+      aiClient,
+    });
     sendEvent('optimize_done', proposal);
     console.log(`[OneClick] Fertig für ${activityId}`);
 
