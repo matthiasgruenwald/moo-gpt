@@ -30,6 +30,10 @@ export function updateThreadName(thread_db_id, moodle_user_name) {
   `).run(moodle_user_name, thread_db_id);
 }
 
+export function deleteTaskImages(thread_db_id) {
+  getDb().prepare(`DELETE FROM messages WHERE thread_id = ? AND content_type = 'task_image'`).run(thread_db_id);
+}
+
 export function saveMessage({ thread_db_id, role, content, content_type = 'text' }) {
   const result = getDb().prepare(`
     INSERT INTO messages (thread_id, role, content, content_type) VALUES (?, ?, ?, ?)

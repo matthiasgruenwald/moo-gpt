@@ -27,39 +27,26 @@ KI-Chatbot-Widget für Moodle (IGS Mittelstufe, v.a. Jg. 9). Floating-Chat-Widge
 
 ---
 
-## Wichtige Dateien
+## Nicht-offensichtliche Dateien
 
 | Datei | Zweck |
 |-------|-------|
-| `server.js` | WebSocket-Server, Express-Routing, Route-Mounting |
-| `config-cache.js` | Modul-Singleton für cachedConfig (System-Prompt + Modell) |
-| `ai-instance.js` | oai + aiClient Singletons, APIKEY-Guard |
-| `env-config.js` | Berechnete Env-Konstanten: MODEL_NAME, AVAILABLE_MODELS, GEN_MODEL, GEN_MODELS |
-| `ai-client.js` | AIClient: textCall, jsonCall (konfig. Timeout), Streaming |
-| `simulation.js` | runSimulation: Äußerungen, KI-Antwort, Evaluierung |
-| `criteria.js` | suggestCriteriaList, augmentCriteria |
-| `optimize.js` | generateOptimizeProposal (Erfahrungsprompt-Vorschlag) |
-| `persona-selector.js` | selectPersonasForOneClick: Heuristik zur Persona-Auswahl für One-Click-Optimierung |
-| `lock-manager.js` | LockManager: Aktivitätssperren (Map, Timer, Broadcasts) |
-| `prompt-builder.js` | buildInstructions: System-Prompt zusammensetzen |
-| `validators.js` | validateWidgetConfig (uploadMode, botIcon) — Domain-Validierung, kein HTTP-Bezug |
-| `routes/activity.js` | createActivityRouter: GET/PUT activity-config, POST/DELETE activity lock |
-| `routes/dashboard.js` | students, messages (HTTP) |
-| `routes/admin.js` | createAdminRouter: System-Prompt, Prompt-History, Admin-Liste, System-Template, Logs, Neustart |
-| `routes/teacher.js` | Teacher-Präferenzen, Lehrer-Templates |
-| `routes/erfahrungsprompt.js` | Erfahrungsprompt CRUD + optimize-prompt |
-| `routes/personas.js` | Lehrer-Personas, Admin-Personas, personas-suggest |
-| `routes/criteria.js` | createCriteriaRouter: Kriterien CRUD, Erkenntnisse, Feedback-Bewertung |
-| `routes/simulation.js` | POST /simulate (SSE), POST /one-click-optimize (SSE, parallel) |
-| `auth-middleware.js` | requireDashboardAuth, requireTeacherAuth, requireAdminAuth |
-| `token-log.js` | recordUsage, enrichMessagesWithCost, computeCosts |
-| `chat-session.js` | ChatSession: WebSocket-Handler für /api/chat |
-| `db.js` | SQLite-Modul |
-| `public/moo-bot.js` | Floating-Chat-Widget (ES-Modul) |
-| `public/dashboard.html` / `dashboard.js` | Lehrer-Dashboard |
-| `public/chat.html` | Standalone-Chat (iframe) |
-| `snippets/abgpt.txt` | TinyMCE-Snippet Aufgaben |
-| `snippets/tegpt.txt` | TinyMCE-Snippet Quiz/Test |
+| `config-cache.js` | Singleton für cachedConfig (System-Prompt + Modell) — wird von fast allen Routes importiert |
+| `ai-instance.js` | oai + aiClient Singletons, APIKEY-Guard beim Start |
+| `env-config.js` | Berechnete Env-Konstanten — MODEL_NAME vs. GEN_MODEL sind verschiedene Dinge |
+| `ai-client.js` | AIClient-Wrapper: textCall, jsonCall (konfig. Timeout), Streaming |
+| `simulation.js` | runSimulation: Äußerungen generieren → KI-Antwort → Evaluierung (kein HTTP) |
+| `criteria.js` | suggestCriteriaList, augmentCriteria (kein HTTP, reine Logik) |
+| `optimize.js` | generateOptimizeProposal: neuen Erfahrungsprompt-Vorschlag erzeugen |
+| `persona-selector.js` | selectPersonasForOneClick: Heuristik welche Personas für One-Click-Optimierung |
+| `lock-manager.js` | LockManager: Aktivitätssperren (Map + Timer + Broadcast) |
+| `prompt-builder.js` | buildInstructions: System-Prompt aus Teilen zusammensetzen |
+| `validators.js` | validateWidgetConfig — Domain-Validierung, kein HTTP-Bezug (≠ route-Validators) |
+| `routes/activity.js` | createActivityRouter: activity-config + activity-lock Endpoints |
+| `routes/admin.js` | createAdminRouter: System-Prompt, History, Template, Logs, Neustart |
+| `routes/erfahrungsprompt.js` | Erfahrungsprompt CRUD + /optimize-prompt Endpoint |
+| `routes/criteria.js` | createCriteriaRouter: Kriterien, Erkenntnisse, Feedback-Bewertung |
+| `snippets/abgpt.txt` / `tegpt.txt` | TinyMCE-Snippets: abgpt = Aufgaben, tegpt = Quiz/Test |
 
 ---
 
@@ -127,7 +114,7 @@ Auch ignoriert: `.claude/settings.local.json`, `.claude/local/`, `.claude/worktr
 
 ## Git-Workflow (Kurzreferenz)
 
-**WICHTIG: Git nie über Sandbox ausführen.** Fertigen Terminal-Block ausgeben, Matthias führt aus.
+**Git/gh-Befehle nur ausführen, wenn Matthias in der laufenden Session explizit dazu auffordert.** Sonst immer einen fertigen Terminal-Block ausgeben.
 
 **LXC (primär):**
 ```bash

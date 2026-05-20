@@ -1,7 +1,7 @@
 import { upsertActivity, getActivity } from './stores/activity.js';
 import { getActiveErfahrungsprompt, saveErfahrungsprompt } from './stores/prompt.js';
 import { getTeacherDefaultTemplate, getSystemTemplate } from './stores/teacher.js';
-import { saveThread, touchThread, findThread, updateThreadName, saveMessage, getMessages } from './stores/chat.js';
+import { saveThread, touchThread, findThread, updateThreadName, saveMessage, getMessages, deleteTaskImages } from './stores/chat.js';
 
 function detectRole(settings) {
   const teacherIds = process.env.TEACHER_USER_IDS
@@ -66,33 +66,41 @@ async function resolveThread(userId, userName, activityId, images) {
       activity_id:      activityId  || null,
     });
     console.log(`[DB] Neuer Thread angelegt, db_id=${threadDbId}`);
+  }
 
-    if (images && images.length > 0) {
-      let saved = 0;
-      for (const img of images) {
-        try {
-          const imgClean = typeof img === 'string' ? img.trim() : img;
-          if (!imgClean) continue;
-          let dataUrl;
-          if (imgClean.startsWith('data:')) {
-            dataUrl = imgClean;
-          } else {
-            const parsed = new URL(imgClean);
-            if (!['http:', 'https:'].includes(parsed.protocol)) continue;
-            const res = await fetch(imgClean);
-            if (!res.ok) { console.log(`[Settings] Bild übersprungen (HTTP ${res.status})`); continue; }
-            const mimeType = res.headers.get('content-type') || 'image/jpeg';
-            const buf = Buffer.from(await res.arrayBuffer());
-            dataUrl = `data:${mimeType};base64,${buf.toString('base64')}`;
+  // Aufgabenbilder bei jedem Connect aktualisieren (alte löschen, neue validiert einfügen)
+  if (images && images.length > 0) {
+    deleteTaskImages(threadDbId);
+    let saved = 0;
+    for (const img of images) {
+      try {
+        const imgClean = typeof img === 'string' ? img.trim() : img;
+        if (!imgClean) continue;
+        let dataUrl;
+        if (imgClean.startsWith('data:')) {
+          const mimeMatch = imgClean.match(/^data:([^;]+);/);
+          const mime = mimeMatch ? mimeMatch[1] : '';
+          if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(mime)) {
+            console.warn(`[Settings] Aufgabenbild übersprungen (MIME: ${mime})`);
+            continue;
           }
-          saveMessage({ thread_db_id: threadDbId, role: 'user', content: dataUrl, content_type: 'task_image' });
-          saved++;
-        } catch (e) {
-          console.warn('[Settings] Aufgabenbild übersprungen:', e.message);
+          dataUrl = imgClean;
+        } else {
+          const parsed = new URL(imgClean);
+          if (!['http:', 'https:'].includes(parsed.protocol)) continue;
+          const res = await fetch(imgClean);
+          if (!res.ok) { console.log(`[Settings] Bild übersprungen (HTTP ${res.status})`); continue; }
+          const mimeType = res.headers.get('content-type') || 'image/jpeg';
+          const buf = Buffer.from(await res.arrayBuffer());
+          dataUrl = `data:${mimeType};base64,${buf.toString('base64')}`;
         }
+        saveMessage({ thread_db_id: threadDbId, role: 'user', content: dataUrl, content_type: 'task_image' });
+        saved++;
+      } catch (e) {
+        console.warn('[Settings] Aufgabenbild übersprungen:', e.message);
       }
-      console.log(`[DB] ${saved} Aufgabenbild(er) als task_image gespeichert`);
     }
+    console.log(`[DB] ${saved} Aufgabenbild(er) als task_image gespeichert`);
   }
 
   const history = existingThreadRow ? getMessages(threadDbId) : [];
@@ -137,9 +145,9 @@ export class ChatSession {
     // P3: Chat-Client registrieren (nur Schüler) + ggf. sofort sperren
     if (settings.activityId && !this.isTeacher) {
       const aid = String(settings.activityId);
-      const { chatRegistry, activityLocks } = this._deps;
+      const { chatRegistry, lockManager } = this._deps;
       chatRegistry.register(aid, this.ws);
-      if (activityLocks.has(aid)) this.ws.send(JSON.stringify({ type: 'locked' }));
+      if (lockManager.isLocked(aid)) this.ws.send(JSON.stringify({ type: 'locked' }));
     }
 
     // Issue #5: Dashboard-Token für Lehrer

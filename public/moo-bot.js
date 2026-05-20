@@ -395,7 +395,8 @@ export class MOOBOT {
 
   async extractImagesFromTask() {
     const images = [];
-    if (!this.settings.task) return images;
+    let failedCount = 0;
+    if (!this.settings.task) return { images, failedCount };
     try {
       const parser = new DOMParser();
       const doc = parser.parseFromString(this.settings.task, "text/html");
@@ -403,22 +404,25 @@ export class MOOBOT {
       for (const img of imgTags) {
         try {
           const response = await fetch(img.src);
+          if (!response.ok) {
+            console.warn("Could not fetch image (HTTP " + response.status + "):", img.src);
+            failedCount++;
+            continue;
+          }
           const blob = await response.blob();
-          const base64 = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
-            reader.readAsDataURL(blob);
-          });
+          const pngBlob = await this._blobToPng(blob);
+          const base64 = await this._blobToDataURL(pngBlob);
           images.push(base64);
           console.log("Image extracted:", img.src);
         } catch (err) {
-          console.warn("Could not fetch image:", img.src, err);
+          console.warn("Could not process image:", img.src, err);
+          failedCount++;
         }
       }
     } catch (err) {
       console.warn("Error extracting images:", err);
     }
-    return images;
+    return { images, failedCount };
   }
 
   setupWebSocket() {
@@ -479,10 +483,18 @@ export class MOOBOT {
       console.log(`[Bot] isTeacher=${isTeacher} (editmode=${hasEditMode}, switched=${isSwitchedRole})`);
 
       // Bilder aus der Aufgabenstellung extrahieren und als Base64 mitsenden
-      const images = await this.extractImagesFromTask();
+      const { images, failedCount } = await this.extractImagesFromTask();
       if (images.length > 0) {
         this.settings.images = images;
         console.log(`${images.length} Bild(er) aus Aufgabenstellung extrahiert`);
+      }
+      if (failedCount > 0) {
+        this._showChatError(
+          `⚠️ ${failedCount} Bild(er) aus der Aufgabenstellung konnten nicht verarbeitet werden ` +
+          `(Format nicht unterstützt – vermutlich TIFF). ` +
+          `Bitte das Bild in GeoGebra oder einem Bildprogramm als PNG exportieren, ` +
+          `dann direkt als Datei in Moodle einfügen (nicht via Zwischenablage).`
+        );
       }
 
       const obj = { type: "settings", data: this.settings };
@@ -894,6 +906,32 @@ export class MOOBOT {
         canvas.toBlob(resolve, 'image/jpeg', 0.85);
       };
       img.onerror = reject;
+      img.src = url;
+    });
+  }
+
+  /** Blob → PNG-Blob via Canvas (lossless; wirft bei nicht renderbaren Formaten wie TIFF). */
+  _blobToPng(blob) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX_PX = 2048;
+        let w = img.naturalWidth, h = img.naturalHeight;
+        if (w > MAX_PX || h > MAX_PX) {
+          if (w >= h) { h = Math.round(h * MAX_PX / w); w = MAX_PX; }
+          else        { w = Math.round(w * MAX_PX / h); h = MAX_PX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(
+          pngBlob => pngBlob ? resolve(pngBlob) : reject(new Error('Canvas PNG export failed')),
+          'image/png'
+        );
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
       img.src = url;
     });
   }
