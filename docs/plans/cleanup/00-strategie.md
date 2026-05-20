@@ -19,7 +19,7 @@ Gleiche Reihenfolge wie beim DB-Refactoring: kleinste, sicherste Änderung zuers
 | 01 | `routes/validators.js` | Liegt in `routes/`, wird aber von Domain-Code benötigt. Abhängigkeitsrichtung verkehrt. | → Root `validators.js`, Funktion umbenannt | ✓ done |
 | 02 | `criteria.js` | Greift selbst in Store (`getActiveErfahrungsprompt`), statt Daten entgegenzunehmen. | Store-Zugriff an Caller delegieren | ✓ done |
 | 03 | `optimize.js` | Greift selbst in drei Stores. | Store-Zugriffe an Caller delegieren | |
-| 04 | `routes/simulation.js` | `selectPersonasForOneClick()` (50 Zeilen Domain-Heuristik) steckt im Route-Handler. | → `persona-selector.js` | |
+| 04 | `routes/simulation.js` | `selectPersonasForOneClick()` (50 Zeilen Domain-Heuristik) steckt im Route-Handler. | → `persona-selector.js` | ✓ done |
 | 05 | `server.js` / `routes/activity.js` | Aktivitätssperren als rohes `Map` in `server.js`, direkt aus Route manipuliert. Timer und Broadcasts verteilt. | → `lock-manager.js` | |
 
 ---
