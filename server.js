@@ -33,6 +33,7 @@ import erfahrungspromptRouter from './routes/erfahrungsprompt.js';
 import personasRouter from './routes/personas.js';
 import criteriaRouter from './routes/criteria.js';
 import simulationRouter from './routes/simulation.js';
+import { LockManager } from './lock-manager.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -138,13 +139,13 @@ function checkOrigin(ws, req, next) {
 const dashboardRegistry = new ClientRegistry();
 const chatRegistry      = new ClientRegistry();
 
-/** P3: activityId → { timerHandle? } für Plenum-Sperre. */
-const activityLocks = new Map();
+const lockManager = new LockManager(chatRegistry, dashboardRegistry);
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
+app.use('/graphify', express.static("graphify-out"));
 
 // Issue #13: System-Prompt aus Env (Fallback, wenn DB noch leer)
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || '';
@@ -174,7 +175,7 @@ initDb();
   }
 }
 
-const activityRouter = createActivityRouter({ chatRegistry, dashboardRegistry, activityLocks });
+const activityRouter = createActivityRouter({ chatRegistry, dashboardRegistry, lockManager });
 const adminRouter    = createAdminRouter({ dashboardRegistry });
 app.use('/api', activityRouter);
 app.use('/api', adminRouter);
@@ -242,7 +243,7 @@ app.ws('/api/dashboard-ws', (ws, req) => {
       activityName: act?.activity_name,
       opener:       act?.opener,
       activityCost,
-      locked:       activityLocks.has(activityId),
+      locked:       lockManager.isLocked(activityId),
     }));
   } catch (e) {
     console.error('[Dashboard] Initial-students error:', e);
@@ -280,7 +281,7 @@ app.ws('/api/dashboard-ws', (ws, req) => {
 app.ws("/api/chat", (ws, req) => {
   checkOrigin(ws, req, () => {
     const session = new ChatSession(ws, {
-      chatRegistry, activityLocks, generateDashboardToken,
+      chatRegistry, lockManager, generateDashboardToken,
       dashboardRegistry, streamResponse, oai, VERSION,
     });
 
