@@ -118,6 +118,86 @@
 
     .cfg-loading { padding: 40px 20px; text-align: center; color: #888; }
     .cfg-error   { padding: 30px 20px; text-align: center; color: #dc3545; }
+
+    .cfg-check-btn {
+      width: 100%;
+      padding: 10px;
+      background: #f0f4ff;
+      border: 1px solid #003366;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      color: #003366;
+      font-weight: 700;
+      transition: background 0.15s;
+    }
+    .cfg-check-btn:hover { background: #dce6ff; }
+    .cfg-check-btn:disabled { opacity: 0.6; cursor: default; }
+
+    .cfg-compare-panel {
+      position: fixed;
+      inset: 0;
+      background: #f8f9fa;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+    }
+    .cfg-compare-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px;
+      background: #e8eef5;
+      border-bottom: 2px solid #003366;
+      color: #003366;
+    }
+    .cfg-compare-title { font-weight: 700; font-size: 14px; }
+    .cfg-compare-close {
+      background: none; border: 1px solid #aabbd0; border-radius: 4px;
+      color: #003366; font-size: 16px; cursor: pointer; line-height: 1;
+      padding: 2px 7px;
+    }
+    .cfg-compare-close:hover { background: #ccdaeb; }
+    .cfg-compare-columns {
+      display: flex;
+      flex: 1;
+      gap: 12px;
+      overflow: hidden;
+      padding: 12px;
+      background: #dde5ef;
+    }
+    .cfg-compare-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 14px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    .cfg-compare-col:last-child { border-right: none; }
+    .cfg-compare-col-header {
+      font-weight: 700;
+      font-size: 12px;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    .cfg-compare-textarea {
+      flex: 1;
+      width: 100%;
+      resize: none;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+    .cfg-compare-btn { width: 100%; }
   </style>
 </head>
 <body>
@@ -174,6 +254,29 @@
       <label class="cfg-label" for="cfg-hints">Aufgaben-Hinweise (Prompt-Ergänzung)</label>
       <textarea class="cfg-textarea" id="cfg-hints" rows="5"></textarea>
       <div class="cfg-hint">Ergänzung zum System-Prompt für diese Aufgabe (z.&nbsp;B. Fach, Thema, Jahrgang)</div>
+    </div>
+
+    <div class="cfg-field">
+      <button class="cfg-check-btn" id="cfg-check-btn">🔍 Prompt prüfen &amp; verbessern</button>
+    </div>
+
+    <div class="cfg-compare-panel" id="cfg-compare-panel" style="display:none">
+      <div class="cfg-compare-header">
+        <span class="cfg-compare-title">Prompt-Vergleich</span>
+        <button class="cfg-compare-close" id="cfg-compare-close">&#x2715;</button>
+      </div>
+      <div class="cfg-compare-columns">
+        <div class="cfg-compare-col">
+          <div class="cfg-compare-col-header">KI-Vorschlag</div>
+          <textarea class="cfg-compare-textarea" id="cfg-compare-suggestion"></textarea>
+          <button class="cfg-save-btn cfg-compare-btn" id="cfg-compare-use-suggestion">Vorschlag verwenden</button>
+        </div>
+        <div class="cfg-compare-col">
+          <div class="cfg-compare-col-header">Aktueller Prompt</div>
+          <textarea class="cfg-compare-textarea" id="cfg-compare-original"></textarea>
+          <button class="cfg-save-btn cfg-compare-btn" id="cfg-compare-use-original">Original behalten</button>
+        </div>
+      </div>
     </div>
 
     <div class="cfg-field">

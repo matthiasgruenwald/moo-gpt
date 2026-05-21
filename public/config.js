@@ -10,6 +10,13 @@
   let initial          = {};
   let templates        = [];
   let loadedTemplateId = null;
+  let taskContext      = { task: null, images: [] };
+
+  window.addEventListener('message', (e) => {
+    if (e.data?.type === 'moogpt:taskContext') {
+      taskContext = { task: e.data.task, images: e.data.images || [] };
+    }
+  });
 
   function showError(msg) {
     elLoading.style.display = 'none';
@@ -228,6 +235,48 @@
     }
   });
 
+  async function runPromptCheck() {
+    const btn          = document.getElementById('cfg-check-btn');
+    const currentHints = document.getElementById('cfg-hints').value;
+
+    btn.disabled    = true;
+    btn.textContent = '⏳ Prüft…';
+
+    try {
+      const res = await fetch(
+        `/api/activity/${encodeURIComponent(activityId)}/prompt-check?token=${encodeURIComponent(token)}`,
+        {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            task:       taskContext.task,
+            currentHints,
+            taskImages: taskContext.images,
+          }),
+        }
+      );
+
+      if (!res.ok) throw new Error(`Server-Fehler ${res.status}`);
+      const data = await res.json();
+
+      document.getElementById('cfg-compare-suggestion').value = data.suggestion || '';
+      document.getElementById('cfg-compare-original').value   = currentHints;
+      document.getElementById('cfg-compare-panel').style.display = '';
+
+      window.parent.postMessage({ type: 'moogpt:expandOverlay' }, '*');
+    } catch (err) {
+      showStatus(`Fehler: ${err.message}`, 'err');
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = '🔍 Prompt prüfen & verbessern';
+    }
+  }
+
+  async function useAndSave(promptText) {
+    document.getElementById('cfg-hints').value = promptText;
+    await saveConfig();
+  }
+
   async function loadConfig() {
     if (!activityId || !token) return showError('Fehlende Parameter (activityId oder token).');
     try {
@@ -357,6 +406,21 @@
   }
 
   document.getElementById('cfg-save-btn').addEventListener('click', saveConfig);
+
+  document.getElementById('cfg-check-btn').addEventListener('click', runPromptCheck);
+
+  document.getElementById('cfg-compare-close').addEventListener('click', () => {
+    document.getElementById('cfg-compare-panel').style.display = 'none';
+    window.parent.postMessage({ type: 'moogpt:collapseOverlay' }, '*');
+  });
+
+  document.getElementById('cfg-compare-use-suggestion').addEventListener('click', () => {
+    useAndSave(document.getElementById('cfg-compare-suggestion').value);
+  });
+
+  document.getElementById('cfg-compare-use-original').addEventListener('click', () => {
+    useAndSave(document.getElementById('cfg-compare-original').value);
+  });
 
   loadConfig();
 })();

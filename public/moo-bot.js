@@ -160,6 +160,22 @@ export class MOOBOT {
         this.closeConfig();
         document.getElementById('config-icon')?.querySelector('.cfg-badge')?.remove();
       }
+      // Issue #40: Overlay auf Vollbreite erweitern wenn Vergleichs-Panel geöffnet wird
+      if (e.data?.type === 'moogpt:expandOverlay') {
+        const overlay = document.getElementById('config-overlay');
+        if (overlay) {
+          overlay.style.width    = '95vw';
+          overlay.style.maxWidth = '95vw';
+        }
+      }
+      // Issue #40: Overlay auf ursprüngliche Breite zurücksetzen (CSS-Klasse übernimmt)
+      if (e.data?.type === 'moogpt:collapseOverlay') {
+        const overlay = document.getElementById('config-overlay');
+        if (overlay) {
+          overlay.style.width    = '';
+          overlay.style.maxWidth = '';
+        }
+      }
     });
 
     // Issue #15: Lightbox initialisieren
@@ -357,8 +373,56 @@ export class MOOBOT {
     const iframe  = document.getElementById('config-overlay-iframe');
     const overlay = document.getElementById('config-overlay');
     if (!iframe || !overlay) return;
-    if (iframe.src !== url) iframe.src = url;
+    const srcChanged = iframe.src !== url;
+    if (srcChanged) iframe.src = url;
     overlay.style.display = 'flex';
+    this._sendTaskContextToConfig(iframe, srcChanged);
+  }
+
+  _sendTaskContextToConfig(iframe, srcChanged) {
+    const task = document.querySelector('.activity-description')?.innerHTML?.trim() || null;
+
+    const sendPayload = (images) => {
+      iframe.contentWindow.postMessage({ type: 'moogpt:taskContext', task, images }, '*');
+    };
+
+    const buildAndSend = async () => {
+      const images = [];
+      if (task) {
+        const re = /<img[^>]+src=["']([^"']+)["']/gi;
+        let m;
+        const srcs = [];
+        while ((m = re.exec(task)) !== null) srcs.push(m[1]);
+        for (const src of srcs) {
+          try {
+            const response = await fetch(src);
+            if (!response.ok) { images.push(null); continue; }
+            const blob = await response.blob();
+            const base64 = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload  = () => resolve(reader.result);
+              reader.onerror = () => reject(reader.error);
+              reader.readAsDataURL(blob);
+            });
+            images.push(base64);
+          } catch {
+            images.push(null);
+          }
+        }
+      }
+      sendPayload(images);
+    };
+
+    if (srcChanged) {
+      // Iframe is (re)loading — wait for it to finish before posting
+      iframe.addEventListener('load', function onLoad() {
+        iframe.removeEventListener('load', onLoad);
+        buildAndSend();
+      });
+    } else {
+      // Iframe already at the right URL — post immediately
+      buildAndSend();
+    }
   }
 
   loadExternalLibraries() {
