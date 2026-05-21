@@ -17,6 +17,9 @@ Express-Server (server.js)
 
 Details: [`docs/architecture.md`](docs/architecture.md)
 
+**Interaktiver Dependency-Graph** (automatisch aus dem Code generiert):
+[→ graph.html öffnen](https://htmlpreview.github.io/?https://github.com/matthiasgruenwald/moo-gpt/blob/main/graphify-out/graph.html)
+
 ## Entwicklungsumgebung einrichten
 
 ```bash
