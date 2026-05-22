@@ -5,6 +5,7 @@ import {
   saveErkenntnisse,
 } from '../stores/criteria.js';
 import { saveFeedback, getFeedbackByActivity } from '../stores/feedback.js';
+import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { suggestCriteriaList } from '../criteria.js';
 import { aiClient } from '../ai-instance.js';
 import { getCachedConfig } from '../config-cache.js';
@@ -19,7 +20,8 @@ router.get('/criteria/:activityId', requireDashboardAuth, (req, res) => {
 router.post('/criteria-suggest/:activityId', requireDashboardAuth, async (req, res) => {
   const { activityId } = req;
   try {
-    const suggestions = await suggestCriteriaList(activityId, getCachedConfig(), req.body.genModel, aiClient);
+    const erf = getActiveErfahrungsprompt(activityId);
+    const suggestions = await suggestCriteriaList({ config: getCachedConfig(), erfahrungsprompt: erf?.content || null, genModel: req.body.genModel, aiClient });
     res.json({ suggestions });
   } catch (e) {
     console.error('[Criteria] Suggest-Fehler:', e);
