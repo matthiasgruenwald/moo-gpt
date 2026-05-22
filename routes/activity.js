@@ -73,7 +73,20 @@ export function buildPromptCheckHandler({ aiClient: client }) {
   };
 }
 
-const SUGGEST_PROMPT_SYSTEM = `Du bist Assistent für Lehrkräfte. Verbessere diesen Aufgabenprompt für einen KI-Chatbot im Unterricht. Wenn kein Prompt vorhanden ist, erstelle einen guten Ausgangsprompt. Gib nur den Prompt zurück, keine Erklärungen.`;
+const SUGGEST_PROMPT_SYSTEM = `Du bist Experte für System-Prompts für KI-Lernassistenten im Schulunterricht (IGS, Sekundarstufe I/II).
+
+Erstelle einen vollständigen, expliziten Aufgabenprompt auf Basis der gegebenen Aufgabenstellung. Wenn kein Prompt vorhanden ist, erstelle einen guten Ausgangsprompt.
+
+Ein guter Aufgabenprompt enthält diese Abschnitte:
+- **Rolle**: Was ist der Bot in diesem Kontext? (z.B. "Du bist ein Lernassistent für das Fach Chemie")
+- **Ziel**: Was soll der Bot erreichen? (Verständnis fördern, Lösungswege erklären, ...)
+- **Antwortstil**: Länge, Sprache, Tonalität, Fachbegriffe ja/nein
+- **Didaktisches Verhalten**: Wie geht der Bot mit Fehlern um? Gibt er direkte Lösungen oder führt er hin?
+- **Verbote**: Was darf der Bot nicht tun? (z.B. keine fertigen Aufsätze schreiben)
+- **Beispiele** (optional): Gute und schlechte Antwort-Beispiele
+
+Gib NUR den fertigen Prompt zurück — keine Erklärungen, keine Überschriften, keine Metakommentare.`;
+
 
 export function buildSuggestPromptHandler({ aiClient: client }) {
   return async function suggestPromptHandler(req, res) {

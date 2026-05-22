@@ -26,6 +26,7 @@ export class MOOBOT {
     this._pasteListenerAdded     = false;
     this._dragListenerAdded      = false;
     this._positionSide           = sessionStorage.getItem('moogpt-side') === 'left' ? 'left' : 'right';
+    this._locked                 = false;
     this.marked = marked;
     this.katex = katex;
     this.renderMathInElement = renderMathInElement;
@@ -143,7 +144,7 @@ export class MOOBOT {
       stopBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="24" height="24">
         <rect x="4" y="4" width="16" height="16" rx="3"/>
       </svg>`;
-      stopBtn.onclick = () => this.openLockModal();
+      stopBtn.onclick = () => this._locked ? this._submitUnlock() : this.openLockModal();
       document.body.appendChild(stopBtn);
 
       // Issue #43: Lock-Modal
@@ -364,6 +365,39 @@ export class MOOBOT {
       console.error('[Lock] Netzwerkfehler:', err);
     }
     this.closeLockModal();
+  }
+
+  _setLockState(locked) {
+    this._locked = locked;
+    const btn = document.getElementById('stop-icon');
+    if (!btn) return;
+    if (locked) {
+      btn.style.backgroundColor = '#27ae60';
+      btn.title = 'Plenumsphase beenden (Chat entsperren)';
+      btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="24" height="24">
+        <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/>
+      </svg>`;
+    } else {
+      btn.style.backgroundColor = '';
+      btn.title = 'Plenumsphase starten (Chat sperren)';
+      btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="24" height="24">
+        <rect x="4" y="4" width="16" height="16" rx="3"/>
+      </svg>`;
+    }
+  }
+
+  async _submitUnlock() {
+    const activityId = this.settings.activityId
+      || new URLSearchParams(window.location.search).get('id')
+      || '';
+    const token = this.dashboardToken;
+    if (!activityId || !token) return;
+    const url = `${this._baseUrl()}/api/activity/${encodeURIComponent(activityId)}/lock?token=${encodeURIComponent(token)}`;
+    try {
+      await fetch(url, { method: 'DELETE' });
+    } catch (err) {
+      console.error('[Lock] Entsperren fehlgeschlagen:', err);
+    }
   }
 
   _baseUrl() {
@@ -707,11 +741,19 @@ export class MOOBOT {
 
         // P3: Plenum-Sperre
         if (messageObj.type === "locked") {
-          this._showLockOverlay();
+          if (this.settings.isTeacher) {
+            this._setLockState(true);
+          } else {
+            this._showLockOverlay();
+          }
           return;
         }
         if (messageObj.type === "unlocked") {
-          this._hideLockOverlay();
+          if (this.settings.isTeacher) {
+            this._setLockState(false);
+          } else {
+            this._hideLockOverlay();
+          }
           return;
         }
 
