@@ -1339,8 +1339,7 @@ export class MOOBOT {
         </div>`;
       msgEl.appendChild(panel);
 
-      panel.querySelector('.mmb-fb-cancel').onclick = () => panel.remove();
-      panel.querySelector('.mmb-fb-save').onclick   = () => {
+      const doSave = () => {
         const text = panel.querySelector('.mmb-fb-input').value.trim();
         if (text) {
           this._saveFeedback(text);
@@ -1354,6 +1353,11 @@ export class MOOBOT {
           panel.remove();
         }
       };
+      panel.querySelector('.mmb-fb-cancel').onclick = () => panel.remove();
+      panel.querySelector('.mmb-fb-save').onclick   = doSave;
+      panel.querySelector('.mmb-fb-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); doSave(); }
+      });
       panel.querySelector('.mmb-fb-input').focus();
     };
 
