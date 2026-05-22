@@ -47,3 +47,15 @@ Automatisierter Ablauf: Kriterien vorschlagen → mehrere Personas parallel simu
 ## Plenumsphase
 
 Zustand, in dem der Chat für alle Schüler einer Aktivität gesperrt ist. Wird vom Lehrer ausgelöst, optional mit automatischer Entsperrung nach N Minuten.
+
+## Schüler-Memory
+
+Schülerspezifische Präferenzen und Wünsche, die als unsichtbare Instruktion in den Systemprompt eingebunden werden. Entsteht aus Schüler-Feedback (Daumen-Button + Freitext im Widget) oder aus Lehrer-Eingabe im Dashboard. Wird per Schüler-ID gespeichert und bei jedem neuen Chat geladen. Schüler können ihren eigenen Memory-Text über einen Button im Widget einsehen und bearbeiten; Lehrkräfte können ihn im Dashboard anzeigen, bearbeiten und löschen. Ermöglicht Differenzierung ohne expliziten Aufwand für die Lehrkraft.
+
+## Prompt-Assistent
+
+Workflow zur Erstellung eines Aufgabenprompts vor dem Unterricht. KI analysiert die Aufgabe, stellt bei aktiver Option Rückfragen (grill-me-Muster), und generiert daraus einen fertigen Aufgabenprompt-Vorschlag. Option „Rückfragen erwünscht" ist standardmäßig aktiv, wird aber nutzerspezifisch gespeichert. Ersetzt die Simulation als primären Weg zu einem guten Prompt vor dem Unterricht.
+
+## Live-Unterrichts-Überblick
+
+KI-generierte inhaltliche Zusammenfassung der häufigsten Themen und Fragen aus allen laufenden Schüler-Chats einer Aktivität. Nicht wörtlich, sondern thematisch. Erscheint auf einer eigenen Dashboard-Seite (`/dashboard/overview`) und wird manuell per Knopfdruck aktualisiert. Dient der Vorbereitung auf Plenumsphasen — Lehrkraft sieht, was besprochen werden sollte, bevor sie den Chat sperrt.
