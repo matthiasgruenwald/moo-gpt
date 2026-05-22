@@ -141,3 +141,19 @@ Projektbezogene Pläne gehören ins Repo unter `docs/plans/` (versioniert, auf L
 **Nicht** mehr unter `~/.claude/plans/` — diese sind maschinenlokal und auf dem LXC nicht verfügbar.
 
 Aktuelle Pläne: [`docs/plans/`](docs/plans/)
+
+---
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (`matthiasgruenwald/moo-gpt`), managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Standard five-role vocabulary with default label strings (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repo: one `CONTEXT.md` at the root, `docs/adr/` for architectural decisions (created lazily). See `docs/agents/domain.md`.
