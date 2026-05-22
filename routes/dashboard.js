@@ -3,18 +3,19 @@ import { requireDashboardAuth } from '../auth-middleware.js';
 import { getActivity } from '../stores/activity.js';
 import { getMessages } from '../stores/chat.js';
 import { getStudents } from '../stores/dashboard.js';
-import { enrichMessagesWithCost, computeThreadCost, computeRunCost } from '../token-log.js';
+import { enrichMessagesWithCost, computeThreadCost } from '../token-log.js';
 
-export function enrichStudentsWithCost(students) {
-  return students.map(s => ({
+// Issue #41: Kosten pro Schüler aus per-Modell-Token-Daten berechnen
+export async function enrichStudentsWithCost(students) {
+  return Promise.all(students.map(async s => ({
     ...s,
-    threadCost: computeRunCost(s.cost_prompt || 0, s.cost_completion || 0),
-  }));
+    threadCost: await computeThreadCost(s.thread_db_id),
+  })));
 }
 
 const router = Router();
 
-router.get('/dashboard/students', requireDashboardAuth, (req, res) => {
+router.get('/dashboard/students', requireDashboardAuth, async (req, res) => {
   const { activityId } = req;
   try {
     const students = getStudents(activityId);
@@ -26,7 +27,7 @@ router.get('/dashboard/students', requireDashboardAuth, (req, res) => {
   }
 });
 
-router.get('/dashboard/messages/:threadDbId', requireDashboardAuth, (req, res) => {
+router.get('/dashboard/messages/:threadDbId', requireDashboardAuth, async (req, res) => {
   const { activityId } = req;
   const threadDbId = parseInt(req.params.threadDbId);
   if (isNaN(threadDbId)) return res.status(400).json({ error: 'Invalid threadDbId' });
@@ -34,8 +35,10 @@ router.get('/dashboard/messages/:threadDbId', requireDashboardAuth, (req, res) =
     const students = getStudents(activityId);
     const student  = students.find(s => s.thread_db_id === threadDbId);
     if (!student) return res.status(403).json({ error: 'Forbidden' });
-    const messages   = enrichMessagesWithCost(getMessages(threadDbId));
-    const threadCost = computeThreadCost(threadDbId);
+    const [messages, threadCost] = await Promise.all([
+      enrichMessagesWithCost(getMessages(threadDbId)),
+      computeThreadCost(threadDbId),
+    ]);
     res.json({ student, messages, threadCost });
   } catch (e) {
     console.error('[Dashboard] getMessages error:', e);

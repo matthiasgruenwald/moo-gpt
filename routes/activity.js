@@ -3,7 +3,7 @@ import { requireDashboardAuth } from '../auth-middleware.js';
 import { getActivity, setActivityConfig } from '../stores/activity.js';
 import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { getTeacherPreference } from '../stores/teacher.js';
-import { AVAILABLE_MODELS, MODEL_NAME } from '../env-config.js';
+import { AVAILABLE_MODELS, GEN_MODEL, MODEL_NAME } from '../env-config.js';
 import { validateWidgetConfig } from '../validators.js';
 import { getCachedConfig } from '../config-cache.js';
 
@@ -73,6 +73,25 @@ export function buildPromptCheckHandler({ aiClient: client }) {
   };
 }
 
+const SUGGEST_PROMPT_SYSTEM = `Du bist Assistent für Lehrkräfte. Verbessere diesen Aufgabenprompt für einen KI-Chatbot im Unterricht. Wenn kein Prompt vorhanden ist, erstelle einen guten Ausgangsprompt. Gib nur den Prompt zurück, keine Erklärungen.`;
+
+export function buildSuggestPromptHandler({ aiClient: client }) {
+  return async function suggestPromptHandler(req, res) {
+    const { currentPrompt } = req.body;
+    const userMessage = currentPrompt && currentPrompt.trim()
+      ? `Aktueller Prompt:\n${currentPrompt.trim()}`
+      : '(kein Prompt vorhanden)';
+
+    try {
+      const suggestedPrompt = await client.textCall(SUGGEST_PROMPT_SYSTEM, userMessage, GEN_MODEL, { timeout: 60_000 });
+      res.json({ suggestedPrompt: suggestedPrompt.trim() });
+    } catch (err) {
+      console.log(`[SuggestPrompt] Fehler: ${err.message}`);
+      res.status(502).json({ error: 'KI-Aufruf fehlgeschlagen' });
+    }
+  };
+}
+
 export function createActivityRouter({ chatRegistry, dashboardRegistry, lockManager, aiClient }) {
   const router = Router();
 
@@ -120,6 +139,8 @@ export function createActivityRouter({ chatRegistry, dashboardRegistry, lockMana
   });
 
   router.post('/activity/:activityId/prompt-check', requireDashboardAuth, buildPromptCheckHandler({ aiClient }));
+
+  router.post('/activity/:activityId/suggest-prompt', requireDashboardAuth, buildSuggestPromptHandler({ aiClient }));
 
   return router;
 }

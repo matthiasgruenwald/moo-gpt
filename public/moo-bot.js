@@ -25,6 +25,7 @@ export class MOOBOT {
     this._pendingConfigOpen      = false; // P5: Config-Overlay nach Token-Empfang öffnen
     this._pasteListenerAdded     = false;
     this._dragListenerAdded      = false;
+    this._positionSide           = sessionStorage.getItem('moogpt-side') === 'left' ? 'left' : 'right';
     this.marked = marked;
     this.katex = katex;
     this.renderMathInElement = renderMathInElement;
@@ -82,6 +83,7 @@ export class MOOBOT {
             <img src="${icon}" alt="Chat Icon" class="chat-header-icon">
         </div>
         <h1>MMBbS GPT</h1>
+        <button class="header-side-toggle" id="side-toggle-btn" title="Widget links/rechts wechseln" aria-label="Position wechseln">&#8644;</button>
         <div class="header-icon" onclick="toggleChat()">
             <img src="${this._baseUrl()}/close-icon.png" alt="Close Icon">
         </div>`;
@@ -133,6 +135,39 @@ export class MOOBOT {
       cfgBtn.onclick = () => this.openConfig();
       document.body.appendChild(cfgBtn);
 
+      // Issue #43: Stop-Button — Plenumsphase starten
+      const stopBtn = document.createElement("div");
+      stopBtn.id = "stop-icon";
+      stopBtn.className = "stop-icon";
+      stopBtn.title = "Plenumsphase starten (Chat sperren)";
+      stopBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="24" height="24">
+        <rect x="4" y="4" width="16" height="16" rx="3"/>
+      </svg>`;
+      stopBtn.onclick = () => this.openLockModal();
+      document.body.appendChild(stopBtn);
+
+      // Issue #43: Lock-Modal
+      const lockModal = document.createElement("div");
+      lockModal.id = "lock-modal";
+      lockModal.className = "lock-modal";
+      lockModal.innerHTML = `
+        <div class="lock-modal-dialog">
+          <h2 class="lock-modal-title">&#128274; Plenumsphase starten</h2>
+          <p class="lock-modal-desc">Alle Sch&uuml;ler-Chats werden gesperrt.</p>
+          <div class="lock-modal-field">
+            <label for="lock-duration">Dauer (Minuten, leer&nbsp;= unbegrenzt)</label>
+            <input type="number" id="lock-duration" min="1" max="180" placeholder="z.B. 15">
+          </div>
+          <div class="lock-modal-actions">
+            <button class="lock-modal-cancel" id="lock-modal-cancel">Abbrechen</button>
+            <button class="lock-modal-confirm" id="lock-modal-confirm">Jetzt sperren</button>
+          </div>
+        </div>`;
+      document.body.appendChild(lockModal);
+      lockModal.querySelector('#lock-modal-cancel').onclick = () => this.closeLockModal();
+      lockModal.querySelector('#lock-modal-confirm').onclick = () => this._submitLock();
+      lockModal.onclick = (e) => { if (e.target === lockModal) this.closeLockModal(); };
+
       const cfgOverlay = document.createElement("div");
       cfgOverlay.id = "config-overlay";
       cfgOverlay.className = "config-overlay";
@@ -148,6 +183,16 @@ export class MOOBOT {
 
     document.body.appendChild(chatIcon);
     document.body.appendChild(chatContainer);
+
+    // Issue #42: Gespeicherte Seite aus sessionStorage wiederherstellen + Toggle verdrahten
+    if (this._positionSide === 'left') {
+      chatContainer.classList.add('left-side');
+      chatIcon.classList.add('left-side');
+      document.getElementById('dashboard-icon')?.classList.add('left-side');
+      document.getElementById('config-icon')?.classList.add('left-side');
+      document.getElementById('stop-icon')?.classList.add('left-side');
+    }
+    chatHeader.querySelector('#side-toggle-btn').addEventListener('click', () => this._toggleSide());
 
     // Make toggleChat, sendMessage, and handleKeyDown available globally
     window.toggleChat = this.toggleChat.bind(this);
@@ -275,6 +320,50 @@ export class MOOBOT {
   closeConfig() {
     const overlay = document.getElementById('config-overlay');
     if (overlay) overlay.style.display = 'none';
+  }
+
+  // ── Issue #43: Lock-Modal ─────────────────────────────────────────────────
+
+  openLockModal() {
+    const modal = document.getElementById('lock-modal');
+    if (!modal) return;
+    const input = document.getElementById('lock-duration');
+    if (input) input.value = '';
+    modal.style.display = 'flex';
+    if (input) setTimeout(() => input.focus(), 50);
+  }
+
+  closeLockModal() {
+    const modal = document.getElementById('lock-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  async _submitLock() {
+    const activityId = this.settings.activityId
+      || new URLSearchParams(window.location.search).get('id')
+      || '';
+    const token = this.dashboardToken;
+    if (!activityId || !token) {
+      console.warn('[Lock] activityId oder Token fehlt');
+      this.closeLockModal();
+      return;
+    }
+    const durationRaw = document.getElementById('lock-duration')?.value;
+    const durationMinutes = durationRaw ? Number(durationRaw) : 0;
+    const url = `${this._baseUrl()}/api/activity/${encodeURIComponent(activityId)}/lock?token=${encodeURIComponent(token)}`;
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ durationMinutes }),
+      });
+      if (!resp.ok) {
+        console.error('[Lock] Fehler:', resp.status);
+      }
+    } catch (err) {
+      console.error('[Lock] Netzwerkfehler:', err);
+    }
+    this.closeLockModal();
   }
 
   _baseUrl() {
@@ -688,6 +777,10 @@ export class MOOBOT {
             timeSpan.textContent = nowStr;
             lastMsg.appendChild(timeSpan);
           }
+          // Feedback-Buttons nur für Schüler
+          if (!this.settings.isTeacher && lastMsg && !lastMsg.querySelector('.mmb-feedback')) {
+            this._addFeedbackButtons(lastMsg);
+          }
           this._enableInput();
         }
         chatWindow.scrollTop = chatWindow.scrollHeight;
@@ -794,6 +887,7 @@ export class MOOBOT {
           div.className = "message received";
           const htmlContent = this.marked.parse(msg.content);
           div.innerHTML = `${htmlContent}<span class="msg-time">${time}</span>`;
+          if (!this.settings.isTeacher) this._addFeedbackButtons(div);
         }
         chatWindow.appendChild(div);
       }
@@ -1205,6 +1299,118 @@ export class MOOBOT {
   _closeLightbox() {
     const lb = document.getElementById('mmb-lightbox');
     if (lb) lb.style.display = 'none';
+  }
+
+  // ── Issue #46: Schüler-Feedback-Buttons ──────────────────────────────────
+
+  /**
+   * Hängt 👍/👎-Buttons an eine Assistenten-Nachricht.
+   * Klick öffnet ein Inline-Panel mit Freitext + Speichern.
+   */
+  _addFeedbackButtons(msgEl) {
+    const bar = document.createElement('div');
+    bar.className = 'mmb-feedback';
+
+    const thumbUp   = document.createElement('button');
+    thumbUp.className = 'mmb-fb-btn';
+    thumbUp.title   = 'Hilfreich';
+    thumbUp.textContent = '👍';
+
+    const thumbDown = document.createElement('button');
+    thumbDown.className = 'mmb-fb-btn';
+    thumbDown.title   = 'Nicht hilfreich / Wunsch eingeben';
+    thumbDown.textContent = '👎';
+
+    bar.appendChild(thumbUp);
+    bar.appendChild(thumbDown);
+    msgEl.appendChild(bar);
+
+    const openPanel = (prefill) => {
+      // Bestehende Panels in dieser Nachricht entfernen
+      msgEl.querySelectorAll('.mmb-fb-panel').forEach(p => p.remove());
+
+      const panel = document.createElement('div');
+      panel.className = 'mmb-fb-panel';
+      panel.innerHTML = `
+        <input class="mmb-fb-input" type="text" placeholder="Was wünschst du dir? (optional)" value="${prefill || ''}">
+        <div class="mmb-fb-actions">
+          <button class="mmb-fb-save">Speichern</button>
+          <button class="mmb-fb-cancel">Abbrechen</button>
+        </div>`;
+      msgEl.appendChild(panel);
+
+      panel.querySelector('.mmb-fb-cancel').onclick = () => panel.remove();
+      panel.querySelector('.mmb-fb-save').onclick   = () => {
+        const text = panel.querySelector('.mmb-fb-input').value.trim();
+        if (text) {
+          this._saveFeedback(text);
+          panel.remove();
+          bar.querySelector('.mmb-fb-saved')?.remove();
+          const saved = document.createElement('span');
+          saved.className = 'mmb-fb-saved';
+          saved.textContent = '✓ gespeichert';
+          bar.appendChild(saved);
+        } else {
+          panel.remove();
+        }
+      };
+      panel.querySelector('.mmb-fb-input').focus();
+    };
+
+    thumbUp.onclick = () => {
+      // 👍 ohne Text: kurze positive Bestätigung, kein Speichern
+      bar.querySelector('.mmb-fb-saved')?.remove();
+      bar.querySelectorAll('.mmb-fb-panel').forEach(p => p.remove());
+      const saved = document.createElement('span');
+      saved.className = 'mmb-fb-saved';
+      saved.textContent = '👍 Danke!';
+      bar.appendChild(saved);
+      setTimeout(() => saved.remove(), 3000);
+    };
+
+    thumbDown.onclick = () => openPanel('');
+  }
+
+  /** Sendet eine Schüler-Präferenz an den Server. */
+  async _saveFeedback(preferenceText) {
+    const activityId = this.settings.activityId;
+    const userId     = this.settings.userId;
+    if (!activityId || !userId) {
+      console.warn('[Feedback] activityId oder userId fehlt – Memory nicht gespeichert');
+      return;
+    }
+    try {
+      await fetch(`${this._baseUrl()}/api/student-memory/${encodeURIComponent(activityId)}`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ userId, preferenceText }),
+      });
+    } catch (e) {
+      console.error('[Feedback] Speichern fehlgeschlagen:', e);
+    }
+  }
+
+  // ── Issue #42: Links/Rechts-Toggle ───────────────────────────────────────
+
+  _toggleSide() {
+    const newSide = this._positionSide === 'right' ? 'left' : 'right';
+    this._positionSide = newSide;
+    sessionStorage.setItem('moogpt-side', newSide);
+
+    const chatContainer  = document.getElementById('chat-container');
+    const chatIcon       = document.getElementById('chat-icon');
+    const dashboardIcon  = document.getElementById('dashboard-icon');
+    const configIcon     = document.getElementById('config-icon');
+    const stopIcon       = document.getElementById('stop-icon');
+
+    [chatContainer, chatIcon, dashboardIcon, configIcon, stopIcon].forEach(el => {
+      if (!el) return;
+      if (newSide === 'left') {
+        el.classList.add('left-side');
+      } else {
+        el.classList.remove('left-side');
+      }
+    });
   }
 
   // ── P3: Plenum-Overlay ────────────────────────────────────────────────────

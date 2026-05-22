@@ -33,7 +33,11 @@ import erfahrungspromptRouter from './routes/erfahrungsprompt.js';
 import personasRouter from './routes/personas.js';
 import criteriaRouter from './routes/criteria.js';
 import simulationRouter from './routes/simulation.js';
+import messageEditsRouter from './routes/message-edits.js';
+import studentMemoryRouter from './routes/student-memory.js';
+import { getStudentMemory } from './stores/student-memory.js';
 import { LockManager } from './lock-manager.js';
+import dashboardPagesRouter from './routes/dashboard-pages.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -184,7 +188,10 @@ app.use('/api', erfahrungspromptRouter);
 app.use('/api', personasRouter);
 app.use('/api', criteriaRouter);
 app.use('/api', simulationRouter);
+app.use('/api', messageEditsRouter);
+app.use('/api', studentMemoryRouter);
 app.use('/api', dashboardRouter);
+app.use(dashboardPagesRouter);
 
 /** Gibt das effektive Modell zurück: persönliche Präferenz > globaler DB-Wert. */
 function getEffectiveModel(isTeacher, userId) {
@@ -233,21 +240,25 @@ app.ws('/api/dashboard-ws', (ws, req) => {
   console.log(`[Dashboard] Lehrer verbunden, activityId=${activityId}`);
 
   // Initialliste + Aufgabentitel + Kosten senden (Issue #12)
-  try {
-    const students     = enrichStudentsWithCost(getStudents(activityId));
-    const act          = getActivity(activityId);
-    const activityCost = computeActivityCost(activityId);
-    ws.send(JSON.stringify({
-      type: 'students',
-      data: students,
-      activityName: act?.activity_name,
-      opener:       act?.opener,
-      activityCost,
-      locked:       lockManager.isLocked(activityId),
-    }));
-  } catch (e) {
-    console.error('[Dashboard] Initial-students error:', e);
-  }
+  (async () => {
+    try {
+      const [students, activityCost] = await Promise.all([
+        enrichStudentsWithCost(getStudents(activityId)),
+        computeActivityCost(activityId),
+      ]);
+      const act = getActivity(activityId);
+      ws.send(JSON.stringify({
+        type: 'students',
+        data: students,
+        activityName: act?.activity_name,
+        opener:       act?.opener,
+        activityCost,
+        locked:       lockManager.isLocked(activityId),
+      }));
+    } catch (e) {
+      console.error('[Dashboard] Initial-students error:', e);
+    }
+  })();
 
   // Nachrichten-Anfrage vom Dashboard-Client
   ws.on('message', (msg) => {
@@ -261,9 +272,14 @@ app.ws('/api/dashboard-ws', (ws, req) => {
           ws.send(JSON.stringify({ type: 'error', message: 'Forbidden' }));
           return;
         }
-        const messages = enrichMessagesWithCost(getMessages(threadDbId));
-        const threadCost = computeThreadCost(threadDbId);
-        ws.send(JSON.stringify({ type: 'messages', threadDbId, student, data: messages, threadCost }));
+        Promise.all([
+          enrichMessagesWithCost(getMessages(threadDbId)),
+          computeThreadCost(threadDbId),
+        ]).then(([messages, threadCost]) => {
+          ws.send(JSON.stringify({ type: 'messages', threadDbId, student, data: messages, threadCost }));
+        }).catch(e => {
+          console.error('[Dashboard] enrichMessages error:', e);
+        });
       }
     } catch (e) {
       console.error('[Dashboard] WS message error:', e);
@@ -347,12 +363,16 @@ async function streamResponse(ws, settings, threadDbId) {
   const chatMsg = { end: false, messages: '' };
 
   const effectiveModel = getEffectiveModel(ws.isTeacher, ws.userId);
+  const memoryEntry    = (!ws.isTeacher && settings.userId && settings.activityId)
+    ? getStudentMemory(settings.userId, settings.activityId)
+    : null;
   const instructions   = buildInstructions({
     systemContent:    getCachedConfig().content,
     erfahrungContent: getActiveErfahrungsprompt(settings.activityId)?.content ?? '',
     hints:            settings.hints,
     task:             settings.task,
     date:             new Date(),
+    studentMemory:    memoryEntry?.preference_text ?? null,
   });
   const input          = buildInput(getMessagesAll(threadDbId));
 
@@ -379,7 +399,7 @@ async function streamResponse(ws, settings, threadDbId) {
     const msgId = saveMessage({ thread_db_id: threadDbId, role: 'assistant', content: resContent });
 
     // Token-Verbrauch speichern (Responses API: input_tokens / output_tokens)
-    const costs = recordUsage(threadDbId, settings?.activityId || null, effectiveModel, usage, msgId);
+    const costs = await recordUsage(threadDbId, settings?.activityId || null, effectiveModel, usage, msgId);
 
     // Dashboard benachrichtigen
     if (settings.activityId) {

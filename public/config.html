@@ -134,6 +134,78 @@
     .cfg-check-btn:hover { background: #dce6ff; }
     .cfg-check-btn:disabled { opacity: 0.6; cursor: default; }
 
+    .cfg-suggest-btn {
+      background: none;
+      border: 1px solid #6c757d;
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      color: #555;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .cfg-suggest-btn:hover { background: #f0f0f0; }
+    .cfg-suggest-btn:disabled { opacity: 0.6; cursor: default; }
+
+    .cfg-hints-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .cfg-hints-label-row .cfg-label { margin-bottom: 0; }
+
+    .cfg-suggest-preview {
+      margin-top: 8px;
+      padding: 10px 12px;
+      background: #f0f7ff;
+      border: 1px solid #99bbdd;
+      border-radius: 6px;
+    }
+    .cfg-suggest-preview-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .cfg-suggest-preview-text {
+      font-size: 13px;
+      color: #222;
+      white-space: pre-wrap;
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+    .cfg-suggest-preview-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .cfg-suggest-accept-btn {
+      background: #003366;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .cfg-suggest-accept-btn:hover { background: #004085; }
+    .cfg-suggest-discard-btn {
+      background: none;
+      border: 1px solid #aaa;
+      border-radius: 6px;
+      padding: 7px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      color: #555;
+      transition: background 0.15s;
+    }
+    .cfg-suggest-discard-btn:hover { background: #f0f0f0; }
+
     .cfg-compare-panel {
       position: fixed;
       inset: 0;
@@ -251,9 +323,20 @@
     </div>
 
     <div class="cfg-field">
-      <label class="cfg-label" for="cfg-hints">Aufgaben-Hinweise (Prompt-Ergänzung)</label>
+      <div class="cfg-hints-label-row">
+        <label class="cfg-label" for="cfg-hints">Aufgaben-Hinweise (Prompt-Ergänzung)</label>
+        <button class="cfg-suggest-btn" id="cfg-suggest-btn">&#10024; Prompt mit KI erstellen</button>
+      </div>
       <textarea class="cfg-textarea" id="cfg-hints" rows="5"></textarea>
       <div class="cfg-hint">Ergänzung zum System-Prompt für diese Aufgabe (z.&nbsp;B. Fach, Thema, Jahrgang)</div>
+      <div class="cfg-suggest-preview" id="cfg-suggest-preview" style="display:none">
+        <div class="cfg-suggest-preview-label">KI-Vorschlag</div>
+        <div class="cfg-suggest-preview-text" id="cfg-suggest-preview-text"></div>
+        <div class="cfg-suggest-preview-actions">
+          <button class="cfg-suggest-accept-btn" id="cfg-suggest-accept-btn">Übernehmen</button>
+          <button class="cfg-suggest-discard-btn" id="cfg-suggest-discard-btn">Verwerfen</button>
+        </div>
+      </div>
     </div>
 
     <div class="cfg-field">

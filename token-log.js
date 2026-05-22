@@ -1,28 +1,45 @@
-import { saveTokenUsage, getThreadCostTokens, getActivityCostTokens } from './stores/token.js';
+import { saveTokenUsage, getThreadCostByModel, getActivityCostByModel } from './stores/token.js';
 
-const MODEL_NAME = process.env.MODEL_NAME;
+// Issue #41: Per-Modell-Preis-Cache (statt globalem Singleton)
+let litellmData = null;
+let litellmFetchedAt = 0;
 
-// Issue #11: LiteLLM-Preise laden und 24 h cachen
-let PRICING = null;
-let pricingFetchedAt = 0;
-
-async function fetchPricing() {
+async function fetchLitellmData() {
   const now = Date.now();
-  if (PRICING && (now - pricingFetchedAt) < 24 * 60 * 60 * 1000) return PRICING;
+  if (litellmData && (now - litellmFetchedAt) < 24 * 60 * 60 * 1000) return litellmData;
   try {
     const res  = await fetch('https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json');
-    const data = await res.json();
-    const entry = data[MODEL_NAME] || data[`openai/${MODEL_NAME}`] || null;
-    PRICING = entry ? {
-      input_cost_per_token:  entry.input_cost_per_token  || 0,
-      output_cost_per_token: entry.output_cost_per_token || 0,
-    } : null;
-    pricingFetchedAt = now;
-    console.log(`[Pricing] Preise geladen für ${MODEL_NAME}:`, PRICING);
+    litellmData = await res.json();
+    litellmFetchedAt = now;
+    console.log('[Pricing] LiteLLM-Preisdaten geladen');
   } catch (e) {
     console.warn('[Pricing] Fehler beim Laden der Preise:', e.message);
   }
-  return PRICING;
+  return litellmData;
+}
+
+const PRICING_CACHE = new Map();
+
+async function fetchPricingForModel(model) {
+  if (!model) return null;
+  if (PRICING_CACHE.has(model)) return PRICING_CACHE.get(model);
+  const data = await fetchLitellmData();
+  if (!data) return null;
+  const entry = data[model] || data[`openai/${model}`] || null;
+  const pricing = entry ? {
+    input_cost_per_token:  entry.input_cost_per_token  || 0,
+    output_cost_per_token: entry.output_cost_per_token || 0,
+  } : null;
+  PRICING_CACHE.set(model, pricing);
+  console.log(`[Pricing] Preise für ${model}:`, pricing);
+  return pricing;
+}
+
+// Hält den Cache nach 24h frisch (LiteLLM-Daten neu laden, PRICING_CACHE leeren)
+async function refreshPricing() {
+  litellmData = null;
+  PRICING_CACHE.clear();
+  await fetchLitellmData();
 }
 
 // Issue #12: USD→EUR Wechselkurs (ECB via frankfurter.app), 1h Cache
@@ -44,10 +61,13 @@ async function fetchEurRate() {
   return EUR_RATE;
 }
 
-export function computeRunCost(promptTokens, completionTokens) {
-  if (!PRICING || !EUR_RATE) return null;
-  const inputUsd  = (promptTokens     || 0) * PRICING.input_cost_per_token;
-  const outputUsd = (completionTokens || 0) * PRICING.output_cost_per_token;
+// Issue #41: Kostenberechnung für ein einzelnes Modell (async)
+async function computeRunCostForModel(promptTokens, completionTokens, model) {
+  if (!EUR_RATE) return null;
+  const pricing = await fetchPricingForModel(model);
+  if (!pricing) return null;
+  const inputUsd  = (promptTokens     || 0) * pricing.input_cost_per_token;
+  const outputUsd = (completionTokens || 0) * pricing.output_cost_per_token;
   return {
     inputEur:  inputUsd  * EUR_RATE,
     outputEur: outputUsd * EUR_RATE,
@@ -55,27 +75,60 @@ export function computeRunCost(promptTokens, completionTokens) {
   };
 }
 
-export function computeThreadCost(threadDbId) {
-  const t = getThreadCostTokens(threadDbId);
-  return computeRunCost(t.prompt_tokens, t.completion_tokens);
+// Summiert Kosten über alle Modell-Gruppen auf
+async function sumCostRows(rows) {
+  if (!rows || rows.length === 0) return null;
+  let totalEur = 0;
+  let inputEur = 0;
+  let outputEur = 0;
+  let hasAny = false;
+  for (const row of rows) {
+    const c = await computeRunCostForModel(row.prompt_tokens, row.completion_tokens, row.model);
+    if (c) {
+      totalEur  += c.totalEur;
+      inputEur  += c.inputEur;
+      outputEur += c.outputEur;
+      hasAny = true;
+    }
+  }
+  return hasAny ? { totalEur, inputEur, outputEur } : null;
 }
 
-export function computeActivityCost(actId) {
-  const t = getActivityCostTokens(actId);
-  return computeRunCost(t.prompt_tokens, t.completion_tokens);
+// Bleibt als sync-Wrapper für Abwärtskompatibilität (nutzt gecachte Preise)
+export function computeRunCost(promptTokens, completionTokens, model) {
+  if (!EUR_RATE) return null;
+  const pricing = model ? PRICING_CACHE.get(model) : null;
+  if (!pricing) return null;
+  const inputUsd  = (promptTokens     || 0) * pricing.input_cost_per_token;
+  const outputUsd = (completionTokens || 0) * pricing.output_cost_per_token;
+  return {
+    inputEur:  inputUsd  * EUR_RATE,
+    outputEur: outputUsd * EUR_RATE,
+    totalEur:  (inputUsd + outputUsd) * EUR_RATE,
+  };
 }
 
-export function enrichMessagesWithCost(messages) {
-  return messages.map(m => {
+export async function computeThreadCost(threadDbId) {
+  const rows = getThreadCostByModel(threadDbId);
+  return sumCostRows(rows);
+}
+
+export async function computeActivityCost(actId) {
+  const rows = getActivityCostByModel(actId);
+  return sumCostRows(rows);
+}
+
+export async function enrichMessagesWithCost(messages) {
+  return Promise.all(messages.map(async m => {
     if (m.role === 'assistant' && m.cost_prompt != null) {
-      const cost = computeRunCost(m.cost_prompt, m.cost_completion);
+      const cost = await computeRunCostForModel(m.cost_prompt, m.cost_completion, m.cost_model);
       return { ...m, runCost: cost };
     }
     return m;
-  });
+  }));
 }
 
-export function recordUsage(threadDbId, activityId, model, usage, msgId) {
+export async function recordUsage(threadDbId, activityId, model, usage, msgId) {
   if (!usage || !threadDbId) return null;
   try {
     const promptTokens     = usage.input_tokens  ?? null;
@@ -90,11 +143,14 @@ export function recordUsage(threadDbId, activityId, model, usage, msgId) {
     };
     saveTokenUsage(threadDbId, activityId, model, mapped, msgId);
     console.log(`[Token] ${model} – input=${usage.input_tokens} output=${usage.output_tokens}`);
-    return {
-      runCost:      computeRunCost(mapped.prompt_tokens, mapped.completion_tokens),
-      threadCost:   computeThreadCost(threadDbId),
-      activityCost: computeActivityCost(activityId),
-    };
+    // Preise für dieses Modell vorab laden (befüllt PRICING_CACHE)
+    await fetchPricingForModel(model);
+    const [runCost, threadCost, activityCost] = await Promise.all([
+      computeRunCostForModel(mapped.prompt_tokens, mapped.completion_tokens, model),
+      computeThreadCost(threadDbId),
+      computeActivityCost(activityId),
+    ]);
+    return { runCost, threadCost, activityCost };
   } catch (e) {
     console.error('[TokenLog] Fehler:', e.message);
     return null;
@@ -102,7 +158,7 @@ export function recordUsage(threadDbId, activityId, model, usage, msgId) {
 }
 
 // Beim Modulimport sofort laden und periodisch aktualisieren
-fetchPricing();
-setInterval(fetchPricing, 24 * 60 * 60 * 1000);
+fetchLitellmData();
+setInterval(refreshPricing, 24 * 60 * 60 * 1000);
 fetchEurRate();
 setInterval(fetchEurRate, 60 * 60 * 1000);

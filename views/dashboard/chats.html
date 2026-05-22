@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>moo-gpt – Chats</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({ startOnLoad: false });</script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f4f8;
+      color: #1a1a1a;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    #header {
+      background: #003366;
+      color: white;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    #header h1 { font-size: 18px; font-weight: 600; flex: 1; }
+    #header .badge-live {
+      font-size: 12px;
+      background: #28a745;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      display: none;
+    }
+    #header .badge-live.visible { display: inline-block; }
+    #status-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #aaa;
+      flex-shrink: 0;
+    }
+    #status-dot.connected { background: #28a745; }
+
+    /* ── Toolbar ─────────────────────────────────────────────────────────── */
+    #toolbar {
+      background: #004085;
+      color: white;
+      padding: 8px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      font-size: 14px;
+      flex-wrap: wrap;
+    }
+    #lock-group { display: flex; align-items: center; gap: 8px; }
+    #toolbar label { font-size: 13px; }
+    .sort-btn {
+      background: #003366;
+      color: white;
+      border: 1px solid #5588bb;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 13px;
+      cursor: pointer;
+      opacity: 0.65;
+    }
+    .sort-btn.active {
+      opacity: 1;
+      border-color: #88bbee;
+      background: #004488;
+    }
+    #student-count { margin-left: auto; font-size: 13px; opacity: 0.85; }
+    #lock-btn {
+      background: #003366;
+      color: white;
+      border: 1px solid #5588bb;
+      border-radius: 4px;
+      padding: 3px 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    #lock-btn.locked { background: #c0392b; border-color: #e74c3c; }
+    #lock-timer {
+      width: 44px;
+      font-size: 13px;
+      padding: 2px 4px;
+      border-radius: 4px;
+      border: 1px solid #5588bb;
+      background: #003366;
+      color: white;
+      text-align: center;
+    }
+    #lock-badge {
+      font-size: 12px;
+      background: #c0392b;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      display: none;
+    }
+    #lock-badge.visible { display: inline-block; }
+
+    /* ── Layout ──────────────────────────────────────────────────────────── */
+    #main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Schülerliste ────────────────────────────────────────────────────── */
+    #list-panel {
+      width: 300px;
+      min-width: 220px;
+      background: white;
+      border-right: 1px solid #dde3ea;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    #student-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .student-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid #eef0f3;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: background 0.15s;
+      position: relative;
+    }
+    .student-item:hover { background: #f0f4f8; }
+    .student-item.active { background: #e8f0fe; border-left: 3px solid #004085; }
+    .student-name {
+      font-weight: 600;
+      font-size: 14px;
+      color: #1a1a1a;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .student-meta {
+      font-size: 12px;
+      color: #666;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .badge-new {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #28a745;
+      animation: pulse 1.5s infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .msg-count {
+      background: #004085;
+      color: white;
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 10px;
+    }
+    .empty-list {
+      padding: 24px 16px;
+      color: #888;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    /* ── Chat-Panel ──────────────────────────────────────────────────────── */
+    #chat-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: #f7f9fc;
+    }
+    #chat-header {
+      background: #004085;
+      color: white;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #back-btn {
+      display: none;
+      background: none;
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    #chat-title { flex: 1; }
+    #chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .chat-placeholder {
+      margin: auto;
+      color: #aaa;
+      font-size: 15px;
+      text-align: center;
+    }
+    .msg-bubble {
+      max-width: 72%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      font-size: 14px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .msg-bubble.user {
+      align-self: flex-end;
+      background: #004085;
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    .msg-bubble.assistant {
+      align-self: flex-start;
+      background: white;
+      color: #1a1a1a;
+      border: 1px solid #dde3ea;
+      border-bottom-left-radius: 4px;
+    }
+    .msg-bubble.assistant pre {
+      white-space: pre-wrap;
+      font-size: 13px;
+    }
+    .msg-bubble .katex-display {
+      margin: 6px 0;
+      overflow-x: auto;
+    }
+    .msg-bubble .katex { font-size: 1em; }
+    .msg-time {
+      font-size: 11px;
+      opacity: 0.6;
+      margin-top: 3px;
+      text-align: right;
+    }
+    .msg-bubble.assistant .msg-time { text-align: left; }
+
+    /* ── Kosten-Anzeige (Issue #12) ─────────────────────────────────────── */
+    /* Activity-Kosten-Band unter der Toolbar */
+    #cost-bar {
+      background: #002a55;
+      color: rgba(255,255,255,0.82);
+      padding: 5px 20px;
+      font-size: 12px;
+      display: none;
+      gap: 16px;
+      align-items: center;
+      flex-shrink: 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    #cost-bar.visible { display: flex; }
+    #cost-bar .cost-label { opacity: 0.65; }
+    #cost-bar .cost-value { font-family: monospace; letter-spacing: 0.02em; }
+    #cost-bar .cost-total { color: rgba(255,255,255,0.95); font-weight: 600; }
+
+    /* Kosten in Schüler-Sidebar */
+    .student-cost {
+      font-size: 11px;
+      color: #888;
+      font-family: monospace;
+      white-space: nowrap;
+    }
+
+    /* Kosten unter Assistenten-Nachrichten im Chat */
+    .msg-cost {
+      font-size: 10px;
+      color: #aaa;
+      margin-top: 2px;
+      font-family: monospace;
+      letter-spacing: 0.01em;
+    }
+
+    /* Kosten-Zeile im Chat-Header (Thread-Gesamtkosten) */
+    #chat-cost {
+      font-size: 11px;
+      color: rgba(255,255,255,0.7);
+      font-family: monospace;
+      white-space: nowrap;
+      display: none;
+    }
+    #chat-cost.visible { display: block; }
+
+    /* ── Opener & Session-Header ─────────────────────────────────────────── */
+    .opener-message {
+      align-self: flex-start;
+      background: white;
+      color: #1a1a1a;
+      border: 1px solid #dde3ea;
+      border-bottom-left-radius: 4px;
+      border-radius: 14px;
+      max-width: 72%;
+      padding: 10px 14px;
+      font-size: 14px;
+      line-height: 1.5;
+      opacity: 0.75;
+      font-style: italic;
+    }
+    .session-header {
+      text-align: center;
+      font-size: 11px;
+      color: #888;
+      margin: 14px 0 6px;
+      padding: 4px 0;
+      border-top: 1px solid #e0e4ea;
+      letter-spacing: 0.02em;
+    }
+
+    /* ── Lightbox (Issue #15) ────────────────────────────────────────────── */
+    #dash-lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: rgba(0,0,0,0.88);
+      align-items: center;
+      justify-content: center;
+    }
+    #dash-lb-close {
+      position: absolute;
+      top: 14px; right: 18px;
+      background: rgba(255,255,255,0.15);
+      border: none; color: white;
+      font-size: 22px; width: 38px; height: 38px;
+      border-radius: 50%; cursor: pointer;
+      z-index: 1; padding: 0; line-height: 1;
+    }
+    #dash-lb-close:hover { background: rgba(255,255,255,0.3); }
+    #dash-lb-inner {
+      width: 90vw; height: 90vh; overflow: auto;
+    }
+    #dash-lb-canvas {
+      min-width: 100%; min-height: 100%;
+    }
+    #dash-lb-img {
+      display: block; margin: 0 auto; height: auto; cursor: grab;
+      user-select: none; -webkit-user-drag: none;
+    }
+    #dash-lb-img.dash-dragging { cursor: grabbing; }
+    .dash-lb-trigger { cursor: zoom-in !important; }
+
+    /* ── Tab-Bar (Issue #17) ─────────────────────────────────────────────── */
+    #tab-bar {
+      background: #002a55;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 0 16px;
+      flex-shrink: 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.55);
+      font-size: 13px;
+      padding: 8px 14px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn:hover { color: rgba(255,255,255,0.85); }
+    .tab-btn.active { color: white; border-bottom-color: #5599ff; }
+/* ── Settings-Panel (Issue #17) ──────────────────────────────────────── */
+    #settings-panel {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: #f0f4f8;
+      gap: 16px;
+      flex-direction: column;
+    }
+    #settings-panel.visible { display: flex; }
+    #admin-panel {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: #f0f4f8;
+      gap: 16px;
+      flex-direction: column;
+    }
+    #admin-panel.visible { display: flex; }
+    #info-panel {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: #f0f4f8;
+      gap: 16px;
+      flex-direction: column;
+    }
+    #info-panel.visible { display: flex; }
+    .sub-tab-bar {
+      display: flex;
+      gap: 8px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #dde3ea;
+    }
+    .sub-tab-btn {
+      padding: 6px 16px;
+      border: 1px solid #c8d0da;
+      border-radius: 6px;
+      background: white;
+      cursor: pointer;
+      font-size: 0.9em;
+      color: #555;
+    }
+    .sub-tab-btn.active {
+      background: #5599ff;
+      color: white;
+      border-color: #5599ff;
+    }
+    .sub-tab-content { padding-top: 8px; }
+    .info-table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+    .info-table th, .info-table td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #dde3ea; }
+    .info-table th { background: #f7f9fb; font-weight: 600; }
+    .info-faq dt { font-weight: 600; margin-top: 12px; }
+    .info-faq dd { margin: 4px 0 0 0; color: #555; }
+    .settings-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px 24px;
+      border: 1px solid #dde3ea;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .settings-card h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #003366;
+      margin: 0;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eef0f3;
+    }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .settings-row label { font-size: 13px; color: #555; min-width: 120px; }
+    .settings-row select,
+    .settings-row input[type="text"] {
+      font-size: 13px;
+      padding: 5px 10px;
+      border: 1px solid #ccd3db;
+      border-radius: 4px;
+      background: white;
+    }
+    .settings-textarea {
+      width: 100%;
+      font-size: 13px;
+      font-family: 'Courier New', monospace;
+      padding: 10px;
+      border: 1px solid #ccd3db;
+      border-radius: 4px;
+      resize: vertical;
+      background: #fafbfc;
+      line-height: 1.5;
+    }
+    .settings-textarea[readonly] { background: #f4f6f8; color: #444; }
+    .st-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 3px;
+    }
+    .settings-btn {
+      background: #004085;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 14px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .settings-btn:hover { background: #003366; }
+    .settings-btn.danger { background: #c0392b; }
+    .settings-btn.danger:hover { background: #962d22; }
+    .status-msg { font-size: 12px; min-height: 16px; color: #28a745; }
+    .status-msg.error { color: #c0392b; }
+    .model-value { font-size: 13px; font-weight: 600; color: #003366; font-family: monospace; }
+    .confirm-row { display: none; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .confirm-row.visible { display: flex; }
+    .admin-list-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 0; border-bottom: 1px solid #eef0f3; font-size: 13px;
+    }
+    .admin-list-item:last-child { border-bottom: none; }
+    .admin-list-item .admin-id { flex: 1; font-family: monospace; }
+    .admin-list-item .admin-since { color: #888; font-size: 11px; }
+    details summary { font-size: 13px; color: #004085; cursor: pointer; padding: 4px 0; }
+    .history-item {
+      font-size: 12px; border-left: 3px solid #dde3ea;
+      padding: 6px 10px; margin: 6px 0; color: #555;
+    }
+    .history-item .history-meta { color: #888; margin-bottom: 4px; }
+    .history-item .history-content {
+      font-family: monospace; font-size: 11px; white-space: pre-wrap;
+      max-height: 0; overflow: hidden; color: #333;
+      transition: max-height 0.3s ease;
+    }
+    .history-item .history-content.expanded { max-height: 600px; }
+    .history-expand-btn, .history-delete-btn {
+      font-size: 10px; padding: 1px 6px; margin-left: 6px; cursor: pointer;
+      border: 1px solid #ccc; border-radius: 3px; background: #f0f0f0;
+    }
+    .history-delete-btn { color: #c00; border-color: #c00; background: #fff0f0; }
+
+    /* ── Mobile (<768px) ─────────────────────────────────────────────────── */
+    @media (max-width: 767px) {
+      #list-panel { width: 100%; border-right: none; }
+      #chat-panel { display: none; }
+      #list-panel.hidden { display: none; }
+      #chat-panel.mobile-visible {
+        display: flex;
+        position: absolute;
+        inset: 0;
+        top: 0;
+        z-index: 100;
+      }
+      #back-btn { display: block; }
+    }
+
+    /* ── Simulations-Collapsible (P7) ───────────────────────────────────── */
+    .sim-collapsible {
+      background: white;
+      border: 1px solid #dde3ea;
+      border-radius: 8px;
+    }
+    .sim-collapsible > summary {
+      padding: 14px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #003366;
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+    }
+    .sim-collapsible > summary::before { content: '▶'; font-size: 11px; transition: transform 0.2s; }
+    .sim-collapsible[open] > summary::before { transform: rotate(90deg); }
+    .sim-collapsible > .settings-card {
+      border: none;
+      border-top: 1px solid #eef0f3;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .sim-collapsible > .settings-card:last-child { border-radius: 0 0 8px 8px; }
+    .criteria-item, .persona-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid #eef0f3;
+      font-size: 13px;
+    }
+    .criteria-item:last-child, .persona-item:last-child { border-bottom: none; }
+    .criteria-item .ci-text { flex: 1; color: #333; }
+    .persona-item { flex-direction: column; gap: 3px; }
+    .persona-item .pi-name { font-weight: 600; color: #003366; }
+    .persona-item .pi-desc { color: #555; font-size: 12px; }
+    .persona-item .pi-examples { font-size: 11px; color: #888; font-style: italic; }
+    .persona-item .pi-actions { display: flex; gap: 6px; margin-top: 2px; }
+    .suggest-btn {
+      background: #5599ff22;
+      border: 1px solid #5599ff88;
+      color: #003399;
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .suggest-btn:hover { background: #5599ff44; }
+    .sim-pair {
+      border: 1px solid #dde3ea;
+      border-radius: 8px;
+      overflow: hidden;
+      background: white;
+      margin-bottom: 12px;
+    }
+    .sim-pair-header {
+      background: #f4f6f9;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #555;
+      border-bottom: 1px solid #eef0f3;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sim-score { margin-left: auto; }
+    .sim-overall-gut         { color: #27ae60; font-weight: 700; }
+    .sim-overall-gemischt    { color: #e67e22; font-weight: 700; }
+    .sim-overall-problematisch { color: #e74c3c; font-weight: 700; }
+    .sim-utterance {
+      padding: 10px 14px;
+      font-size: 13px;
+      background: #eef2ff;
+      border-bottom: 1px solid #dde3ea;
+    }
+    .sim-utterance::before { content: '👤 '; }
+    .sim-response {
+      padding: 10px 14px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    mark.hl-gut {
+      background: #c8f5d0;
+      border-bottom: 2px solid #2ecc71;
+      border-radius: 2px;
+      cursor: help;
+    }
+    mark.hl-schlecht {
+      background: #fdd;
+      border-bottom: 2px solid #e74c3c;
+      border-radius: 2px;
+      cursor: help;
+    }
+    .sim-summary {
+      padding: 8px 14px;
+      font-size: 12px;
+      color: #555;
+      border-top: 1px solid #eef0f3;
+      background: #fafbfc;
+    }
+    /* Issue #26: Simulations-Vorschlag */
+    #sim-suggestion {
+      background: #eef7ee;
+      border: 1px solid #b2d9b2;
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 13px;
+    }
+    #sim-suggestion h4 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      color: #27ae60;
+    }
+    #sim-suggestion textarea {
+      width: 100%;
+      box-sizing: border-box;
+      font-size: 13px;
+      border: 1px solid #b2d9b2;
+      border-radius: 4px;
+      padding: 8px;
+      resize: vertical;
+      background: white;
+    }
+    #sim-suggestion .sim-adopt-btn {
+      margin-top: 8px;
+      background: #27ae60;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 14px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    #sim-suggestion .sim-adopt-btn:hover { background: #219a52; }
+
+    /* Issue #25: Modell-Einstellungen */
+    #sim-model-details summary {
+      cursor: pointer;
+      font-size: 12px;
+      color: #999;
+      user-select: none;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    #sim-model-details[open] summary { color: #555; }
+    .sim-model-grid {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 5px 10px;
+      align-items: center;
+      margin-top: 8px;
+      font-size: 12px;
+      color: #555;
+    }
+    .sim-model-grid select,
+    .sim-model-grid input[type="text"] {
+      font-size: 12px;
+      padding: 3px 6px;
+      border: 1px solid #ccd3db;
+      border-radius: 4px;
+      max-width: 220px;
+    }
+    .sim-model-grid input[type="text"]:disabled {
+      background: #f4f6f8;
+      color: #999;
+      border-color: #e0e4e8;
+      cursor: default;
+    }
+    /* Issue #29: Fortschrittsbalken */
+    #sim-loading { width: 100%; }
+    #sim-progress { font-size: 12px; color: #555; margin-bottom: 5px; }
+    .sim-progress-track { background: #e8ecf0; border-radius: 4px; height: 7px; overflow: hidden; }
+    .sim-progress-fill  { height: 100%; background: #27ae60; border-radius: 4px; width: 0%; transition: width 0.4s ease; }
+    /* Issue #30: CTA-Button nach Simulation */
+    .sim-cta-btn {
+      display: block;
+      width: 100%;
+      margin-top: 14px;
+      padding: 10px;
+      background: #003366;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+    }
+    .sim-cta-btn:hover { background: #00254d; }
+    /* ── One-Click-Button (P7) ──────────────────────────────────────────── */
+    #one-click-btn { background: #5255a4; }
+    #one-click-btn:hover { background: #3d4085; }
+    #one-click-btn:disabled { background: #a0a3cc; cursor: not-allowed; }
+
+    /* ── Textarea-Vollbild-Overlay ───────────────────────────────────────── */
+    #textarea-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: white;
+      flex-direction: column;
+    }
+    #textarea-overlay.visible { display: flex; }
+    #overlay-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px 10px 16px;
+      border-bottom: 1px solid #eef0f3;
+      flex-shrink: 0;
+      background: white;
+    }
+    #overlay-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #003366;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #overlay-close {
+      font-size: 22px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #555;
+      line-height: 1;
+      padding: 4px 6px;
+      flex-shrink: 0;
+    }
+    #overlay-close:hover { color: #000; }
+    #overlay-body {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+    }
+    #overlay-body::-webkit-scrollbar { width: 5px; }
+    #overlay-body::-webkit-scrollbar-track { background: #f0f4f8; }
+    #overlay-body::-webkit-scrollbar-thumb { background: #b0bec5; border-radius: 3px; }
+    #overlay-body::-webkit-scrollbar-thumb:hover { background: #78909c; }
+    /* Log-Ausgabe: dünne Scrollleisten */
+    #log-output::-webkit-scrollbar { width: 5px; height: 5px; }
+    #log-output::-webkit-scrollbar-track { background: #1a1a1a; }
+    #log-output::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+    #log-output::-webkit-scrollbar-thumb:hover { background: #888; }
+    /* Log-Vollbild-Overlay */
+    #log-overlay {
+      display: none; position: fixed; inset: 0; z-index: 2000;
+      background: #111; flex-direction: column;
+    }
+    #log-overlay.visible { display: flex; }
+    #log-overlay-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px 10px 16px; border-bottom: 1px solid #333;
+      flex-shrink: 0; background: #1a1a1a;
+    }
+    #log-overlay-header span { font-size: 14px; font-weight: 600; color: #ccc; }
+    #log-overlay-header .log-ov-controls { display: flex; gap: 8px; align-items: center; }
+    #log-overlay-header button {
+      background: none; border: 1px solid #555; border-radius: 4px;
+      color: #ccc; cursor: pointer; font-size: 13px; padding: 3px 8px;
+    }
+    #log-overlay-header button:hover { color: #fff; border-color: #aaa; }
+    #log-overlay pre {
+      flex: 1; overflow: auto; margin: 0; padding: 16px;
+      color: #ccc; font-size: 12px; font-family: monospace;
+      white-space: pre-wrap; word-break: break-all; min-height: 0;
+    }
+    #log-overlay pre::-webkit-scrollbar { width: 5px; height: 5px; }
+    #log-overlay pre::-webkit-scrollbar-track { background: #1a1a1a; }
+    #log-overlay pre::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+    #log-overlay pre::-webkit-scrollbar-thumb:hover { background: #888; }
+    #overlay-textarea {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      border: none;
+      outline: none;
+      font-size: 15px;
+      font-family: inherit;
+      resize: none;
+      line-height: 1.6;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    .ta-wrapper { position: relative; display: block; }
+    .ta-expand-btn {
+      position: absolute;
+      bottom: 6px;
+      right: 6px;
+      background: rgba(255,255,255,0.88);
+      border: 1px solid #ccd3db;
+      border-radius: 3px;
+      padding: 2px 6px;
+      font-size: 11px;
+      color: #999;
+      cursor: pointer;
+      line-height: 1.4;
+    }
+    .ta-expand-btn:hover { color: #333; background: white; }
+
+    /* ── Optimierungs-Panel (Issue #20) ─────────────────────────────────── */
+    #optimize-panel {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: #f0f4f8;
+      gap: 16px;
+      flex-direction: column;
+    }
+    #optimize-panel.visible { display: flex; }
+    .opt-diff {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 767px) { .opt-diff { grid-template-columns: 1fr; } }
+    .opt-diff-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 4px;
+    }
+    .kausalkette-item {
+      background: #f7f9fc;
+      border-left: 3px solid #5599ff;
+      padding: 8px 12px;
+      border-radius: 0 4px 4px 0;
+      font-size: 13px;
+    }
+    .kausalkette-item + .kausalkette-item { margin-top: 8px; }
+    .kausalkette-item .kk-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #888;
+      margin-bottom: 2px;
+    }
+    .kausalkette-item .kk-text { color: #333; }
+    .opt-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .opt-loading { font-size: 13px; color: #888; display: none; }
+    .opt-loading.visible { display: block; }
+
+    /* ── Feedback-Bar (Issue #19) ────────────────────────────────────────── */
+    .feedback-bar {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 3px;
+      padding: 4px 8px;
+      background: #f4f6f9;
+      border: 1px solid #e4e8ef;
+      border-radius: 6px;
+      flex-wrap: wrap;
+      max-width: 72%;
+    }
+    .fb-btn {
+      border: 1px solid #ccd3db;
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 12px;
+      cursor: pointer;
+      background: white;
+      transition: background 0.1s, color 0.1s;
+      white-space: nowrap;
+    }
+    .fb-btn.gut   { border-color: #2ecc71; color: #2ecc71; }
+    .fb-btn.gut.active   { background: #2ecc71; color: white; }
+    .fb-btn.schlecht { border-color: #e74c3c; color: #e74c3c; }
+    .fb-btn.schlecht.active { background: #e74c3c; color: white; }
+    .fb-btn.edit  { border-color: #aaa; color: #555; font-size: 13px; padding: 2px 6px; }
+    .fb-comment {
+      flex: 1;
+      min-width: 80px;
+      max-width: 260px;
+      font-size: 12px;
+      padding: 2px 6px;
+      border: 1px solid #ccd3db;
+      border-radius: 4px;
+      height: 24px;
+      resize: none;
+      font-family: Arial, sans-serif;
+    }
+    .fb-comment.schlecht-hl { border-color: #e74c3c; }
+    .fb-status { font-size: 11px; color: #888; }
+    .fb-edit-area {
+      display: none;
+      width: 100%;
+      flex-direction: column;
+      gap: 5px;
+      margin-top: 4px;
+      padding-top: 6px;
+      border-top: 1px solid #e4e8ef;
+    }
+    .fb-edit-area.visible { display: flex; }
+    .fb-edit-textarea {
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+      padding: 6px;
+      border: 1px solid #ccd3db;
+      border-radius: 4px;
+      resize: vertical;
+      min-height: 70px;
+      line-height: 1.4;
+    }
+    .fb-save-edit {
+      align-self: flex-start;
+      font-size: 12px;
+      padding: 3px 10px;
+      background: #004085;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .fb-save-edit:hover { background: #003366; }
+
+    /* ── Ladeindikator ───────────────────────────────────────────────────── */
+    .loading {
+      color: #888;
+      font-size: 13px;
+      padding: 12px 16px;
+      text-align: center;
+    }
+
+    /* ── Initialer Fehler (ungültiger/fehlender Token beim ersten Aufruf) ── */
+    #initial-error {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #f0f4f8;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    #initial-error.visible { display: flex; }
+    #initial-error .error-box {
+      text-align: center;
+      max-width: 420px;
+      padding: 40px 32px;
+    }
+    #initial-error .error-box h2 {
+      font-size: 22px;
+      color: #c0392b;
+      margin-bottom: 16px;
+    }
+    #initial-error .error-box p {
+      color: #555;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* ── Abgelaufener Token (war schon verbunden, Session läuft aus) ──────── */
+    #expired-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.72);
+      align-items: center;
+      justify-content: center;
+      z-index: 9998;
+      backdrop-filter: blur(2px);
+    }
+    #expired-overlay.visible { display: flex; }
+    #expired-overlay .overlay-box {
+      text-align: center;
+      max-width: 380px;
+      padding: 36px 28px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    #expired-overlay .overlay-box h2 {
+      font-size: 20px;
+      color: #c0392b;
+      margin-bottom: 12px;
+    }
+    #expired-overlay .overlay-box p {
+      color: #444;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Lightbox (Issue #15) -->
+<div id="dash-lightbox">
+  <button id="dash-lb-close" aria-label="Schließen">✕</button>
+  <div id="dash-lb-inner">
+    <div id="dash-lb-canvas"><img id="dash-lb-img" src="" alt="Vorschau"></div>
+  </div>
+</div>
+
+<!-- Initialer Fehler: keine Dashboard-Struktur sichtbar -->
+<div id="initial-error">
+  <div class="error-box">
+    <h2>Kein Zugang</h2>
+    <p>Dieses Dashboard kann nur über den Chat-Button in Moodle geöffnet werden. Der Zugangslink ist ungültig oder fehlt.</p>
+  </div>
+</div>
+
+<!-- Overlay: Token abgelaufen während die Seite genutzt wurde -->
+<div id="expired-overlay">
+  <div class="overlay-box">
+    <h2>Sitzung abgelaufen</h2>
+    <p>Deine Lehrer-Sitzung ist abgelaufen (gültig für 8 Stunden).<br><br>Bitte öffne das Dashboard erneut über den Chat-Button in Moodle.</p>
+  </div>
+</div>
+
+<div id="header">
+  <div id="status-dot" title="WebSocket-Status"></div>
+  <h1 id="page-title">Schüler-Dashboard</h1>
+  <span id="live-badge" class="badge-live">LIVE</span>
+</div>
+
+<div id="tab-bar">
+  <button class="tab-btn active" data-tab="students">Schüler</button>
+  <button class="tab-btn" data-tab="optimize">Optimierung</button>
+  <button class="tab-btn" data-tab="settings">Einstellungen</button>
+  <button class="tab-btn" data-tab="info">Info</button>
+  <button class="tab-btn" id="admin-tab-btn" data-tab="admin" style="display:none;margin-left:auto">Admin</button>
+</div>
+
+<div id="toolbar">
+  <span style="font-size:13px">Sortierung:</span>
+  <button class="sort-btn active" data-sort="activity">Aktivität ↓</button>
+  <button class="sort-btn" data-sort="name">Name ↑</button>
+  <button class="sort-btn" data-sort="cost">Verbrauch ↓</button>
+  <span id="student-count"></span>
+  <div id="lock-group">
+    <button id="lock-btn" title="Plenumsphase – Chat für Schüler sperren">🔒 Sperren</button>
+    <input type="number" id="lock-timer" min="0" max="120" value="0" title="Automatische Entsperrung nach N Minuten (0 = nie)">
+    <span style="font-size:13px">min</span>
+    <span id="lock-badge">🔒 Gesperrt</span>
+  </div>
+</div>
+
+<!-- Aktivitäts-Gesamtkosten (Issue #12) -->
+<div id="cost-bar">
+  <span class="cost-label">Kosten Aufgabe gesamt:</span>
+  <span class="cost-value" id="cost-bar-input" title="Eingabe-Kosten">↑ –</span>
+  <span class="cost-value" id="cost-bar-output" title="Ausgabe-Kosten">↓ –</span>
+  <span class="cost-value cost-total" id="cost-bar-total" title="Gesamtkosten">=  –</span>
+</div>
+
+<!-- Optimierungs-Panel (P7: enthält One-Click + manuelle Simulation + Vorschlag + Erfahrungsprompt) -->
+<div id="optimize-panel">
+
+  <!-- One-Click (P7) -->
+  <div class="settings-card">
+    <h3>⚡ One-Click Optimierung</h3>
+    <p style="font-size:13px;color:#555;margin:0 0 10px">Generiert automatisch Kriterien, simuliert 4 Schüler-Personas parallel und schlägt einen verbesserten Erfahrungsprompt vor.</p>
+    <button class="settings-btn" id="one-click-btn">⚡ Jetzt optimieren</button>
+    <div class="opt-loading" id="one-click-loading" style="margin-top:10px">
+      <div id="one-click-progress">Starte…</div>
+      <div class="sim-progress-track"><div id="one-click-progress-bar" class="sim-progress-fill"></div></div>
+    </div>
+    <div class="status-msg" id="one-click-status"></div>
+  </div>
+
+  <!-- Manuelle Simulation (ausklappbar) -->
+  <details class="sim-collapsible">
+    <summary>Manuelle Simulation</summary>
+
+    <!-- Bewertungskriterien -->
+    <div class="settings-card">
+      <h3>Bewertungskriterien</h3>
+      <p style="font-size:13px;color:#555;margin:0">Woran wird gemessen, ob eine KI-Antwort pädagogisch gut ist? Die KI leitet Kriterien primär aus dem Aufgabenprompt vor – du kannst sie anpassen.</p>
+      <div id="criteria-list"></div>
+      <div id="criteria-deleted" style="display:none"></div>
+      <div class="settings-row">
+        <button class="suggest-btn" id="criteria-suggest-btn">KI schlägt Kriterien vor</button>
+        <span class="opt-loading" id="criteria-loading">Analysiere Aufgabenprompt…</span>
+      </div>
+      <div id="criteria-suggestions" style="display:none;margin-top:8px"></div>
+      <div class="settings-row" style="margin-top:6px">
+        <input type="text" id="criteria-input" placeholder="Eigenes Kriterium eingeben" style="flex:1;font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
+        <button class="settings-btn" id="criteria-add-btn">Hinzufügen</button>
+      </div>
+      <div class="status-msg" id="criteria-status"></div>
+    </div>
+
+    <!-- Personas -->
+    <div class="settings-card">
+      <h3>Schüler-Personas</h3>
+      <p style="font-size:13px;color:#555;margin:0 0 10px">Typische Schülertypen für die Simulation.</p>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-bottom:4px">Globale Typen</div>
+      <div id="personas-global" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-bottom:4px">Meine Personas</div>
+      <div id="personas-own"></div>
+      <div class="settings-row" style="margin-top:8px">
+        <button class="suggest-btn" id="personas-suggest-btn">KI schlägt Personas vor</button>
+        <span class="opt-loading" id="personas-loading">Analysiere Schüleräußerungen…</span>
+      </div>
+      <div id="personas-suggestions" style="display:none;margin-top:8px"></div>
+      <div class="status-msg" id="personas-status"></div>
+    </div>
+
+    <!-- Simulation starten -->
+    <div class="settings-card">
+      <h3>Simulation starten</h3>
+      <p style="font-size:13px;color:#555;margin:0">Eine Persona sendet 4 synthetische Nachrichten. Der aktuelle Prompt-Stack antwortet – die KI bewertet jede Antwort anhand der Kriterien.</p>
+      <div class="settings-row">
+        <label for="sim-persona-select" style="min-width:60px">Persona:</label>
+        <select id="sim-persona-select" style="font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
+          <option value="">– Persona auswählen –</option>
+        </select>
+        <button class="settings-btn" id="sim-start-btn">Simulation starten</button>
+      </div>
+      <div class="opt-loading" id="sim-loading">
+        <div id="sim-progress">Starte…</div>
+        <div class="sim-progress-track"><div id="sim-progress-bar" class="sim-progress-fill"></div></div>
+      </div>
+      <details id="sim-model-details" style="margin-top:10px">
+        <summary>Modell-Einstellungen</summary>
+        <div class="sim-model-grid">
+          <span>Kriterien-Vorschlag:</span>
+          <select id="model-criteria"></select>
+          <span>Personas-Vorschlag:</span>
+          <select id="model-personas"></select>
+          <span>Äußerungen:</span>
+          <select id="model-utterances"></select>
+          <span>Evaluierung:</span>
+          <select id="model-eval"></select>
+          <span>Chat-Antwort:</span>
+          <input type="text" id="model-chat" disabled placeholder="wird aus Einstellungen geladen">
+        </div>
+      </details>
+      <div id="sim-results" style="margin-top:12px"></div>
+      <div id="sim-suggestion" style="margin-top:8px"></div>
+    </div>
+
+  </details>
+
+  <!-- KI-Optimierungsvorschlag -->
+  <div class="settings-card" id="opt-proposal-card">
+    <h3>KI-Optimierungsvorschlag</h3>
+    <p style="font-size:13px;color:#555;margin:0">Die KI analysiert alle Feedback-Bewertungen dieser Aufgabe und schlägt einen verbesserten Erfahrungsprompt vor.</p>
+    <div class="settings-row">
+      <button class="settings-btn" id="opt-generate-btn">KI-Vorschlag generieren</button>
+      <span class="opt-loading" id="opt-loading">Analysiere Feedback…</span>
+    </div>
+
+    <!-- Ergebnis-Bereich (ausgeblendet bis Vorschlag da) -->
+    <div id="opt-result" style="display:none;flex-direction:column;gap:14px">
+      <hr style="border:none;border-top:1px solid #eef0f3;margin:0">
+
+      <!-- Diff: alt/neu -->
+      <div class="opt-diff">
+        <div>
+          <div class="opt-diff-label">Aktueller Erfahrungsprompt</div>
+          <textarea class="settings-textarea" id="opt-alt" rows="8" readonly></textarea>
+        </div>
+        <div>
+          <div class="opt-diff-label">KI-Vorschlag (bearbeitbar)</div>
+          <textarea class="settings-textarea" id="opt-neu" rows="8"></textarea>
+        </div>
+      </div>
+
+      <!-- Kausalkette -->
+      <div>
+        <div class="opt-diff-label" style="margin-bottom:8px">Kausalkette (Begründung)</div>
+        <div id="opt-kausalkette"></div>
+      </div>
+
+      <!-- Aktions-Buttons -->
+      <div class="opt-actions">
+        <button class="settings-btn" id="opt-confirm-btn">Bestätigen &amp; speichern</button>
+        <button class="settings-btn" id="opt-discard-btn" style="background:#6c757d">Verwerfen</button>
+        <span class="status-msg" id="opt-confirm-status"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Erfahrungsprompt manuell (Issue #28: jetzt zweite Card) -->
+  <div class="settings-card">
+    <h3>Erfahrungsprompt dieser Aufgabe</h3>
+    <p style="font-size:13px;color:#555;margin:0">Ergänzt den globalen Systemprompt mit aufgabenspezifischen Hinweisen. Wird automatisch in den Chat eingebunden.</p>
+    <textarea class="settings-textarea" id="erf-current" rows="7" placeholder="Noch kein Erfahrungsprompt – KI-Vorschlag generieren oder manuell eingeben."></textarea>
+    <div class="settings-row">
+      <button class="settings-btn" id="erf-save-btn">Manuell speichern</button>
+    </div>
+    <div class="status-msg" id="erf-save-status"></div>
+    <details id="erf-history-details">
+      <summary>Versionshistorie</summary>
+      <div id="erf-history-list" style="margin-top:8px"></div>
+    </details>
+  </div>
+
+</div>
+
+<!-- Settings-Panel (Issue #17) -->
+<div id="settings-panel">
+
+  <!-- Mein Modell (alle Lehrkräfte) -->
+  <div class="settings-card">
+    <h3>Mein Modell</h3>
+    <p style="font-size:13px;color:#555;margin:0">Persönliche Modell-Präferenz für deine Sitzungen (überschreibt den globalen Standard).</p>
+    <div class="settings-row">
+      <label for="my-model-select">Modell:</label>
+      <select id="my-model-select"></select>
+      <button class="settings-btn" id="save-my-model-btn">Speichern</button>
+    </div>
+    <div class="status-msg" id="my-model-status"></div>
+  </div>
+
+  <!-- Systemvorlage (nur Admins) -->
+  <div class="settings-card" id="system-template-card" style="display:none">
+    <h3>Systemvorlage</h3>
+    <p style="font-size:12px;color:#888;margin-bottom:12px">Startwerte für neue Aktivitäten, wenn eine Lehrkraft noch keine eigene Vorlage gesetzt hat.</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div>
+        <label class="st-label">Bot-Titel</label>
+        <input type="text" id="st-title" class="settings-input" style="width:100%" placeholder="z. B. Lern-Assistent">
+      </div>
+      <div>
+        <label class="st-label">Bot-Icon</label>
+        <select id="st-bot-icon" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px">
+          <option value="grw">grw (Standard)</option>
+          <option value="grw2">grw2</option>
+          <option value="weiblich">weiblich</option>
+        </select>
+      </div>
+      <div>
+        <label class="st-label">Begrüßung (Opener)</label>
+        <textarea id="st-opener" class="settings-textarea" rows="3" style="width:100%" placeholder="Erste Nachricht des Bots…"></textarea>
+      </div>
+      <div>
+        <label class="st-label">Upload-Modus</label>
+        <select id="st-upload-mode" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px">
+          <option value="off">Kein Upload (off)</option>
+          <option value="images">Bilder erlaubt (images)</option>
+          <option value="files">Bilder + PDF erlaubt (files)</option>
+        </select>
+      </div>
+      <div>
+        <label class="st-label">Aufgaben-Hinweise (Prompt-Ergänzung)</label>
+        <textarea id="st-hints" class="settings-textarea" rows="4" style="width:100%" placeholder="Ergänzung zum System-Prompt…"></textarea>
+      </div>
+      <div class="settings-row">
+        <button class="settings-btn" id="st-save-btn">Systemvorlage speichern</button>
+      </div>
+      <div class="status-msg" id="st-save-status"></div>
+    </div>
+  </div>
+
+  <!-- Systemprompt (alle lesen, Admins schreiben) -->
+  <div class="settings-card">
+    <h3>Systemprompt &amp; Globalmodell</h3>
+    <div class="settings-row" style="margin-bottom:4px">
+      <label style="min-width:0">Aktuelles Globalmodell:</label>
+      <span class="model-value" id="global-model-display">–</span>
+    </div>
+    <textarea class="settings-textarea" id="sp-display" rows="8" readonly placeholder="Systemprompt wird geladen…"></textarea>
+
+    <!-- Admin: Bearbeitungsbereich -->
+    <div id="sp-admin-section" style="display:none;display:flex;flex-direction:column;gap:12px">
+      <hr style="border:none;border-top:1px solid #eef0f3;margin:0">
+      <p style="font-size:12px;color:#888;margin:0">Als Admin kannst du Systemprompt und Globalmodell ändern.</p>
+      <textarea class="settings-textarea" id="sp-edit" rows="10" placeholder="Systemprompt bearbeiten…"></textarea>
+      <div class="settings-row">
+        <label for="global-model-select">Globalmodell:</label>
+        <select id="global-model-select"></select>
+      </div>
+      <div class="confirm-row" id="model-confirm-row">
+        <label style="font-size:13px;color:#c0392b;min-width:0">Modellname zur Bestätigung eingeben:</label>
+        <input type="text" id="model-confirm-input" placeholder="z.B. gpt-4o" style="width:160px">
+      </div>
+      <div class="settings-row">
+        <button class="settings-btn" id="sp-save-btn">Systemprompt + Modell speichern</button>
+      </div>
+      <div class="status-msg" id="sp-save-status"></div>
+    </div>
+
+    <details id="sp-history-details" style="display:none">
+      <summary>Versionshistorie</summary>
+      <div id="sp-history-list" style="margin-top:8px"></div>
+    </details>
+  </div>
+
+  <!-- Admin-Personas (nur Admins) -->
+  <div class="settings-card" id="admin-personas-card" style="display:none">
+    <h3>Lehrer-Personas verwalten</h3>
+    <p style="font-size:12px;color:#888;margin-bottom:10px">Alle von Lehrkräften angelegten Personas. Hier kannst du sie zu globalen Typen machen oder löschen.</p>
+    <div class="settings-row" style="margin-bottom:8px">
+      <label for="admin-personas-filter" style="font-size:13px;min-width:80px">Filtern:</label>
+      <select id="admin-personas-filter" style="font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
+        <option value="">– Alle Lehrkräfte –</option>
+      </select>
+    </div>
+    <div id="admin-personas-list" style="margin-bottom:12px"></div>
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-bottom:6px">Neue globale Persona</div>
+    <div class="settings-row">
+      <input type="text" id="admin-persona-name" placeholder="Name" style="flex:1;font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
+      <input type="text" id="admin-persona-desc" placeholder="Beschreibung" style="flex:2;font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
+      <button class="settings-btn" id="admin-persona-add-btn">Hinzufügen</button>
+    </div>
+    <div class="status-msg" id="admin-personas-status"></div>
+  </div>
+
+
+</div>
+
+<div id="info-panel">
+  <div class="sub-tab-bar">
+    <button class="sub-tab-btn active" data-subtab="bedienung">Bedienung</button>
+    <button class="sub-tab-btn" data-subtab="architektur">Architektur</button>
+  </div>
+
+  <div id="subtab-bedienung" class="sub-tab-content">
+    <div class="settings-card">
+      <h3>Übersicht der Tabs</h3>
+      <table class="info-table">
+        <thead><tr><th>Tab</th><th>Was man dort tut</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Schüler</strong></td><td>Alle Chat-Verläufe der Schüler einsehen. Links die Schülerliste, rechts der Chat-Verlauf. Kostenanzeige oben. Unter jeder KI-Antwort sehen Lehrkräfte die Feedback-Bewertungen, die Schüler vergeben haben.</td></tr>
+          <tr><td><strong>Optimierung</strong></td><td>System-Prompt mit KI verbessern: Ein-Klick-Optimierung, manuelle Simulation mit Personas, Bewertungskriterien verwalten. Im Abschnitt „KI-Optimierungsvorschlag" wertet die KI alle Feedback-Bewertungen aus echten Schüler-Chats aus und schlägt einen verbesserten Prompt vor.</td></tr>
+          <tr><td><strong>Einstellungen</strong></td><td>KI-Modell wählen, System-Prompt bearbeiten, eigene Personas anlegen. Jede Aktivität hat eigene Einstellungen.</td></tr>
+          <tr><td><strong>Info</strong></td><td>Diese Seite: Bedienungshinweise und technische Architektur.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="settings-card">
+      <h3>Zusammenspiel mit Moodle</h3>
+      <p>Das Chat-Widget wird über ein <strong>TinyMCE-Snippet</strong> in eine Moodle-Aktivität eingebettet:</p>
+      <ol style="margin: 8px 0 0 20px; line-height: 1.8;">
+        <li>Lehrkraft öffnet eine Moodle-Textseite oder Aufgabe im Bearbeitungsmodus.</li>
+        <li>Im TinyMCE-Editor: <em>Einfügen → Snippets</em> → Snippet <code>abgpt</code> oder <code>tegpt</code> auswählen.</li>
+        <li>Das Snippet bettet ein <code>&lt;iframe&gt;</code> ein, das <code>chat.html</code> lädt und die Aktivitäts-ID übergibt.</li>
+        <li>Schüler sehen beim Öffnen der Aktivität das schwebende Chat-Widget.</li>
+        <li>Nachrichten laufen per <strong>WebSocket</strong> zum Server — Lehrkraft sieht alles live im <em>Schüler</em>-Tab.</li>
+      </ol>
+      <p style="margin-top: 8px; color: #666; font-size: 0.9em;">Jede Moodle-Aktivität hat eine eigene Aktivitäts-ID, eigenen System-Prompt und eigene Kosten-Statistik.</p>
+    </div>
+
+    <div class="settings-card">
+      <h3>Tipps &amp; FAQ</h3>
+      <dl class="info-faq">
+        <dt>Wie ändere ich den System-Prompt für eine Aktivität?</dt>
+        <dd>Tab <em>Einstellungen</em> → Abschnitt „System-Prompt". Jede Aktivität hat einen eigenen Prompt. Änderungen gelten sofort für neue Chats.</dd>
+
+        <dt>Was sind Personas?</dt>
+        <dd>Virtuelle Schüler-Profile (z.B. „neugieriger Erstklässler", „skeptischer Gymnasiast"), mit denen der System-Prompt im Tab <em>Optimierung</em> getestet werden kann, ohne echte Schüler zu benötigen.</dd>
+
+        <dt>Was bedeuten die Token-Kosten?</dt>
+        <dd>Jede KI-Antwort verbraucht Token (Eingangs- + Ausgangstext). Die Kostenanzeige im <em>Schüler</em>-Tab summiert alle Kosten der aktuellen Aktivität in US-Dollar.</dd>
+
+        <dt>Kann ich den Chat für Schüler sperren?</dt>
+        <dd>Ja: Im <em>Schüler</em>-Tab gibt es einen Plenum-Modus. Wenn aktiv, wird das Widget für Schüler deaktiviert.</dd>
+
+        <dt>Was ist der Unterschied zwischen „KI-Chat (Aufgabe+Bilder)" und „KI-Chat Testfrage (iframe)"?</dt>
+        <dd><strong>KI-Chat (Aufgabe+Bilder)</strong> ist für offene Lernaufgaben gedacht – Schüler können frei mit dem Bot schreiben, optional auch Bilder oder Dateien hochladen. <strong>KI-Chat Testfrage (iframe)</strong> wird als eingebettetes iframe verwendet und eignet sich für Quiz- und Test-Szenarien mit eingeschränkter Interaktion.</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div id="subtab-architektur" class="sub-tab-content" style="display:none;">
+    <div class="settings-card">
+      <h3>Systemkomponenten</h3>
+      <pre class="mermaid">
+flowchart TD
+    Moodle["Moodle TinyMCE"]
+    Widget["Chat-Widget"]
+    Dashboard["Lehrer-Dashboard"]
+    Server["Express-Server"]
+    DB["SQLite"]
+    OpenAI["OpenAI API"]
+
+    Moodle -->|Snippet| Widget
+    Widget -->|WebSocket| Server
+    Server -->|Antwort-Stream| Widget
+    Dashboard <-->|HTTP REST| Server
+    Server -->|Datenbank| DB
+    Server -->|openai SDK| OpenAI
+    OpenAI -->|Chunks| Server
+      </pre>
+    </div>
+
+    <div class="settings-card">
+      <h3>Chat-Nachrichtenfluss</h3>
+      <pre class="mermaid">
+sequenceDiagram
+    participant S as Schüler-Browser
+    participant W as Widget (moo-bot.js)
+    participant SV as Server (server.js)
+    participant OAI as OpenAI API
+
+    S->>W: Nachricht eingeben + senden
+    W->>SV: WebSocket: { type: "message", text }
+    SV->>SV: Nachricht in DB speichern
+    SV->>OAI: Responses API (stream: true)
+    loop Streaming
+        OAI-->>SV: Text-Chunk
+        SV-->>W: WebSocket: { type: "chunk", text }
+        W-->>S: Chunk im Chat anzeigen
+    end
+    OAI-->>SV: done + Token-Anzahl
+    SV->>SV: Token-Log in DB speichern
+    SV-->>W: WebSocket: { type: "done" }
+      </pre>
+    </div>
+  </div>
+</div>
+
+<div id="admin-panel">
+
+  <!-- Admin-Verwaltung -->
+  <div class="settings-card" id="admin-mgmt-card">
+    <h3>Admin-Verwaltung</h3>
+    <div id="admin-list"></div>
+    <div class="settings-row" style="margin-top:4px">
+      <label for="new-admin-input">Neue Admin-ID:</label>
+      <input type="text" id="new-admin-input" placeholder="Moodle-User-ID" style="width:160px">
+      <button class="settings-btn" id="add-admin-btn">Hinzufügen</button>
+    </div>
+    <div class="status-msg" id="admin-status"></div>
+  </div>
+
+  <!-- Server-Debug -->
+  <div class="settings-card" id="admin-debug-card">
+    <h3>Server-Logs</h3>
+    <div class="settings-row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <label for="log-n-input" style="font-size:13px">Zeilen:</label>
+      <input type="number" id="log-n-input" value="100" min="10" max="2000"
+             style="width:70px;font-size:13px;padding:4px 6px;border:1px solid #ccd3db;border-radius:4px">
+      <button class="settings-btn" id="log-refresh-btn">Laden</button>
+      <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer">
+        <input type="checkbox" id="log-auto-refresh"> Auto (30s)
+      </label>
+      <button class="settings-btn" id="log-wrap-btn" title="Zeilenumbruch an/aus" style="margin-left:auto">↵</button>
+      <button class="settings-btn" id="log-expand-btn" title="Vollbild">⛶</button>
+      <button class="settings-btn" id="server-restart-btn"
+              style="background:#c0392b;color:white;border-color:#c0392b">Dienst neu starten</button>
+    </div>
+    <pre id="log-output"
+         style="background:#111;color:#ccc;font-size:11px;padding:10px;border-radius:4px;
+                max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0"></pre>
+    <div class="status-msg" id="debug-status"></div>
+  </div>
+
+</div>
+
+<div id="main">
+  <!-- Schülerliste -->
+  <div id="list-panel">
+    <div id="student-list">
+      <div class="loading">Verbinde…</div>
+    </div>
+  </div>
+
+  <!-- Chat-Ansicht -->
+  <div id="chat-panel">
+    <div id="chat-header">
+      <button id="back-btn" title="Zurück zur Liste">&#8592;</button>
+      <span id="chat-title">Schüler auswählen</span>
+      <span id="chat-cost"></span>
+    </div>
+    <div id="chat-messages">
+      <div class="chat-placeholder">← Schüler in der Liste auswählen</div>
+    </div>
+  </div>
+</div>
+
+<div id="textarea-overlay">
+  <div id="overlay-header">
+    <span id="overlay-label"></span>
+    <button id="overlay-close" aria-label="Schließen">✕</button>
+  </div>
+  <div id="overlay-body">
+    <textarea id="overlay-textarea"></textarea>
+  </div>
+</div>
+
+<div id="log-overlay">
+  <div id="log-overlay-header">
+    <span>Server-Logs</span>
+    <div class="log-ov-controls">
+      <button id="log-overlay-wrap-btn" title="Zeilenumbruch an/aus">↵ an</button>
+      <button id="log-overlay-close" aria-label="Schließen">✕</button>
+    </div>
+  </div>
+  <pre id="log-overlay-pre"></pre>
+</div>
+
+<script type="module" src="/dashboard.js"></script>
+</body>
+</html>

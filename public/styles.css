@@ -55,6 +55,46 @@ body {
     z-index: 9999; /* Erhöhter z-index */
     display: none;
 }
+
+/* Issue #42: Links/Rechts-Toggle */
+.chat-container.left-side {
+    right: auto;
+    left: 20px;
+}
+.chat-icon.left-side {
+    right: auto;
+    left: 5px;
+}
+.dashboard-icon.left-side {
+    right: auto;
+    left: 68px;
+}
+.config-icon.left-side {
+    right: auto;
+    left: 10px;
+}
+.stop-icon.left-side {
+    right: auto;
+    left: 126px;
+}
+
+.header-side-toggle {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.75);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-right: 4px;
+    transition: color 0.15s, background 0.15s;
+}
+.header-side-toggle:hover {
+    color: white;
+    background: rgba(255,255,255,0.15);
+}
 .chat-header {
     background-color: #003366;
     padding: 10px;
@@ -327,6 +367,118 @@ button:hover {
     width: 100%;
 }
 
+/* ── Issue #43: Stop-Button + Lock-Modal ─────────────────────────────────── */
+.stop-icon {
+    position: fixed;
+    bottom: 122px;
+    right: 126px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #c0392b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    transition: background-color 0.2s;
+}
+.stop-icon:hover { background-color: #922b21; }
+
+.lock-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 100001;
+    align-items: center;
+    justify-content: center;
+}
+
+.lock-modal-dialog {
+    background: white;
+    border-radius: 10px;
+    padding: 28px 32px 24px;
+    width: min(360px, 90vw);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.lock-modal-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: #1a1a1a;
+}
+
+.lock-modal-desc {
+    margin: 0;
+    font-size: 14px;
+    color: #444;
+}
+
+.lock-modal-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.lock-modal-field label {
+    font-size: 13px;
+    color: #555;
+}
+
+.lock-modal-field input[type="number"] {
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 15px;
+    color: #1a1a1a;
+    background: white;
+    width: 100%;
+    box-sizing: border-box;
+    margin-right: 0;
+    flex: none;
+}
+
+.lock-modal-field input[type="number"]:focus {
+    outline: 2px solid #003366;
+    border-color: #003366;
+}
+
+.lock-modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
+.lock-modal-cancel {
+    background: #f0f0f0;
+    color: #333;
+    border: none;
+    border-radius: 20px;
+    padding: 9px 20px;
+    font-size: 14px;
+    cursor: pointer;
+}
+.lock-modal-cancel:hover { background: #ddd; }
+
+.lock-modal-confirm {
+    background: #c0392b;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 9px 20px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.lock-modal-confirm:hover { background: #922b21; }
+
 /* ── Lightbox (Issue #15) ────────────────────────────────────────────────── */
 #mmb-lightbox {
     display: none;
@@ -374,3 +526,74 @@ button:hover {
 }
 #mmb-lb-img.mmb-dragging { cursor: grabbing; }
 .mmb-lb-trigger { cursor: zoom-in !important; }
+
+/* Issue #46: Schüler-Feedback-Buttons */
+.mmb-feedback {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+}
+.mmb-fb-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 6px;
+    line-height: 1.4;
+    opacity: 0.75;
+    transition: opacity 0.15s, background 0.15s;
+}
+.mmb-fb-btn:hover {
+    opacity: 1;
+    background: rgba(255,255,255,0.12);
+}
+.mmb-fb-saved {
+    font-size: 12px;
+    opacity: 0.8;
+    margin-left: 4px;
+}
+.mmb-fb-panel {
+    width: 100%;
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.mmb-fb-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 5px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.12);
+    color: white;
+    font-size: 13px;
+}
+.mmb-fb-input::placeholder { color: rgba(255,255,255,0.55); }
+.mmb-fb-actions {
+    display: flex;
+    gap: 6px;
+}
+.mmb-fb-save, .mmb-fb-cancel {
+    padding: 4px 12px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+}
+.mmb-fb-save {
+    background: rgba(255,255,255,0.85);
+    color: #003366;
+    font-weight: 600;
+}
+.mmb-fb-save:hover { background: white; }
+.mmb-fb-cancel {
+    background: transparent;
+    color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.3);
+}
+.mmb-fb-cancel:hover { background: rgba(255,255,255,0.1); }

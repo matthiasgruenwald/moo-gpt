@@ -254,9 +254,11 @@ function handleServerMessage(msg) {
     case 'students':
       students = msg.data;
       if (msg.activityName) {
-        pageTitle.textContent = `Schüler-Dashboard – ${msg.activityName}`;
+        pageTitle.textContent = `moo-gpt – ${msg.activityName}`;
+        document.title = `moo-gpt – ${msg.activityName}`;
       } else {
-        pageTitle.textContent = `Schüler-Dashboard – Aufgabe ${activityId}`;
+        pageTitle.textContent = `moo-gpt – Aufgabe ${activityId}`;
+        document.title = `moo-gpt – Aufgabe ${activityId}`;
       }
       if (msg.opener) activityOpener = msg.opener;
       // Issue #12: Aktivitäts-Kosten

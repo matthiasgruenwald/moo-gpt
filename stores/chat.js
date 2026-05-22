@@ -44,15 +44,21 @@ export function saveMessage({ thread_db_id, role, content, content_type = 'text'
 
 export function getMessages(thread_db_id) {
   return getDb().prepare(`
-    SELECT m.id, m.role, m.content, m.content_type, m.created_at,
+    SELECT m.id, m.role,
+           COALESCE(me.content, m.content) AS content,
+           m.content_type, m.created_at,
            tl.prompt_tokens     AS cost_prompt,
            tl.completion_tokens AS cost_completion,
+           tl.model             AS cost_model,
            mf.rating            AS fb_rating,
            mf.comment           AS fb_comment,
-           mf.improved_text     AS fb_improved
+           mf.improved_text     AS fb_improved,
+           me.id                AS edit_id,
+           me.version           AS edit_version
     FROM messages m
     LEFT JOIN token_log tl        ON tl.message_id = m.id
     LEFT JOIN message_feedback mf ON mf.message_id = m.id
+    LEFT JOIN message_edits me    ON me.message_id = m.id AND me.is_active = 1
     WHERE m.thread_id = ? AND COALESCE(m.content_type, 'text') != 'task_image'
     ORDER BY m.created_at ASC LIMIT 100
   `).all(thread_db_id);

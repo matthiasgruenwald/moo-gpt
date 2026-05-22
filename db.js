@@ -129,6 +129,24 @@ export function initDb() {
       source       TEXT,
       created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS message_edits (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      message_id  INTEGER NOT NULL,
+      content     TEXT NOT NULL,
+      version     INTEGER NOT NULL DEFAULT 1,
+      is_active   INTEGER NOT NULL DEFAULT 1,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS student_memory (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id      TEXT NOT NULL,
+      activity_id     TEXT NOT NULL,
+      preference_text TEXT NOT NULL,
+      updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(student_id, activity_id)
+    );
   `);
 
   // Migrationen für bestehende DBs

@@ -405,6 +405,51 @@
     }
   }
 
+  async function runSuggestPrompt() {
+    const btn          = document.getElementById('cfg-suggest-btn');
+    const currentPrompt = document.getElementById('cfg-hints').value;
+    const preview      = document.getElementById('cfg-suggest-preview');
+
+    btn.disabled    = true;
+    btn.textContent = '⏳ Erstellt…';
+    preview.style.display = 'none';
+
+    try {
+      const res = await fetch(
+        `/api/activity/${encodeURIComponent(activityId)}/suggest-prompt?token=${encodeURIComponent(token)}`,
+        {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ currentPrompt }),
+        }
+      );
+
+      if (!res.ok) throw new Error(`Server-Fehler ${res.status}`);
+      const data = await res.json();
+
+      document.getElementById('cfg-suggest-preview-text').textContent = data.suggestedPrompt || '';
+      preview.style.display = '';
+    } catch (err) {
+      showStatus(`Fehler: ${err.message}`, 'err');
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = '✨ Prompt mit KI erstellen';
+    }
+  }
+
+  document.getElementById('cfg-suggest-btn').addEventListener('click', runSuggestPrompt);
+
+  document.getElementById('cfg-suggest-accept-btn').addEventListener('click', () => {
+    const suggestedText = document.getElementById('cfg-suggest-preview-text').textContent;
+    document.getElementById('cfg-hints').value = suggestedText;
+    document.getElementById('cfg-suggest-preview').style.display = 'none';
+    updateDirtyState();
+  });
+
+  document.getElementById('cfg-suggest-discard-btn').addEventListener('click', () => {
+    document.getElementById('cfg-suggest-preview').style.display = 'none';
+  });
+
   document.getElementById('cfg-save-btn').addEventListener('click', saveConfig);
 
   document.getElementById('cfg-check-btn').addEventListener('click', runPromptCheck);

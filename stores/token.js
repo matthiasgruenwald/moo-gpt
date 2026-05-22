@@ -16,18 +16,22 @@ export function saveTokenUsage(threadId, activityId, model, usage, messageId = n
   );
 }
 
-export function getThreadCostTokens(threadDbId) {
+export function getThreadCostByModel(threadDbId) {
   return getDb().prepare(`
-    SELECT COALESCE(SUM(prompt_tokens), 0)     AS prompt_tokens,
+    SELECT model,
+           COALESCE(SUM(prompt_tokens), 0)     AS prompt_tokens,
            COALESCE(SUM(completion_tokens), 0) AS completion_tokens
     FROM token_log WHERE thread_id = ?
-  `).get(threadDbId) || { prompt_tokens: 0, completion_tokens: 0 };
+    GROUP BY model
+  `).all(threadDbId);
 }
 
-export function getActivityCostTokens(activityId) {
+export function getActivityCostByModel(activityId) {
   return getDb().prepare(`
-    SELECT COALESCE(SUM(prompt_tokens), 0)     AS prompt_tokens,
+    SELECT model,
+           COALESCE(SUM(prompt_tokens), 0)     AS prompt_tokens,
            COALESCE(SUM(completion_tokens), 0) AS completion_tokens
     FROM token_log WHERE activity_id = ?
-  `).get(activityId) || { prompt_tokens: 0, completion_tokens: 0 };
+    GROUP BY model
+  `).all(activityId);
 }
