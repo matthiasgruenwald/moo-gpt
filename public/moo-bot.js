@@ -175,11 +175,77 @@ export class MOOBOT {
       cfgOverlay.innerHTML = `
         <div class="config-overlay-header">
           <h2>&#9881; Aktivit&auml;ts-Einstellungen</h2>
-          <button class="config-overlay-close" id="config-overlay-close">&#x2715;</button>
+          <div style="display:flex;gap:4px;align-items:center">
+            <button class="config-overlay-close" id="config-overlay-side-toggle" title="Links/Rechts wechseln">&#8644;</button>
+            <button class="config-overlay-close" id="config-overlay-close">&#x2715;</button>
+          </div>
         </div>
         <iframe id="config-overlay-iframe" class="config-overlay-iframe" src=""></iframe>`;
       document.body.appendChild(cfgOverlay);
       cfgOverlay.querySelector('#config-overlay-close').onclick = () => this.closeConfig();
+      cfgOverlay.querySelector('#config-overlay-side-toggle').onclick = () => {
+        cfgOverlay.classList.toggle('left-side');
+        document.getElementById('suggest-panel')?.classList.toggle('left-side');
+      };
+
+      const suggestPanel = document.createElement('div');
+      suggestPanel.id = 'suggest-panel';
+      suggestPanel.className = 'suggest-panel';
+      suggestPanel.innerHTML = `
+        <div class="suggest-panel-header">
+          <span>&#10024; KI-Prompt-Assistent</span>
+          <button class="suggest-panel-close" id="suggest-panel-close">&#x2715;</button>
+        </div>
+        <div class="suggest-panel-messages" id="suggest-panel-messages"></div>
+        <div class="suggest-panel-loading" id="suggest-panel-loading">Antwort wird generiert&#8230;</div>
+        <div class="suggest-panel-input-row" id="suggest-panel-input-row">
+          <input type="text" id="suggest-panel-input" placeholder="Deine Antwort&hellip;" autocomplete="off">
+          <button id="suggest-panel-send">Senden</button>
+        </div>
+        <div class="suggest-panel-preview" id="suggest-panel-preview">
+          <div class="suggest-panel-preview-label">Fertiger Prompt</div>
+          <div class="suggest-panel-preview-text" id="suggest-panel-preview-text"></div>
+          <div class="suggest-panel-preview-actions">
+            <button id="suggest-panel-accept">&#10003; &Uuml;bernehmen</button>
+            <button id="suggest-panel-discard">Verwerfen</button>
+          </div>
+        </div>`;
+      document.body.appendChild(suggestPanel);
+
+      suggestPanel.querySelector('#suggest-panel-close').onclick = () => {
+        suggestPanel.style.display = 'none';
+      };
+      const spSend = () => {
+        const input = document.getElementById('suggest-panel-input');
+        const text = input.value.trim();
+        if (!text) return;
+        const msgs = document.getElementById('suggest-panel-messages');
+        const bubble = document.createElement('div');
+        bubble.className = 'suggest-smsg-user';
+        bubble.textContent = text;
+        msgs.appendChild(bubble);
+        msgs.scrollTop = msgs.scrollHeight;
+        input.value = '';
+        document.getElementById('suggest-panel-input-row').style.display = 'none';
+        document.getElementById('suggest-panel-loading').style.display = 'flex';
+        document.getElementById('config-overlay-iframe')?.contentWindow?.postMessage(
+          { type: 'moogpt:suggestReply', text }, '*'
+        );
+      };
+      suggestPanel.querySelector('#suggest-panel-send').onclick = spSend;
+      suggestPanel.querySelector('#suggest-panel-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); spSend(); }
+      });
+      suggestPanel.querySelector('#suggest-panel-accept').onclick = () => {
+        const prompt = document.getElementById('suggest-panel-preview-text').textContent;
+        document.getElementById('config-overlay-iframe')?.contentWindow?.postMessage(
+          { type: 'moogpt:suggestAccept', prompt }, '*'
+        );
+        suggestPanel.style.display = 'none';
+      };
+      suggestPanel.querySelector('#suggest-panel-discard').onclick = () => {
+        suggestPanel.style.display = 'none';
+      };
     }
 
     document.body.appendChild(chatIcon);
@@ -221,6 +287,61 @@ export class MOOBOT {
           overlay.style.width    = '';
           overlay.style.maxWidth = '';
         }
+      }
+      // Issue #47: Suggest-Panel steuern
+      if (e.data?.type === 'moogpt:suggestOpen') {
+        const panel = document.getElementById('suggest-panel');
+        if (!panel) return;
+        document.getElementById('suggest-panel-messages').innerHTML = '';
+        document.getElementById('suggest-panel-input-row').style.display = 'none';
+        document.getElementById('suggest-panel-preview').style.display = 'none';
+        document.getElementById('suggest-panel-loading').style.display = 'flex';
+        panel.style.display = 'flex';
+      }
+      if (e.data?.type === 'moogpt:suggestLoading') {
+        const loading = document.getElementById('suggest-panel-loading');
+        if (loading) loading.style.display = e.data.loading ? 'flex' : 'none';
+      }
+      if (e.data?.type === 'moogpt:suggestQuestion') {
+        document.getElementById('suggest-panel-loading').style.display = 'none';
+        const msgs = document.getElementById('suggest-panel-messages');
+        if (!msgs) return;
+        const bubble = document.createElement('div');
+        bubble.className = 'suggest-smsg-ki';
+        bubble.textContent = e.data.question;
+        msgs.appendChild(bubble);
+        msgs.scrollTop = msgs.scrollHeight;
+        document.getElementById('suggest-panel-input-row').style.display = 'flex';
+        const input = document.getElementById('suggest-panel-input');
+        if (input) { input.value = ''; input.focus(); }
+      }
+      if (e.data?.type === 'moogpt:suggestFinal') {
+        document.getElementById('suggest-panel-loading').style.display = 'none';
+        document.getElementById('suggest-panel-input-row').style.display = 'none';
+        const msgs = document.getElementById('suggest-panel-messages');
+        if (msgs) {
+          const done = document.createElement('div');
+          done.className = 'suggest-smsg-ki';
+          done.textContent = 'Fertiger Prompt wurde erstellt. ✓';
+          msgs.appendChild(done);
+          msgs.scrollTop = msgs.scrollHeight;
+        }
+        const previewText = document.getElementById('suggest-panel-preview-text');
+        if (previewText) previewText.textContent = e.data.prompt;
+        document.getElementById('suggest-panel-preview').style.display = 'flex';
+      }
+      if (e.data?.type === 'moogpt:suggestError') {
+        document.getElementById('suggest-panel-loading').style.display = 'none';
+        const msgs = document.getElementById('suggest-panel-messages');
+        if (msgs) {
+          const errEl = document.createElement('div');
+          errEl.className = 'suggest-smsg-ki';
+          errEl.style.color = '#c00';
+          errEl.textContent = `Fehler: ${e.data.message}`;
+          msgs.appendChild(errEl);
+          msgs.scrollTop = msgs.scrollHeight;
+        }
+        document.getElementById('suggest-panel-input-row').style.display = 'flex';
       }
     });
 
@@ -321,6 +442,8 @@ export class MOOBOT {
   closeConfig() {
     const overlay = document.getElementById('config-overlay');
     if (overlay) overlay.style.display = 'none';
+    const suggestPanel = document.getElementById('suggest-panel');
+    if (suggestPanel) suggestPanel.style.display = 'none';
   }
 
   // ── Issue #43: Lock-Modal ─────────────────────────────────────────────────

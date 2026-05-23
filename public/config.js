@@ -16,6 +16,13 @@
     if (e.data?.type === 'moogpt:taskContext') {
       taskContext = { task: e.data.task, images: e.data.images || [] };
     }
+    if (e.data?.type === 'moogpt:suggestReply') {
+      suggestSend(e.data.text);
+    }
+    if (e.data?.type === 'moogpt:suggestAccept') {
+      document.getElementById('cfg-hints').value = e.data.prompt;
+      updateDirtyState();
+    }
   });
 
   function showError(msg) {
@@ -405,28 +412,14 @@
     }
   }
 
-  // ── Interaktiver Prompt-Assistent ─────────────────────────────────────────
+  // ── Interaktiver Prompt-Assistent (via postMessage an Parent-Panel) ─────────
   let suggestHistory = [];
 
-  function suggestAddMsg(role, text) {
-    const msgs = document.getElementById('cfg-suggest-messages');
-    const div = document.createElement('div');
-    div.className = role === 'ki' ? 'cfg-smsg-ki' : 'cfg-smsg-user';
-    div.textContent = text;
-    msgs.appendChild(div);
-    msgs.scrollTop = msgs.scrollHeight;
-  }
-
   async function suggestSend(userText) {
-    const sendBtn = document.getElementById('cfg-suggest-send-btn');
-    const input   = document.getElementById('cfg-suggest-input');
-    sendBtn.disabled = true;
-    input.disabled   = true;
-
     if (userText) {
-      suggestAddMsg('user', userText);
       suggestHistory.push({ role: 'user', content: userText });
     }
+    window.parent.postMessage({ type: 'moogpt:suggestLoading', loading: true }, '*');
 
     try {
       const res = await fetch(
@@ -445,62 +438,19 @@
 
       if (data.type === 'question') {
         suggestHistory.push({ role: 'assistant', content: data.question });
-        suggestAddMsg('ki', data.question);
-        document.getElementById('cfg-suggest-input-row').style.display = 'flex';
-        input.value = '';
-        input.disabled = false;
-        sendBtn.disabled = false;
-        input.focus();
+        window.parent.postMessage({ type: 'moogpt:suggestQuestion', question: data.question }, '*');
       } else {
-        document.getElementById('cfg-suggest-input-row').style.display = 'none';
-        document.getElementById('cfg-suggest-preview-text').textContent = data.prompt || '';
-        document.getElementById('cfg-suggest-preview').style.display = '';
-        const msgs = document.getElementById('cfg-suggest-messages');
-        const done = document.createElement('div');
-        done.className = 'cfg-smsg-ki';
-        done.textContent = 'Fertiger Prompt wurde erstellt. ✓';
-        msgs.appendChild(done);
-        msgs.scrollTop = msgs.scrollHeight;
+        window.parent.postMessage({ type: 'moogpt:suggestFinal', prompt: data.prompt || '' }, '*');
       }
     } catch (err) {
-      showStatus(`Fehler: ${err.message}`, 'err');
-      input.disabled = false;
-      sendBtn.disabled = false;
+      window.parent.postMessage({ type: 'moogpt:suggestError', message: err.message }, '*');
     }
   }
 
   document.getElementById('cfg-suggest-btn').addEventListener('click', () => {
     suggestHistory = [];
-    const chat = document.getElementById('cfg-suggest-chat');
-    document.getElementById('cfg-suggest-messages').innerHTML = '';
-    document.getElementById('cfg-suggest-input-row').style.display = 'none';
-    document.getElementById('cfg-suggest-preview').style.display = 'none';
-    chat.style.display = 'block';
+    window.parent.postMessage({ type: 'moogpt:suggestOpen' }, '*');
     suggestSend('');
-  });
-
-  document.getElementById('cfg-suggest-send-btn').addEventListener('click', () => {
-    const text = document.getElementById('cfg-suggest-input').value.trim();
-    if (text) suggestSend(text);
-  });
-
-  document.getElementById('cfg-suggest-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const text = document.getElementById('cfg-suggest-input').value.trim();
-      if (text) suggestSend(text);
-    }
-  });
-
-  document.getElementById('cfg-suggest-accept-btn').addEventListener('click', () => {
-    const suggestedText = document.getElementById('cfg-suggest-preview-text').textContent;
-    document.getElementById('cfg-hints').value = suggestedText;
-    document.getElementById('cfg-suggest-chat').style.display = 'none';
-    updateDirtyState();
-  });
-
-  document.getElementById('cfg-suggest-discard-btn').addEventListener('click', () => {
-    document.getElementById('cfg-suggest-chat').style.display = 'none';
   });
 
   document.getElementById('cfg-save-btn').addEventListener('click', saveConfig);
