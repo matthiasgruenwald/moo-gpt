@@ -487,6 +487,11 @@
     const wantsQuestions = document.getElementById('cfg-suggest-questions').checked;
     if (wantsQuestions) {
       suggestHistory = [];
+      const existingPrompt = document.getElementById('cfg-hints').value?.trim() || '';
+      const contextNote = existingPrompt
+        ? `Vorhandener Prompt der Lehrkraft:\n${existingPrompt}\n\n`
+        : '';
+      suggestHistory.push({ role: 'user', content: `${contextNote}Bitte stell mir Frage 1 von 5.` });
       window.parent.postMessage({ type: 'moogpt:suggestOpen' }, '*');
       suggestSend('');
     } else {

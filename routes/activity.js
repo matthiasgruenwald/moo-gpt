@@ -75,22 +75,26 @@ export function buildPromptCheckHandler({ aiClient: client }) {
 
 const SUGGEST_PROMPT_SYSTEM = `Du bist Experte für System-Prompts für KI-Lernassistenten im Schulunterricht (IGS, Sekundarstufe I/II).
 
-Deine Aufgabe: Hilf einer Lehrkraft, einen vollständigen Aufgabenprompt zu erstellen. Stelle genau 5 Fragen — eine nach der anderen. Erst nach der 5. Antwort erzeugst du den finalen Prompt.
+Führe exakt 5 Rückfragen mit der Lehrkraft durch. Eine Frage pro Antwort. Erst nach der 5. Antwort erzeugst du den finalen Prompt.
 
-Reihenfolge der Fragen (je nach bereits vorhandenem Prompt ggf. kürzer fassen oder überspringen):
-1. Fach, Thema und Jahrgang (z. B. „Biologie, Ökosysteme, Klasse 9")
-2. Rolle und Charakter des Bots (z. B. Tutor, Lernbegleiter, Prüfer, Gesprächspartner)
-3. Was sollen die Schüler tun oder lernen? (Lernziel / Aufgabenstellung)
-4. Antwortstil: Wie soll der Bot antworten? (Länge, Fachsprache vs. Schülersprache, Ton)
-5. Didaktik + Verbote: Soll der Bot direkte Lösungen nennen oder schrittweise führen? Was darf er keinesfalls tun oder sagen?
+Fragen in dieser Reihenfolge:
+1. Fach, Thema und Klasse/Jahrgang
+2. Welche Rolle soll der Bot haben? (Tutor, Lernbegleiter, Prüfer, Gesprächspartner …)
+3. Lernziel: Was sollen die Schüler tun oder verstehen?
+4. Antwortstil: Länge, Ton, einfache oder Fachsprache?
+5. Didaktik + Verbote: Direkte Lösung oder schrittweise führen? Was darf der Bot keinesfalls?
 
-Stelle immer nur EINE Frage auf einmal. Wenn der vorhandene Prompt bereits Antworten enthält, übernimm sie stillschweigend und überspringe die entsprechende Frage.
+Regeln:
+- Stelle alle 5 Fragen — keine Ausnahmen, auch wenn bereits ein Prompt vorhanden ist
+- Pro Nachricht nur EINE Frage
+- Erst nach Antwort auf Frage 5 erzeugst du den finalen Prompt
+- Vorhandener Prompt = Hintergrundinfo; trotzdem alle 5 Fragen stellen
 
-Der finale Prompt MUSS diese Abschnitte enthalten: Rolle | Ziel | Antwortstil | Didaktisches Verhalten | Verbote | Beispiele (Schüler: … / Gut: … / Schlecht: …)
+Finaler Prompt: muss enthalten: Rolle | Ziel | Antwortstil | Didaktisches Verhalten | Verbote | Beispiele (Schüler: … / Gut: … / Schlecht: …)
 
-Antworte IMMER im JSON-Format (keine anderen Zeichen davor/danach):
-- Nächste Frage: {"type":"question","question":"Deine Frage"}
-- Finaler Prompt: {"type":"final","prompt":"Vollständiger Prompt hier"}`;
+AUSGABE: Nur das JSON-Objekt — kein Text davor oder danach, keine Erklärung, kein Markdown:
+Nächste Frage → {"type":"question","question":"<text>"}
+Fertiger Prompt → {"type":"final","prompt":"<text>"}`;
 
 const SUGGEST_DIRECT_SYSTEM = `Du bist Experte für System-Prompts für KI-Lernassistenten im Schulunterricht (IGS, Sekundarstufe I/II).
 
@@ -115,24 +119,29 @@ export function buildSuggestPromptHandler({ aiClient: client }) {
       history = [{ role: 'user', content: `${contextNote}Erstelle jetzt den vollständigen Aufgabenprompt.` }];
     } else {
       systemPrompt = SUGGEST_PROMPT_SYSTEM;
-      const contextNote = currentPrompt?.trim()
-        ? `Vorhandener Prompt der Lehrkraft:\n${currentPrompt.trim()}\n\n`
-        : '';
-      const firstUserMsg = `${contextNote}Bitte stell mir die erste Rückfrage, um einen guten Aufgabenprompt zu erstellen.`;
-      history = messages.length > 0
-        ? messages
-        : [{ role: 'user', content: firstUserMsg }];
+      if (messages.length > 0) {
+        history = messages;
+      } else {
+        // Fallback wenn Client keine History schickt
+        const contextNote = currentPrompt?.trim()
+          ? `Vorhandener Prompt der Lehrkraft:\n${currentPrompt.trim()}\n\n`
+          : '';
+        history = [{ role: 'user', content: `${contextNote}Bitte stell mir Frage 1 von 5.` }];
+      }
     }
 
     try {
-      const raw = await client.textCall(systemPrompt, '', GEN_MODEL, {
+      const raw = await client.textCall(systemPrompt, '', 'gpt-4.1', {
         timeout: 60_000,
         input: history.map(m => ({ role: m.role, content: m.content })),
       });
-      const text = raw.trim().replace(/^```jsons*/i, '').replace(/```s*$/, '');
+      // Robust JSON extraction: find first { ... } block
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
       let parsed;
-      try { parsed = JSON.parse(text); }
-      catch { parsed = { type: 'final', prompt: raw.trim() }; }
+      if (jsonMatch) {
+        try { parsed = JSON.parse(jsonMatch[0]); } catch { parsed = null; }
+      }
+      if (!parsed) parsed = { type: 'final', prompt: raw.trim() };
       res.json(parsed);
     } catch (err) {
       console.log(`[SuggestPrompt] Fehler: ${err.message}`);
