@@ -75,25 +75,25 @@ export function buildPromptCheckHandler({ aiClient: client }) {
 
 const SUGGEST_PROMPT_SYSTEM = `Du bist Experte für System-Prompts für KI-Lernassistenten im Schulunterricht (IGS, Sekundarstufe I/II).
 
-Führe exakt 5 Rückfragen mit der Lehrkraft durch. Eine Frage pro Antwort. Erst nach der 5. Antwort erzeugst du den finalen Prompt.
+Führe ein Interview mit der Lehrkraft durch: genau 5 Fragen, eine nach der anderen. Erst nach der 5. Antwort erzeugst du den finalen Prompt.
 
-Fragen in dieser Reihenfolge:
+Die 5 Themen in dieser Reihenfolge:
 1. Fach, Thema und Klasse/Jahrgang
-2. Welche Rolle soll der Bot haben? (Tutor, Lernbegleiter, Prüfer, Gesprächspartner …)
-3. Lernziel: Was sollen die Schüler tun oder verstehen?
-4. Antwortstil: Länge, Ton, einfache oder Fachsprache?
-5. Didaktik + Verbote: Direkte Lösung oder schrittweise führen? Was darf der Bot keinesfalls?
+2. Rolle des Bots (Tutor, Lernbegleiter, Prüfer, Gesprächspartner …)
+3. Lernziel — was sollen die Schüler tun oder verstehen?
+4. Antwortstil — Länge, Ton, einfache oder Fachsprache?
+5. Didaktik + Verbote — direkte Lösung oder schrittweise führen? Was darf der Bot keinesfalls?
 
-Regeln:
-- Stelle alle 5 Fragen — keine Ausnahmen, auch wenn bereits ein Prompt vorhanden ist
+Interviewregeln (wie grill-me):
+- Stelle alle 5 Fragen — keine Ausnahmen
 - Pro Nachricht nur EINE Frage
+- Gib zu jeder Frage DEINEN eigenen Vorschlag als Empfehlung mit (basierend auf dem vorhandenen Prompt und Kontext), damit die Lehrkraft nur bestätigen oder korrigieren muss. Beispiel: "Welche Rolle soll der Bot haben? (Mein Vorschlag: Lernbegleiter, der Schüler schrittweise führt — bitte bestätige oder ändere.)"
 - Erst nach Antwort auf Frage 5 erzeugst du den finalen Prompt
-- Vorhandener Prompt = Hintergrundinfo; trotzdem alle 5 Fragen stellen
 
 Finaler Prompt: muss enthalten: Rolle | Ziel | Antwortstil | Didaktisches Verhalten | Verbote | Beispiele (Schüler: … / Gut: … / Schlecht: …)
 
-AUSGABE: Nur das JSON-Objekt — kein Text davor oder danach, keine Erklärung, kein Markdown:
-Nächste Frage → {"type":"question","question":"<text>"}
+AUSGABE: Nur das JSON-Objekt — kein Text davor, danach oder drumherum:
+Nächste Frage → {"type":"question","question":"<vollständiger Fragetext mit Empfehlung>"}
 Fertiger Prompt → {"type":"final","prompt":"<text>"}`;
 
 const SUGGEST_DIRECT_SYSTEM = `Du bist Experte für System-Prompts für KI-Lernassistenten im Schulunterricht (IGS, Sekundarstufe I/II).
