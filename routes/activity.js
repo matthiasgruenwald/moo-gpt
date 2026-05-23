@@ -103,7 +103,10 @@ ${currentPrompt.trim()}
       : [{ role: 'user', content: firstUserMsg }];
 
     try {
-      const raw = await client.textCall(SUGGEST_PROMPT_SYSTEM, history, GEN_MODEL, { timeout: 60_000 });
+      const raw = await client.textCall(SUGGEST_PROMPT_SYSTEM, '', GEN_MODEL, {
+        timeout: 60_000,
+        input: history.map(m => ({ role: m.role, content: m.content })),
+      });
       const text = raw.trim().replace(/^```jsons*/i, '').replace(/```s*$/, '');
       let parsed;
       try { parsed = JSON.parse(text); }
