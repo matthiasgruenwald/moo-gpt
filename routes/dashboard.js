@@ -91,10 +91,9 @@ router.post('/activity/:activityId/overview-summary', requireDashboardAuth, asyn
 
     const systemPrompt =
       'Du bist ein pädagogischer Assistent für Lehrkräfte. ' +
-      'Analysiere die folgenden Chatverläufe einer Schulklasse und erstelle eine kompakte thematische Zusammenfassung. ' +
-      'Gliederung: 1) Häufige Fragen der Schüler (thematisch, nicht wörtlich). ' +
-      '2) Häufige Missverständnisse oder Schwierigkeiten. ' +
-      'Antworte auf Deutsch. Bleibe sachlich und präzise.';
+      'Fasse die Chatverläufe einer Klasse in maximal 4 Stichpunkten zusammen. ' +
+      'Jeder Stichpunkt: eine Zeile, kein Fülltext. Format: "• ..." ' +
+      'Fokus: Was beschäftigt die Schüler? Wo haken sie? Antworte auf Deutsch.';
 
     const userMessage =
       `Hier sind die Chatverläufe der Schulklasse (${studentsWithChats.length} Schüler):\n\n${chatBlocks}`;

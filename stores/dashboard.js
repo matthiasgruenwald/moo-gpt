@@ -6,7 +6,7 @@ export function getStudents(activity_id) {
            t.moodle_user_id,
            t.moodle_user_name,
            t.updated_at,
-           COUNT(DISTINCT m.id)                    AS message_count
+           COUNT(DISTINCT CASE WHEN m.role = 'user' THEN m.id END) AS message_count
     FROM threads t
     LEFT JOIN messages m ON m.thread_id = t.id
     WHERE t.activity_id = ?
