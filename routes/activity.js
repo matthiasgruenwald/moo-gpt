@@ -131,7 +131,7 @@ export function buildSuggestPromptHandler({ aiClient: client }) {
     }
 
     try {
-      const raw = await client.textCall(systemPrompt, '', 'gpt-4.1', {
+      const raw = await client.textCall(systemPrompt, '', MODEL_NAME, {
         timeout: 60_000,
         input: history.map(m => ({ role: m.role, content: m.content })),
       });
