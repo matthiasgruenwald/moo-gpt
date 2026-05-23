@@ -62,19 +62,20 @@ router.post('/activity/:activityId/overview-summary', requireDashboardAuth, asyn
       });
     }
 
-    // Schüler ohne Nachrichten ermitteln
-    const studentsMissing = students
+    // Schüler mit/ohne echte Nachrichten aufteilen
+    const studentsWithChats = students.filter(s => s.message_count > 0);
+    const studentsMissing   = students
       .filter(s => s.message_count === 0)
       .map(s => s.moodle_user_name || s.moodle_user_id || 'Unbekannt');
-
-    // Nur Schüler mit Nachrichten für die Zusammenfassung laden
-    const studentsWithChats = students.filter(s => s.message_count > 0);
+    const studentsPresent   = studentsWithChats
+      .map(s => s.moodle_user_name || s.moodle_user_id || 'Unbekannt');
 
     if (studentsWithChats.length === 0) {
       return res.json({
         summary: 'Noch keine Chat-Nachrichten vorhanden.',
         timestamp: new Date().toISOString(),
         studentsMissing,
+        studentsPresent: [],
       });
     }
 
@@ -104,6 +105,7 @@ router.post('/activity/:activityId/overview-summary', requireDashboardAuth, asyn
       summary,
       timestamp: new Date().toISOString(),
       studentsMissing,
+      studentsPresent,
     });
   } catch (e) {
     console.error('[Dashboard] overview-summary error:', e);

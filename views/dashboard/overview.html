@@ -169,16 +169,28 @@
       word-break: break-word;
     }
 
-    /* ── Fehlende Schüler ────────────────────────────────────────────────── */
-    #missing-card {
-      display: none;
-    }
+    /* ── Schüler-Karten ──────────────────────────────────────────────────── */
+    #present-card, #missing-card { display: none; }
+    #present-card.visible { display: flex; }
     #missing-card.visible { display: flex; }
 
-    #missing-list {
+    .student-list {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+    }
+    .card-count {
+      font-size: 13px;
+      color: #888;
+      font-weight: normal;
+    }
+    .present-chip {
+      background: #d4edda;
+      border: 1px solid #28a745;
+      border-radius: 14px;
+      padding: 3px 12px;
+      font-size: 13px;
+      color: #155724;
     }
     .missing-chip {
       background: #fff3cd;
@@ -187,10 +199,6 @@
       padding: 3px 12px;
       font-size: 13px;
       color: #856404;
-    }
-    .missing-none {
-      font-size: 13px;
-      color: #27ae60;
     }
   </style>
 </head>
@@ -233,10 +241,16 @@
     <div id="summary-text"></div>
   </div>
 
+  <!-- Haben gechattet -->
+  <div class="card" id="present-card">
+    <h2>Haben gechattet <span class="card-count" id="present-count"></span></h2>
+    <div class="student-list" id="present-list"></div>
+  </div>
+
   <!-- Noch nicht gechattet -->
   <div class="card" id="missing-card">
-    <h2>Noch nicht gechattet</h2>
-    <div id="missing-list"></div>
+    <h2>Noch nicht gechattet <span class="card-count" id="missing-count"></span></h2>
+    <div class="student-list" id="missing-list"></div>
   </div>
 
 </div>
@@ -267,8 +281,12 @@
   const resultSection   = document.getElementById('result-section');
   const summaryText     = document.getElementById('summary-text');
   const timestampEl     = document.getElementById('result-timestamp');
+  const presentCard     = document.getElementById('present-card');
+  const presentList     = document.getElementById('present-list');
+  const presentCount    = document.getElementById('present-count');
   const missingCard     = document.getElementById('missing-card');
   const missingList     = document.getElementById('missing-list');
+  const missingCount    = document.getElementById('missing-count');
 
   function showError(msg) {
     errorEl.textContent = msg;
@@ -285,6 +303,7 @@
     btn.disabled = true;
     loadingEl.classList.add('visible');
     resultSection.classList.remove('visible');
+    presentCard.classList.remove('visible');
     missingCard.classList.remove('visible');
 
     try {
@@ -312,21 +331,29 @@
       summaryText.textContent = data.summary || '(Keine Zusammenfassung erhalten)';
       resultSection.classList.add('visible');
 
-      // Fehlende Schüler anzeigen
+      // Karte: haben gechattet
+      presentList.innerHTML = '';
+      if (Array.isArray(data.studentsPresent) && data.studentsPresent.length > 0) {
+        presentCount.textContent = `(${data.studentsPresent.length})`;
+        data.studentsPresent.forEach(name => {
+          const chip = document.createElement('span');
+          chip.className = 'present-chip';
+          chip.textContent = name;
+          presentList.appendChild(chip);
+        });
+        presentCard.classList.add('visible');
+      }
+
+      // Karte: noch nicht gechattet
       missingList.innerHTML = '';
       if (Array.isArray(data.studentsMissing) && data.studentsMissing.length > 0) {
+        missingCount.textContent = `(${data.studentsMissing.length})`;
         data.studentsMissing.forEach(name => {
           const chip = document.createElement('span');
           chip.className = 'missing-chip';
           chip.textContent = name;
           missingList.appendChild(chip);
         });
-        missingCard.classList.add('visible');
-      } else if (Array.isArray(data.studentsMissing)) {
-        const none = document.createElement('span');
-        none.className = 'missing-none';
-        none.textContent = 'Alle Schüler haben bereits gechattet.';
-        missingList.appendChild(none);
         missingCard.classList.add('visible');
       }
     } catch (err) {
