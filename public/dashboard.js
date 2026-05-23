@@ -1200,10 +1200,10 @@ tabBtns.forEach(btn => {
     toolbarEl.style.display = isStudents ? '' : 'none';
     costBar.style.display   = isStudents ? '' : 'none';
     mainEl.style.display    = isStudents ? '' : 'none';
-    settingsPanel.classList.toggle('visible', tab === 'settings');
-    optimizePanel.classList.toggle('visible', tab === 'optimize');
-    adminPanel.classList.toggle('visible', tab === 'admin');
-    infoPanel.classList.toggle('visible', tab === 'info');
+    settingsPanel?.classList.toggle('visible', tab === 'settings');
+    optimizePanel?.classList.toggle('visible', tab === 'optimize');
+    adminPanel?.classList.toggle('visible', tab === 'admin');
+    infoPanel?.classList.toggle('visible', tab === 'info');
     if (tab === 'settings' || tab === 'admin')  loadSettings();
     if (tab === 'optimize')  { loadOptimizePanel(); loadSimulatePanel(); }
     if (tab === 'info')      initMermaidOnce();
@@ -1211,7 +1211,7 @@ tabBtns.forEach(btn => {
 });
 
 // ── Info-Tab: Sub-Tabs + Mermaid ──────────────────────────────────────────────
-infoPanel.querySelectorAll('.sub-tab-btn').forEach(btn => {
+if (infoPanel) infoPanel.querySelectorAll('.sub-tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const subtab = btn.dataset.subtab;
     infoPanel.querySelectorAll('.sub-tab-content').forEach(el => { el.style.display = 'none'; });
@@ -1346,7 +1346,7 @@ function applySettingsData(data) {
 
 // ── Persönliches Modell speichern ─────────────────────────────────────────────
 
-document.getElementById('save-my-model-btn').addEventListener('click', async () => {
+document.getElementById('save-my-model-btn')?.addEventListener('click', async () => {
   const model  = document.getElementById('my-model-select').value;
   const status = document.getElementById('my-model-status');
   try {
@@ -1357,7 +1357,7 @@ document.getElementById('save-my-model-btn').addEventListener('click', async () 
 
 // ── Globalmodell-Wechsel erfordert Bestätigung ────────────────────────────────
 
-document.getElementById('global-model-select').addEventListener('change', e => {
+document.getElementById('global-model-select')?.addEventListener('change', e => {
   const confirmRow = document.getElementById('model-confirm-row');
   if (e.target.value !== settingsData?.model) {
     confirmRow.classList.add('visible');
@@ -1369,7 +1369,7 @@ document.getElementById('global-model-select').addEventListener('change', e => {
 
 // ── Systemprompt + Modell speichern (Admin) ───────────────────────────────────
 
-document.getElementById('sp-save-btn').addEventListener('click', async () => {
+document.getElementById('sp-save-btn')?.addEventListener('click', async () => {
   const status       = document.getElementById('sp-save-status');
   const content      = document.getElementById('sp-edit').value;
   const model        = document.getElementById('global-model-select').value;
@@ -1795,11 +1795,11 @@ function renderAdminPersonas(personas) {
   });
 }
 
-document.getElementById('admin-personas-filter').addEventListener('change', () => {
+document.getElementById('admin-personas-filter')?.addEventListener('change', () => {
   renderAdminPersonas(cachedAdminPersonas);
 });
 
-document.getElementById('admin-persona-add-btn').addEventListener('click', async () => {
+document.getElementById('admin-persona-add-btn')?.addEventListener('click', async () => {
   const name = document.getElementById('admin-persona-name').value.trim();
   const desc = document.getElementById('admin-persona-desc').value.trim();
   if (!name) return;
@@ -2281,7 +2281,7 @@ async function runOneClick() {
   }
 }
 
-document.getElementById('add-admin-btn').addEventListener('click', async () => {
+document.getElementById('add-admin-btn')?.addEventListener('click', async () => {
   const input  = document.getElementById('new-admin-input');
   const status = document.getElementById('admin-status');
   const uid    = input.value.trim();
@@ -2294,7 +2294,7 @@ document.getElementById('add-admin-btn').addEventListener('click', async () => {
   } catch (e) { setStatus(status, e.message, true); }
 });
 
-document.getElementById('st-save-btn').addEventListener('click', async () => {
+document.getElementById('st-save-btn')?.addEventListener('click', async () => {
   const status = document.getElementById('st-save-status');
   const body   = {
     title:         document.getElementById('st-title').value,
@@ -2450,5 +2450,5 @@ function initAdminDebug() {
 
 document.querySelectorAll('.settings-textarea').forEach(ta => attachExpandBtn(ta));
 
-// Admin-Tab-Sichtbarkeit früh prüfen (nicht erst beim Klick auf Einstellungen)
-loadSettings();
+// loadSettings nur auf Seiten aufrufen, die ein settings-panel haben
+if (document.getElementById('settings-panel')) loadSettings();
