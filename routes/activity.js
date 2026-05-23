@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireDashboardAuth } from '../auth-middleware.js';
 import { getActivity, setActivityConfig } from '../stores/activity.js';
 import { getActiveErfahrungsprompt } from '../stores/prompt.js';
-import { getTeacherPreference } from '../stores/teacher.js';
+import { getTeacherPreference, setTeacherSuggestPreference } from '../stores/teacher.js';
 import { AVAILABLE_MODELS, GEN_MODEL, MODEL_NAME } from '../env-config.js';
 import { validateWidgetConfig } from '../validators.js';
 import { getCachedConfig } from '../config-cache.js';
@@ -92,24 +92,40 @@ Antworte IMMER im JSON-Format (keine anderen Zeichen davor/danach):
 - Nächste Frage: {"type":"question","question":"Deine Frage"}
 - Finaler Prompt: {"type":"final","prompt":"Vollständiger Prompt hier"}`;
 
+const SUGGEST_DIRECT_SYSTEM = `Du bist Experte für System-Prompts für KI-Lernassistenten im Schulunterricht (IGS, Sekundarstufe I/II).
+
+Erstelle sofort und ohne Rückfragen einen vollständigen, strukturierten Aufgabenprompt auf Basis des vorhandenen Prompts der Lehrkraft. Falls kein Prompt vorhanden ist, erstelle einen allgemeinen Lernassistenten-Prompt.
+
+Der Prompt MUSS diese Abschnitte enthalten: Rolle | Ziel | Antwortstil | Didaktisches Verhalten | Verbote | Beispiele (Schüler: … / Gut: … / Schlecht: …)
+
+Antworte ausschließlich als JSON (keine anderen Zeichen davor/danach): {"type":"final","prompt":"Vollständiger Prompt hier"}`;
+
 export function buildSuggestPromptHandler({ aiClient: client }) {
   return async function suggestPromptHandler(req, res) {
-    const { currentPrompt, messages = [] } = req.body;
+    const { currentPrompt, messages = [], direct = false } = req.body;
 
-    const contextNote = currentPrompt?.trim()
-      ? `Vorhandener Prompt der Lehrkraft:
-${currentPrompt.trim()}
+    let systemPrompt;
+    let history;
 
-`
-      : '';
-    const firstUserMsg = `${contextNote}Bitte stell mir die erste Rückfrage, um einen guten Aufgabenprompt zu erstellen.`;
-
-    const history = messages.length > 0
-      ? messages
-      : [{ role: 'user', content: firstUserMsg }];
+    if (direct) {
+      systemPrompt = SUGGEST_DIRECT_SYSTEM;
+      const contextNote = currentPrompt?.trim()
+        ? `Vorhandener Prompt der Lehrkraft:\n${currentPrompt.trim()}\n\n`
+        : '';
+      history = [{ role: 'user', content: `${contextNote}Erstelle jetzt den vollständigen Aufgabenprompt.` }];
+    } else {
+      systemPrompt = SUGGEST_PROMPT_SYSTEM;
+      const contextNote = currentPrompt?.trim()
+        ? `Vorhandener Prompt der Lehrkraft:\n${currentPrompt.trim()}\n\n`
+        : '';
+      const firstUserMsg = `${contextNote}Bitte stell mir die erste Rückfrage, um einen guten Aufgabenprompt zu erstellen.`;
+      history = messages.length > 0
+        ? messages
+        : [{ role: 'user', content: firstUserMsg }];
+    }
 
     try {
-      const raw = await client.textCall(SUGGEST_PROMPT_SYSTEM, '', GEN_MODEL, {
+      const raw = await client.textCall(systemPrompt, '', GEN_MODEL, {
         timeout: 60_000,
         input: history.map(m => ({ role: m.role, content: m.content })),
       });
@@ -135,14 +151,15 @@ export function createActivityRouter({ chatRegistry, dashboardRegistry, lockMana
     const pref = getTeacherPreference(userId);
     res.json({
       activityId,
-      activityName:     act?.activity_name   || '',
-      title:            act?.title           ?? '',
-      botIcon:          act?.bot_icon        ?? 'grw',
-      opener:           act?.opener          || '',
-      uploadMode:       act?.upload_mode     || 'off',
-      erfahrungsprompt: erf?.content         || '',
-      myModel:          pref?.preferred_model || null,
-      availableModels:  AVAILABLE_MODELS,
+      activityName:           act?.activity_name             || '',
+      title:                  act?.title                     ?? '',
+      botIcon:                act?.bot_icon                  ?? 'grw',
+      opener:                 act?.opener                    || '',
+      uploadMode:             act?.upload_mode               || 'off',
+      erfahrungsprompt:       erf?.content                   || '',
+      myModel:                pref?.preferred_model          || null,
+      availableModels:        AVAILABLE_MODELS,
+      preferSuggestQuestions: pref?.prefer_suggest_questions ?? 1,
     });
   });
 
@@ -169,6 +186,13 @@ export function createActivityRouter({ chatRegistry, dashboardRegistry, lockMana
     lockManager.unlock(activityId);
     console.log(`[Lock] Aktivität ${activityId} entsperrt von ${userId}`);
     res.json({ ok: true, locked: false });
+  });
+
+  router.put('/activity-config/:activityId/suggest-preference', requireDashboardAuth, (req, res) => {
+    const { userId } = req;
+    const { preferSuggestQuestions } = req.body;
+    setTeacherSuggestPreference(userId, preferSuggestQuestions);
+    res.json({ ok: true });
   });
 
   router.post('/activity/:activityId/prompt-check', requireDashboardAuth, buildPromptCheckHandler({ aiClient }));

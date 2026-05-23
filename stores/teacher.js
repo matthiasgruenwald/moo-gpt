@@ -3,7 +3,7 @@ import { getDb } from '../db.js';
 export function getTeacherPreference(userId) {
   if (!userId) return null;
   return getDb().prepare(
-    'SELECT preferred_model FROM teacher_preferences WHERE moodle_user_id = ?'
+    'SELECT preferred_model, prefer_suggest_questions FROM teacher_preferences WHERE moodle_user_id = ?'
   ).get(userId) || null;
 }
 
@@ -12,6 +12,13 @@ export function setTeacherPreference(userId, preferredModel) {
     INSERT INTO teacher_preferences (moodle_user_id, preferred_model) VALUES (?, ?)
     ON CONFLICT(moodle_user_id) DO UPDATE SET preferred_model = excluded.preferred_model
   `).run(userId, preferredModel || null);
+}
+
+export function setTeacherSuggestPreference(userId, value) {
+  getDb().prepare(`
+    INSERT INTO teacher_preferences (moodle_user_id, prefer_suggest_questions) VALUES (?, ?)
+    ON CONFLICT(moodle_user_id) DO UPDATE SET prefer_suggest_questions = excluded.prefer_suggest_questions
+  `).run(userId, value ? 1 : 0);
 }
 
 export function getTeacherTemplates(userId) {

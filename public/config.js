@@ -311,6 +311,9 @@
       }
       modelSel.value = data.myModel || '';
 
+      const preferSuggestQuestions = data.preferSuggestQuestions ?? 1;
+      document.getElementById('cfg-suggest-questions').checked = preferSuggestQuestions !== 0;
+
       initial = {
         title:      data.title            || '',
         botIcon:    data.botIcon          || 'grw',
@@ -447,10 +450,62 @@
     }
   }
 
+  async function suggestDirect() {
+    const btn = document.getElementById('cfg-suggest-btn');
+    btn.disabled    = true;
+    btn.textContent = '⏳ Erstellt…';
+    try {
+      const res = await fetch(
+        `/api/activity/${encodeURIComponent(activityId)}/suggest-prompt?token=${encodeURIComponent(token)}`,
+        {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            currentPrompt: document.getElementById('cfg-hints').value,
+            direct:        true,
+          }),
+        }
+      );
+      if (!res.ok) throw new Error(`Server-Fehler ${res.status}`);
+      const data = await res.json();
+      if (data.type === 'final' && data.prompt) {
+        document.getElementById('cfg-hints').value = data.prompt;
+        updateDirtyState();
+        showStatus('✓ Prompt erstellt', 'ok');
+      } else {
+        showStatus('Kein Prompt erhalten', 'err');
+      }
+    } catch (err) {
+      showStatus(`Fehler: ${err.message}`, 'err');
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = '✨ Prompt mit KI erstellen';
+    }
+  }
+
   document.getElementById('cfg-suggest-btn').addEventListener('click', () => {
-    suggestHistory = [];
-    window.parent.postMessage({ type: 'moogpt:suggestOpen' }, '*');
-    suggestSend('');
+    const wantsQuestions = document.getElementById('cfg-suggest-questions').checked;
+    if (wantsQuestions) {
+      suggestHistory = [];
+      window.parent.postMessage({ type: 'moogpt:suggestOpen' }, '*');
+      suggestSend('');
+    } else {
+      suggestDirect();
+    }
+  });
+
+  document.getElementById('cfg-suggest-questions').addEventListener('change', async function () {
+    const value = this.checked ? 1 : 0;
+    try {
+      await fetch(
+        `/api/activity-config/${encodeURIComponent(activityId)}/suggest-preference?token=${encodeURIComponent(token)}`,
+        {
+          method:  'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ preferSuggestQuestions: value }),
+        }
+      );
+    } catch (_) {}
   });
 
   document.getElementById('cfg-save-btn').addEventListener('click', saveConfig);

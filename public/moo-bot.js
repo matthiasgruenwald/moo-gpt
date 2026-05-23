@@ -248,6 +248,38 @@ export class MOOBOT {
       };
     }
 
+    // Issue #53: Memory-Button für Schüler
+    if (!isTeacher) {
+      const memBtn = document.createElement('div');
+      memBtn.id = 'memory-icon';
+      memBtn.className = 'memory-icon';
+      memBtn.title = 'Mein Memory anzeigen';
+      memBtn.innerHTML = '&#129504;'; // 🧠
+      memBtn.onclick = () => this.openMemoryOverlay();
+      document.body.appendChild(memBtn);
+
+      // Issue #53: Memory-Overlay
+      const memOverlay = document.createElement('div');
+      memOverlay.id = 'memory-overlay';
+      memOverlay.className = 'memory-overlay';
+      memOverlay.innerHTML = `
+        <div class="memory-overlay-dialog">
+          <h2 class="memory-overlay-title">&#129504; Mein Memory</h2>
+          <p class="memory-overlay-desc">Hier kannst du Notizen f&uuml;r die KI hinterlegen. Sie werden bei jeder Antwort ber&uuml;cksichtigt.</p>
+          <textarea class="memory-overlay-textarea" id="memory-overlay-textarea" placeholder="z.B. Ich bevorzuge kurze Erkl&auml;rungen&hellip;" rows="6"></textarea>
+          <div class="memory-overlay-actions">
+            <button class="memory-overlay-cancel" id="memory-overlay-cancel">Schlie&szlig;en</button>
+            <button class="memory-overlay-delete" id="memory-overlay-delete">L&ouml;schen</button>
+            <button class="memory-overlay-save" id="memory-overlay-save">Speichern</button>
+          </div>
+        </div>`;
+      document.body.appendChild(memOverlay);
+      memOverlay.querySelector('#memory-overlay-cancel').onclick = () => this.closeMemoryOverlay();
+      memOverlay.querySelector('#memory-overlay-save').onclick   = () => this._saveMemory();
+      memOverlay.querySelector('#memory-overlay-delete').onclick = () => this._deleteMemory();
+      memOverlay.onclick = (e) => { if (e.target === memOverlay) this.closeMemoryOverlay(); };
+    }
+
     document.body.appendChild(chatIcon);
     document.body.appendChild(chatContainer);
 
@@ -258,6 +290,7 @@ export class MOOBOT {
       document.getElementById('dashboard-icon')?.classList.add('left-side');
       document.getElementById('config-icon')?.classList.add('left-side');
       document.getElementById('stop-icon')?.classList.add('left-side');
+      document.getElementById('memory-icon')?.classList.add('left-side');
     }
     chatHeader.querySelector('#side-toggle-btn').addEventListener('click', () => this._toggleSide());
 
@@ -1562,6 +1595,101 @@ export class MOOBOT {
     }
   }
 
+  // ── Issue #53: Memory-Overlay ─────────────────────────────────────────────
+
+  async openMemoryOverlay() {
+    const overlay = document.getElementById('memory-overlay');
+    if (!overlay) return;
+    const activityId = this.settings.activityId
+      || new URLSearchParams(window.location.search).get('id')
+      || '';
+    const userId = this.settings.userId;
+    if (!activityId || !userId) {
+      console.warn('[Memory] activityId oder userId fehlt');
+      return;
+    }
+    overlay.style.display = 'flex';
+    const textarea = document.getElementById('memory-overlay-textarea');
+    if (textarea) textarea.value = '';
+    try {
+      const resp = await fetch(
+        `${this._baseUrl()}/api/student-memory/${encodeURIComponent(activityId)}?userId=${encodeURIComponent(userId)}`
+      );
+      if (resp.ok) {
+        const data = await resp.json();
+        if (textarea) textarea.value = data.memory ?? '';
+      }
+    } catch (e) {
+      console.error('[Memory] Laden fehlgeschlagen:', e);
+    }
+    if (textarea) textarea.focus();
+  }
+
+  closeMemoryOverlay() {
+    const overlay = document.getElementById('memory-overlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  async _saveMemory() {
+    const activityId = this.settings.activityId
+      || new URLSearchParams(window.location.search).get('id')
+      || '';
+    const userId = this.settings.userId;
+    const textarea = document.getElementById('memory-overlay-textarea');
+    const preferenceText = textarea?.value?.trim() ?? '';
+    if (!activityId || !userId) {
+      console.warn('[Memory] activityId oder userId fehlt');
+      return;
+    }
+    if (!preferenceText) {
+      await this._deleteMemory();
+      return;
+    }
+    try {
+      const resp = await fetch(
+        `${this._baseUrl()}/api/student-memory/${encodeURIComponent(activityId)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, preferenceText }),
+        }
+      );
+      if (resp.ok) {
+        this.closeMemoryOverlay();
+      } else {
+        console.error('[Memory] Speichern fehlgeschlagen:', resp.status);
+      }
+    } catch (e) {
+      console.error('[Memory] Netzwerkfehler beim Speichern:', e);
+    }
+  }
+
+  async _deleteMemory() {
+    const activityId = this.settings.activityId
+      || new URLSearchParams(window.location.search).get('id')
+      || '';
+    const userId = this.settings.userId;
+    if (!activityId || !userId) {
+      console.warn('[Memory] activityId oder userId fehlt');
+      return;
+    }
+    try {
+      const resp = await fetch(
+        `${this._baseUrl()}/api/student-memory/${encodeURIComponent(activityId)}?userId=${encodeURIComponent(userId)}`,
+        { method: 'DELETE' }
+      );
+      if (resp.ok) {
+        const textarea = document.getElementById('memory-overlay-textarea');
+        if (textarea) textarea.value = '';
+        this.closeMemoryOverlay();
+      } else {
+        console.error('[Memory] Löschen fehlgeschlagen:', resp.status);
+      }
+    } catch (e) {
+      console.error('[Memory] Netzwerkfehler beim Löschen:', e);
+    }
+  }
+
   // ── Issue #42: Links/Rechts-Toggle ───────────────────────────────────────
 
   _toggleSide() {
@@ -1574,8 +1702,9 @@ export class MOOBOT {
     const dashboardIcon  = document.getElementById('dashboard-icon');
     const configIcon     = document.getElementById('config-icon');
     const stopIcon       = document.getElementById('stop-icon');
+    const memoryIcon     = document.getElementById('memory-icon');
 
-    [chatContainer, chatIcon, dashboardIcon, configIcon, stopIcon].forEach(el => {
+    [chatContainer, chatIcon, dashboardIcon, configIcon, stopIcon, memoryIcon].forEach(el => {
       if (!el) return;
       if (newSide === 'left') {
         el.classList.add('left-side');

@@ -206,6 +206,9 @@ export function initDb() {
   }
   try { db.exec(`CREATE INDEX IF NOT EXISTS idx_personas_teacher_id ON personas (teacher_id)`); } catch (_) {}
 
+  // Issue #55: Rückfragen-Präferenz pro Lehrkraft
+  try { db.exec(`ALTER TABLE teacher_preferences ADD COLUMN prefer_suggest_questions INTEGER DEFAULT 1`); } catch (_) {}
+
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;
 }

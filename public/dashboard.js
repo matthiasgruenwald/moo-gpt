@@ -51,6 +51,7 @@ let fatalError              = false;       // kein Reconnect mehr
 let activityCost            = null;        // Issue #12: Aktivitäts-Gesamtkosten
 let currentThreadCost       = null;        // Issue #12: Kosten des aktuell geöffneten Chats
 let isLocked                = false;       // P3: Plenum-Sperre
+const studentMemoryMap      = new Map();   // Issue #54: moodle_user_id → preference_text
 
 // ── DOM-Referenzen ───────────────────────────────────────────────────────────
 const statusDot      = document.getElementById('status-dot');
@@ -266,7 +267,8 @@ function handleServerMessage(msg) {
       renderActivityCost(activityCost);
       // P3: initiale Sperr-Status
       renderLockState(msg.locked === true);
-      renderStudentList();
+      // Issue #54: Memory für alle Schüler laden, dann rendern
+      loadStudentMemories().then(() => renderStudentList());
       break;
 
     case 'messages':
@@ -390,6 +392,9 @@ function renderStudentList() {
       ? `<span class="student-cost" title="Eingabe / Ausgabe">↑${formatCost(tc.inputEur)} ↓${formatCost(tc.outputEur)}</span>`
       : '';
 
+    // Issue #54: Memory-Status
+    const memoryText = studentMemoryMap.get(s.moodle_user_id) ?? null;
+
     item.innerHTML = `
       <div class="student-name">
         ${isLive ? '<span class="badge-new"></span>' : ''}
@@ -401,9 +406,123 @@ function renderStudentList() {
         ${costHtml}
       </div>`;
 
+    // Issue #54: Memory-Button + Panel (DOM, nicht innerHTML, wegen Event-Listenern)
+    attachMemoryPanel(item, s.moodle_user_id, memoryText);
+
     item.addEventListener('click', () => selectStudent(s));
     studentList.appendChild(item);
   }
+}
+
+// ── Issue #54: Student-Memory laden ──────────────────────────────────────────
+
+async function loadStudentMemories() {
+  if (!activityId || !token) return;
+  try {
+    const data = await apiFetch(`/api/student-memory/${encodeURIComponent(activityId)}`);
+    studentMemoryMap.clear();
+    if (Array.isArray(data.memory)) {
+      for (const entry of data.memory) {
+        studentMemoryMap.set(entry.student_id, entry.preference_text);
+      }
+    }
+  } catch (e) {
+    console.warn('[Memory] Laden fehlgeschlagen:', e);
+  }
+}
+
+/**
+ * Hängt einen Memory-Button und ein aufklappbares Panel an ein Schüler-Item.
+ * @param {HTMLElement} item - das .student-item Element
+ * @param {string} studentId - moodle_user_id
+ * @param {string|null} initialText - aktueller Memory-Text oder null
+ */
+function attachMemoryPanel(item, studentId, initialText) {
+  // Button in student-meta einhängen
+  const meta = item.querySelector('.student-meta');
+  const memBtn = document.createElement('button');
+  memBtn.className = 'memory-btn' + (initialText ? ' has-memory' : '');
+  memBtn.title = initialText ? 'Memory bearbeiten' : 'Memory anlegen';
+  memBtn.textContent = '🧠';
+
+  // Panel (initial hidden)
+  const panel = document.createElement('div');
+  panel.className = 'memory-panel';
+
+  const textarea = document.createElement('textarea');
+  textarea.value = initialText ?? '';
+  textarea.placeholder = 'Memory-Text für diesen Schüler…';
+  textarea.rows = 3;
+
+  const actions = document.createElement('div');
+  actions.className = 'memory-panel-actions';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'memory-save-btn';
+  saveBtn.textContent = 'Speichern';
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'memory-delete-btn';
+  delBtn.textContent = 'Löschen';
+
+  const statusSpan = document.createElement('span');
+  statusSpan.className = 'memory-status';
+
+  actions.append(saveBtn, delBtn, statusSpan);
+  panel.append(textarea, actions);
+
+  // Memory-Button togglet Panel — stoppt Propagation damit selectStudent nicht ausgelöst wird
+  memBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    panel.classList.toggle('visible');
+    if (panel.classList.contains('visible')) textarea.focus();
+  });
+
+  // Klicks im Panel nicht an selectStudent weitergeben
+  panel.addEventListener('click', (e) => e.stopPropagation());
+
+  saveBtn.addEventListener('click', async () => {
+    const text = textarea.value.trim();
+    if (!text) { statusSpan.textContent = 'Bitte Text eingeben.'; return; }
+    statusSpan.textContent = '…';
+    try {
+      await apiFetch(`/api/student-memory/${encodeURIComponent(activityId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, preferenceText: text }),
+      });
+      studentMemoryMap.set(studentId, text);
+      memBtn.classList.add('has-memory');
+      memBtn.title = 'Memory bearbeiten';
+      statusSpan.textContent = '✓ Gespeichert';
+      setTimeout(() => { if (statusSpan.textContent === '✓ Gespeichert') statusSpan.textContent = ''; }, 2500);
+    } catch (e) {
+      statusSpan.textContent = '⚠ Fehler';
+      console.warn('[Memory] Speichern fehlgeschlagen:', e);
+    }
+  });
+
+  delBtn.addEventListener('click', async () => {
+    statusSpan.textContent = '…';
+    try {
+      await apiFetch(
+        `/api/student-memory/${encodeURIComponent(activityId)}?studentId=${encodeURIComponent(studentId)}`,
+        { method: 'DELETE' }
+      );
+      studentMemoryMap.delete(studentId);
+      textarea.value = '';
+      memBtn.classList.remove('has-memory');
+      memBtn.title = 'Memory anlegen';
+      panel.classList.remove('visible');
+      statusSpan.textContent = '';
+    } catch (e) {
+      statusSpan.textContent = '⚠ Fehler';
+      console.warn('[Memory] Löschen fehlgeschlagen:', e);
+    }
+  });
+
+  meta.appendChild(memBtn);
+  item.appendChild(panel);
 }
 
 // ── Schüler auswählen ─────────────────────────────────────────────────────────
@@ -541,6 +660,7 @@ function renderMsgContent(role, content, contentType) {
 function appendMessage({ id, role, content, content_type, created_at, runCost,
                          fb_rating, fb_comment, fb_improved, threadDbId: msgThreadId }) {
   const wrap = document.createElement('div');
+  wrap.className = 'msg-wrap';
   wrap.style.display = 'flex';
   wrap.style.flexDirection = 'column';
   wrap.style.alignItems = role === 'user' ? 'flex-end' : 'flex-start';
@@ -567,7 +687,197 @@ function appendMessage({ id, role, content, content_type, created_at, runCost,
     wrap.appendChild(buildFeedbackBar(id, threadId, content, fb_rating, fb_comment, fb_improved));
   }
 
+  // Issue #51: Edit-Button + Inline-Edit für Assistenten-Nachrichten
+  if (role === 'assistant' && id) {
+    const editBtn = document.createElement('button');
+    editBtn.className = 'msg-edit-btn';
+    editBtn.textContent = '✏ Bearbeiten';
+    editBtn.title = 'KI-Antwort inline bearbeiten (neue Version speichern)';
+    wrap.appendChild(editBtn);
+
+    const { editPanel, versionsPanel } = buildMsgEditControls(id, bubble, content, editBtn);
+    wrap.appendChild(editPanel);
+    wrap.appendChild(versionsPanel);
+
+    editBtn.addEventListener('click', () => {
+      const isOpen = editPanel.classList.contains('visible');
+      editPanel.classList.toggle('visible', !isOpen);
+      versionsPanel.classList.remove('visible');
+      if (!isOpen) {
+        editPanel.querySelector('.msg-edit-textarea').focus();
+      }
+    });
+  }
+
   chatMessages.appendChild(wrap);
+}
+
+/**
+ * Issue #51: Erstellt Inline-Edit-Panel + Versionshistorie-Panel für eine KI-Nachricht.
+ * Gibt { editPanel, versionsPanel } zurück.
+ */
+function buildMsgEditControls(messageId, bubbleEl, originalContent, editBtn) {
+  // ── Edit-Panel ──────────────────────────────────────────────────────────
+  const editPanel = document.createElement('div');
+  editPanel.className = 'msg-edit-panel';
+
+  const textarea = document.createElement('textarea');
+  textarea.className = 'msg-edit-textarea';
+  textarea.value = originalContent || '';
+  textarea.rows = 5;
+
+  const actions = document.createElement('div');
+  actions.className = 'msg-edit-actions';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'msg-edit-save';
+  saveBtn.textContent = 'Speichern';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'msg-edit-cancel';
+  cancelBtn.textContent = 'Abbrechen';
+
+  const versionsBtn = document.createElement('button');
+  versionsBtn.className = 'msg-edit-versions-btn';
+  versionsBtn.textContent = 'Versionen';
+
+  const statusSpan = document.createElement('span');
+  statusSpan.className = 'msg-edit-status';
+
+  actions.append(saveBtn, cancelBtn, versionsBtn, statusSpan);
+  editPanel.append(textarea, actions);
+
+  // ── Versions-Panel ──────────────────────────────────────────────────────
+  const versionsPanel = document.createElement('div');
+  versionsPanel.className = 'msg-versions-panel';
+
+  // ── Hilfsfunktion: Versions-Panel neu laden und rendern ─────────────────
+  async function loadAndRenderVersions() {
+    versionsPanel.innerHTML = '<span style="font-size:12px;color:#888">Lade…</span>';
+    try {
+      const data = await apiGet(`/api/messages/${messageId}/versions`);
+      renderVersions(data.versions || []);
+    } catch (e) {
+      versionsPanel.innerHTML = `<span style="font-size:12px;color:#c0392b">Fehler: ${escHtml(e.message)}</span>`;
+    }
+  }
+
+  function renderVersions(versions) {
+    versionsPanel.innerHTML = '';
+    const h4 = document.createElement('h4');
+    h4.textContent = `Versionen (${versions.length})`;
+    versionsPanel.appendChild(h4);
+
+    if (!versions.length) {
+      const empty = document.createElement('span');
+      empty.style.cssText = 'font-size:12px;color:#aaa';
+      empty.textContent = 'Noch keine gespeicherten Versionen.';
+      versionsPanel.appendChild(empty);
+      return;
+    }
+
+    for (const v of versions) {
+      const item = document.createElement('div');
+      item.className = 'msg-version-item';
+
+      const meta = document.createElement('span');
+      meta.className = 'msg-version-meta';
+      meta.textContent = formatTime(v.created_at);
+      meta.title = v.created_at;
+
+      const preview = document.createElement('span');
+      preview.className = 'msg-version-preview';
+      preview.textContent = v.content;
+      preview.title = v.content;
+
+      item.append(meta, preview);
+
+      if (v.is_active) {
+        const badge = document.createElement('span');
+        badge.className = 'msg-version-active-badge';
+        badge.textContent = 'Aktiv';
+        item.appendChild(badge);
+      } else {
+        const activateBtn = document.createElement('button');
+        activateBtn.className = 'msg-version-activate';
+        activateBtn.textContent = 'Aktivieren';
+        activateBtn.addEventListener('click', async () => {
+          activateBtn.disabled = true;
+          try {
+            await apiPut(`/api/messages/edits/${v.id}/activate`, {});
+            // Bubble-Inhalt aktualisieren
+            bubbleEl.innerHTML = renderMsgContent('assistant', v.content, 'text');
+            textarea.value = v.content;
+            await loadAndRenderVersions();
+          } catch (e) {
+            activateBtn.disabled = false;
+            console.warn('[MsgEdit] Aktivieren fehlgeschlagen:', e);
+          }
+        });
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'msg-version-delete';
+        deleteBtn.textContent = 'Löschen';
+        deleteBtn.addEventListener('click', async () => {
+          deleteBtn.disabled = true;
+          try {
+            await apiDelete(`/api/messages/edits/${v.id}`);
+            await loadAndRenderVersions();
+          } catch (e) {
+            deleteBtn.disabled = false;
+            console.warn('[MsgEdit] Löschen fehlgeschlagen:', e);
+          }
+        });
+
+        item.append(activateBtn, deleteBtn);
+      }
+
+      versionsPanel.appendChild(item);
+    }
+  }
+
+  // ── Event-Handler ───────────────────────────────────────────────────────
+  saveBtn.addEventListener('click', async () => {
+    const newContent = textarea.value.trim();
+    if (!newContent) return;
+    saveBtn.disabled = true;
+    statusSpan.textContent = '…';
+    try {
+      await apiPut(`/api/messages/${messageId}/content`, { content: newContent });
+      // Bubble sofort aktualisieren
+      bubbleEl.innerHTML = renderMsgContent('assistant', newContent, 'text');
+      statusSpan.textContent = '✓ Gespeichert';
+      setTimeout(() => { if (statusSpan.textContent === '✓ Gespeichert') statusSpan.textContent = ''; }, 2000);
+      editPanel.classList.remove('visible');
+      editBtn.style.display = '';
+      // Versions-Panel aktualisieren falls gerade offen
+      if (versionsPanel.classList.contains('visible')) {
+        await loadAndRenderVersions();
+      }
+    } catch (e) {
+      statusSpan.textContent = `⚠ ${e.message}`;
+      console.warn('[MsgEdit] Speichern fehlgeschlagen:', e);
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+
+  cancelBtn.addEventListener('click', () => {
+    textarea.value = originalContent || '';
+    editPanel.classList.remove('visible');
+  });
+
+  versionsBtn.addEventListener('click', async () => {
+    const isOpen = versionsPanel.classList.contains('visible');
+    if (isOpen) {
+      versionsPanel.classList.remove('visible');
+    } else {
+      versionsPanel.classList.add('visible');
+      await loadAndRenderVersions();
+    }
+  });
+
+  return { editPanel, versionsPanel };
 }
 
 /** Erstellt eine Feedback-Bar für eine Assistent-Nachricht. */

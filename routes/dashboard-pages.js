@@ -14,10 +14,25 @@ const viewsDir = path.join(__dirname, '..', 'views');
 
 const router = Router();
 
-// Bestehende /dashboard-Route leitet auf /dashboard/chats um
+// Issue #50: /dashboard leitet auf zuletzt besuchte Seite um (localStorage)
 router.get('/dashboard', requireDashboardAuth, (req, res) => {
   const { activityId, token } = req.query;
-  res.redirect(`/dashboard/chats?activityId=${encodeURIComponent(activityId)}&token=${encodeURIComponent(token)}`);
+  const qs = `activityId=${encodeURIComponent(activityId)}&token=${encodeURIComponent(token)}`;
+  res.send(`<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>moo-gpt – Dashboard</title>
+</head>
+<body>
+<script>
+  var last = localStorage.getItem('dashboard_last_page');
+  var allowed = ['/dashboard/chats', '/dashboard/overview', '/dashboard/settings'];
+  var target = (last && allowed.indexOf(last) !== -1) ? last : '/dashboard/chats';
+  window.location.replace(target + '?${qs}');
+</script>
+</body>
+</html>`);
 });
 
 router.get('/dashboard/chats', requireDashboardAuth, (req, res) => {

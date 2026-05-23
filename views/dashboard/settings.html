@@ -25,6 +25,32 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     }
     #header h1 { font-size: 18px; font-weight: 600; }
+
+    /* ── Dashboard-Nav-Bar (Issue #49) ───────────────────────────────────── */
+    #dashboard-nav {
+      background: #002a55;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      flex-shrink: 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .dash-nav-link {
+      display: inline-block;
+      color: rgba(255,255,255,0.55);
+      font-size: 13px;
+      padding: 9px 14px;
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .dash-nav-link:hover { color: rgba(255,255,255,0.85); }
+    .dash-nav-link.active { color: white; border-bottom-color: #5599ff; }
+    @media (max-width: 480px) {
+      .dash-nav-link { padding: 9px 10px; font-size: 12px; }
+    }
+
     #main {
       flex: 1;
       display: flex;
@@ -41,8 +67,26 @@
 <div id="header">
   <h1>moo-gpt</h1>
 </div>
+<nav id="dashboard-nav">
+  <a class="dash-nav-link" href="#" id="nav-chats">Chats</a>
+  <a class="dash-nav-link" href="#" id="nav-overview">Überblick</a>
+  <a class="dash-nav-link active" href="#" id="nav-settings">Einstellungen</a>
+</nav>
 <div id="main">
   <p class="placeholder">Einstellungen – coming soon</p>
 </div>
+<script>
+  // Issue #50: Letzte Seite merken
+  localStorage.setItem('dashboard_last_page', window.location.pathname);
+
+  // Issue #49: Query-Parameter durch alle Nav-Links durchreichen
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var qs = params.toString() ? '?' + params.toString() : '';
+    document.getElementById('nav-chats').href    = '/dashboard/chats'    + qs;
+    document.getElementById('nav-overview').href = '/dashboard/overview' + qs;
+    document.getElementById('nav-settings').href = '/dashboard/settings' + qs;
+  })();
+</script>
 </body>
 </html>

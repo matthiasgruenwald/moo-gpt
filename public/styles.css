@@ -788,3 +788,126 @@ button:hover {
     border: 1px solid rgba(255,255,255,0.3);
 }
 .mmb-fb-cancel:hover { background: rgba(255,255,255,0.1); }
+
+/* ── Issue #53: Memory-Button + Memory-Overlay ──────────────────────────── */
+.memory-icon {
+    position: fixed;
+    bottom: 122px;
+    right: 10px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #6c3483;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    font-size: 22px;
+    line-height: 1;
+    transition: background-color 0.2s;
+    user-select: none;
+}
+.memory-icon:hover { background-color: #512e74; }
+
+.memory-icon.left-side {
+    right: auto;
+    left: 10px;
+}
+
+.memory-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 100001;
+    align-items: center;
+    justify-content: center;
+}
+
+.memory-overlay-dialog {
+    background: white;
+    border-radius: 10px;
+    padding: 28px 32px 24px;
+    width: min(420px, 90vw);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.memory-overlay-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: #1a1a1a;
+}
+
+.memory-overlay-desc {
+    margin: 0;
+    font-size: 13px;
+    color: #555;
+    line-height: 1.5;
+}
+
+.memory-overlay-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #1a1a1a;
+    resize: vertical;
+    font-family: Arial, sans-serif;
+    line-height: 1.5;
+    margin-right: 0;
+    flex: none;
+}
+.memory-overlay-textarea:focus {
+    outline: 2px solid #6c3483;
+    border-color: #6c3483;
+}
+
+.memory-overlay-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
+.memory-overlay-cancel {
+    background: #f0f0f0;
+    color: #333;
+    border: none;
+    border-radius: 20px;
+    padding: 9px 20px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-right: auto;
+}
+.memory-overlay-cancel:hover { background: #ddd; }
+
+.memory-overlay-delete {
+    background: #c0392b;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 9px 20px;
+    font-size: 14px;
+    cursor: pointer;
+}
+.memory-overlay-delete:hover { background: #922b21; }
+
+.memory-overlay-save {
+    background: #6c3483;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 9px 20px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.memory-overlay-save:hover { background: #512e74; }
