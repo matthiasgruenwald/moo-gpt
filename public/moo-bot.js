@@ -363,6 +363,10 @@ export class MOOBOT {
         if (previewText) previewText.textContent = e.data.prompt;
         document.getElementById('suggest-panel-preview').style.display = 'flex';
       }
+      if (e.data?.type === 'moogpt:suggestClose') {
+        const panel = document.getElementById('suggest-panel');
+        if (panel) panel.style.display = 'none';
+      }
       if (e.data?.type === 'moogpt:suggestError') {
         document.getElementById('suggest-panel-loading').style.display = 'none';
         const msgs = document.getElementById('suggest-panel-messages');

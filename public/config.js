@@ -443,7 +443,13 @@
         suggestHistory.push({ role: 'assistant', content: data.question });
         window.parent.postMessage({ type: 'moogpt:suggestQuestion', question: data.question }, '*');
       } else {
-        window.parent.postMessage({ type: 'moogpt:suggestFinal', prompt: data.prompt || '' }, '*');
+        // Finaler Prompt → Gegenüberstellung wie beim Prompt-Check
+        const original = document.getElementById('cfg-hints').value;
+        document.getElementById('cfg-compare-original').value   = original;
+        document.getElementById('cfg-compare-suggestion').value = data.prompt || '';
+        document.getElementById('cfg-compare-panel').style.display = 'flex';
+        window.parent.postMessage({ type: 'moogpt:expandOverlay' }, '*');
+        window.parent.postMessage({ type: 'moogpt:suggestClose' }, '*');
       }
     } catch (err) {
       window.parent.postMessage({ type: 'moogpt:suggestError', message: err.message }, '*');
@@ -488,10 +494,11 @@
     if (wantsQuestions) {
       suggestHistory = [];
       const existingPrompt = document.getElementById('cfg-hints').value?.trim() || '';
-      const contextNote = existingPrompt
-        ? `Vorhandener Prompt der Lehrkraft:\n${existingPrompt}\n\n`
+      const taskText = taskContext.task
+        ? `\nAufgabenstellung aus Moodle:\n${taskContext.task.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim()}\n`
         : '';
-      suggestHistory.push({ role: 'user', content: `${contextNote}Bitte stell mir Frage 1 von 5.` });
+      const contextNote = existingPrompt ? `Vorhandener Prompt der Lehrkraft:\n${existingPrompt}\n` : '';
+      suggestHistory.push({ role: 'user', content: `${contextNote}${taskText}\nAnalysiere was bereits klar ist und frag gezielt nach den fehlenden Informationen.` });
       window.parent.postMessage({ type: 'moogpt:suggestOpen' }, '*');
       suggestSend('');
     } else {
