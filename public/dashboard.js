@@ -755,7 +755,7 @@ function buildMsgEditControls(messageId, bubbleEl, originalContent, editBtn) {
   async function loadAndRenderVersions() {
     versionsPanel.innerHTML = '<span style="font-size:12px;color:#888">Lade…</span>';
     try {
-      const data = await apiGet(`/api/messages/${messageId}/versions`);
+      const data = await apiGet(`/api/messages/${messageId}/versions?activityId=${encodeURIComponent(activityId)}`);
       renderVersions(data.versions || []);
     } catch (e) {
       versionsPanel.innerHTML = `<span style="font-size:12px;color:#c0392b">Fehler: ${escHtml(e.message)}</span>`;
@@ -804,7 +804,7 @@ function buildMsgEditControls(messageId, bubbleEl, originalContent, editBtn) {
         activateBtn.addEventListener('click', async () => {
           activateBtn.disabled = true;
           try {
-            await apiPut(`/api/messages/edits/${v.id}/activate`, {});
+            await apiPut(`/api/messages/edits/${v.id}/activate?activityId=${encodeURIComponent(activityId)}`, {});
             // Bubble-Inhalt aktualisieren
             bubbleEl.innerHTML = renderMsgContent('assistant', v.content, 'text');
             textarea.value = v.content;
@@ -821,7 +821,7 @@ function buildMsgEditControls(messageId, bubbleEl, originalContent, editBtn) {
         deleteBtn.addEventListener('click', async () => {
           deleteBtn.disabled = true;
           try {
-            await apiDelete(`/api/messages/edits/${v.id}`);
+            await apiDelete(`/api/messages/edits/${v.id}?activityId=${encodeURIComponent(activityId)}`);
             await loadAndRenderVersions();
           } catch (e) {
             deleteBtn.disabled = false;
@@ -843,7 +843,7 @@ function buildMsgEditControls(messageId, bubbleEl, originalContent, editBtn) {
     saveBtn.disabled = true;
     statusSpan.textContent = '…';
     try {
-      await apiPut(`/api/messages/${messageId}/content`, { content: newContent });
+      await apiPut(`/api/messages/${messageId}/content?activityId=${encodeURIComponent(activityId)}`, { content: newContent });
       // Bubble sofort aktualisieren
       bubbleEl.innerHTML = renderMsgContent('assistant', newContent, 'text');
       statusSpan.textContent = '✓ Gespeichert';
