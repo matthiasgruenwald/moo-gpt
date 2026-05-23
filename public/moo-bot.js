@@ -450,7 +450,7 @@ export class MOOBOT {
 
   /** Öffnet den Dashboard-Tab mit Token (oder navigiert ein pending-Fenster). */
   _openDashboardTab(token, activityId) {
-    const url = `${this._baseUrl()}/dashboard.html?activityId=${encodeURIComponent(activityId)}&token=${encodeURIComponent(token)}`;
+    const url = `${this._baseUrl()}/dashboard?activityId=${encodeURIComponent(activityId)}&token=${encodeURIComponent(token)}`;
     if (this.pendingDashboardWindow && !this.pendingDashboardWindow.closed) {
       this.pendingDashboardWindow.location.href = url;
       this.pendingDashboardWindow = null;
