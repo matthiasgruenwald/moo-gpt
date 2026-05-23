@@ -358,7 +358,9 @@ export class MOOBOT {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ durationMinutes }),
       });
-      if (!resp.ok) {
+      if (resp.ok) {
+        this._setLockState(true);
+      } else {
         console.error('[Lock] Fehler:', resp.status);
       }
     } catch (err) {
@@ -394,7 +396,8 @@ export class MOOBOT {
     if (!activityId || !token) return;
     const url = `${this._baseUrl()}/api/activity/${encodeURIComponent(activityId)}/lock?token=${encodeURIComponent(token)}`;
     try {
-      await fetch(url, { method: 'DELETE' });
+      const resp = await fetch(url, { method: 'DELETE' });
+      if (resp.ok) this._setLockState(false);
     } catch (err) {
       console.error('[Lock] Entsperren fehlgeschlagen:', err);
     }

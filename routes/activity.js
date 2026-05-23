@@ -75,29 +75,40 @@ export function buildPromptCheckHandler({ aiClient: client }) {
 
 const SUGGEST_PROMPT_SYSTEM = `Du bist Experte für System-Prompts für KI-Lernassistenten im Schulunterricht (IGS, Sekundarstufe I/II).
 
-Erstelle einen vollständigen, expliziten Aufgabenprompt auf Basis der gegebenen Aufgabenstellung. Wenn kein Prompt vorhanden ist, erstelle einen guten Ausgangsprompt.
+Deine Aufgabe: Hilf einer Lehrkraft, einen vollständigen Aufgabenprompt für einen KI-Chatbot zu erstellen.
 
-Ein guter Aufgabenprompt enthält diese Abschnitte:
-- **Rolle**: Was ist der Bot in diesem Kontext? (z.B. "Du bist ein Lernassistent für das Fach Chemie")
-- **Ziel**: Was soll der Bot erreichen? (Verständnis fördern, Lösungswege erklären, ...)
-- **Antwortstil**: Länge, Sprache, Tonalität, Fachbegriffe ja/nein
-- **Didaktisches Verhalten**: Wie geht der Bot mit Fehlern um? Gibt er direkte Lösungen oder führt er hin?
-- **Verbote**: Was darf der Bot nicht tun? (z.B. keine fertigen Aufsätze schreiben)
-- **Beispiele** (optional): Gute und schlechte Antwort-Beispiele
+Führe eine kurze Rückfragen-Session durch (3–4 Fragen). Stelle immer nur EINE Frage auf einmal.
+Sobald du genug Informationen hast (mindestens 3 Antworten vorliegen), erstelle den finalen Prompt.
 
-Gib NUR den fertigen Prompt zurück — keine Erklärungen, keine Überschriften, keine Metakommentare.`;
+Ein guter Aufgabenprompt enthält: Rolle des Bots, Ziel, Antwortstil, didaktisches Verhalten und Verbote.
 
+Antworte IMMER im JSON-Format (keine anderen Zeichen davor/danach):
+- Nächste Frage: {"type":"question","question":"Deine Frage"}
+- Finaler Prompt: {"type":"final","prompt":"Vollständiger Prompt hier"}`;
 
 export function buildSuggestPromptHandler({ aiClient: client }) {
   return async function suggestPromptHandler(req, res) {
-    const { currentPrompt } = req.body;
-    const userMessage = currentPrompt && currentPrompt.trim()
-      ? `Aktueller Prompt:\n${currentPrompt.trim()}`
-      : '(kein Prompt vorhanden)';
+    const { currentPrompt, messages = [] } = req.body;
+
+    const contextNote = currentPrompt?.trim()
+      ? `Vorhandener Prompt der Lehrkraft:
+${currentPrompt.trim()}
+
+`
+      : '';
+    const firstUserMsg = `${contextNote}Bitte stell mir die erste Rückfrage, um einen guten Aufgabenprompt zu erstellen.`;
+
+    const history = messages.length > 0
+      ? messages
+      : [{ role: 'user', content: firstUserMsg }];
 
     try {
-      const suggestedPrompt = await client.textCall(SUGGEST_PROMPT_SYSTEM, userMessage, GEN_MODEL, { timeout: 60_000 });
-      res.json({ suggestedPrompt: suggestedPrompt.trim() });
+      const raw = await client.textCall(SUGGEST_PROMPT_SYSTEM, history, GEN_MODEL, { timeout: 60_000 });
+      const text = raw.trim().replace(/^```jsons*/i, '').replace(/```s*$/, '');
+      let parsed;
+      try { parsed = JSON.parse(text); }
+      catch { parsed = { type: 'final', prompt: raw.trim() }; }
+      res.json(parsed);
     } catch (err) {
       console.log(`[SuggestPrompt] Fehler: ${err.message}`);
       res.status(502).json({ error: 'KI-Aufruf fehlgeschlagen' });
