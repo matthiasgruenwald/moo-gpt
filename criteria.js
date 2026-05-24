@@ -4,7 +4,7 @@ export async function suggestCriteriaList({ config, erfahrungsprompt, genModel, 
   const promptSource = erfahrungsprompt
     ? `Aufgabenprompt:\n${erfahrungsprompt}`
     : `Systemprompt:\n${config.content}`;
-  const result = await aiClient.jsonCall(
+  const { text: result } = await aiClient.jsonCall(
     `Du leitest Bewertungskriterien für eine KI-Tutoring-Anwendung aus einem Prompt ab.
 Antworte AUSSCHLIESSLICH mit validem JSON:
 { "criteria": ["Kriterium 1", "Kriterium 2", ...] }

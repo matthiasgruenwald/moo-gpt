@@ -3,7 +3,7 @@ import { buildInstructions } from './prompt-builder.js';
 const SIMULATION_TIMEOUT_MS = 90_000;
 
 async function generateSimulatedUtterances(persona, count, model, aiClient) {
-  return aiClient.jsonCall(
+  const { text } = await aiClient.jsonCall(
     `Du simulierst Schüleräußerungen für Prompt-Engineering-Tests an einer IGS (Klasse 9).
 Generiere exakt ${count} kurze Schüleräußerungen für den beschriebenen Schüler-Typ.
 Antworte NUR mit einem JSON-Array von Strings: ["Äußerung 1", "Äußerung 2", ...]`,
@@ -12,11 +12,13 @@ Antworte NUR mit einem JSON-Array von Strings: ["Äußerung 1", "Äußerung 2", 
     model,
     { timeout: SIMULATION_TIMEOUT_MS }
   );
+  return text;
 }
 
 async function generateAIResponse(config, erfahrungContent, utterance, aiClient) {
   const instructions = buildInstructions({ systemContent: config.content, erfahrungContent });
-  return aiClient.textCall(instructions, utterance, config.model, { timeout: SIMULATION_TIMEOUT_MS });
+  const { text } = await aiClient.textCall(instructions, utterance, config.model, { timeout: SIMULATION_TIMEOUT_MS });
+  return text;
 }
 
 async function evaluateResponse(utterance, aiResponse, criteria, model, aiClient) {
@@ -24,7 +26,7 @@ async function evaluateResponse(utterance, aiResponse, criteria, model, aiClient
     ? criteria.map(c => `- ${c.content}`).join('\n')
     : '- Gibt keine fertigen Lösungen\n- Stellt Rückfragen\n- Fördert eigenständiges Denken';
 
-  return aiClient.jsonCall(
+  const { text } = await aiClient.jsonCall(
     `Du bewertest KI-Antworten nach pädagogischen Kriterien.
 Antworte AUSSCHLIESSLICH mit validem JSON (keine Markdown-Blöcke):
 {
@@ -38,6 +40,7 @@ Wähle nur Highlights deren Wortlaut EXAKT so in der KI-Antwort steht.`,
     model,
     { timeout: SIMULATION_TIMEOUT_MS }
   );
+  return text;
 }
 
 export async function runSimulation({ persona, config, erfahrungsprompt, criteria, models, aiClient, onPair }) {

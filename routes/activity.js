@@ -64,7 +64,7 @@ export function buildPromptCheckHandler({ aiClient: client }) {
     };
 
     try {
-      const result = await client.jsonCall(systemPrompt, userMessage, model, opts);
+      const { text: result } = await client.jsonCall(systemPrompt, userMessage, model, opts);
       res.json(result);
     } catch (err) {
       console.log(`[PromptCheck] Fehler: ${err.message}`);
@@ -125,7 +125,7 @@ export function buildSuggestPromptHandler({ aiClient: client }) {
     }
 
     try {
-      const raw = await client.textCall(systemPrompt, '', MODEL_NAME, {
+      const { text: raw } = await client.textCall(systemPrompt, '', MODEL_NAME, {
         timeout: 60_000,
         input: history.map(m => ({ role: m.role, content: m.content })),
       });

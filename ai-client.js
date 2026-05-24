@@ -49,7 +49,7 @@ export class AIClient {
           { model, instructions, input: [{ role: 'user', content: userMessage }], stream: false, ...apiOpts },
           { signal: controller.signal },
         );
-        return response.output_text ?? '';
+        return { text: response.output_text ?? '', usage: response.usage ?? null };
       } catch (err) {
         lastErr = err;
         if (!isTransient(err) || attempt === MAX_RETRIES - 1) throw err;
@@ -61,10 +61,10 @@ export class AIClient {
     throw lastErr;
   }
 
-  // Non-streaming JSON: textCall + stripAndParseJson
+  // Non-streaming JSON: textCall + stripAndParseJson; gibt { text: parsedObject, usage } zurück
   async jsonCall(instructions, userMessage, model, opts = {}) {
-    const text = await this.textCall(instructions, userMessage, model, opts);
-    return stripAndParseJson(text);
+    const { text, usage } = await this.textCall(instructions, userMessage, model, opts);
+    return { text: stripAndParseJson(text), usage };
   }
 
   // Streaming: 60s Timeout, kein Retry — gibt den rohen Stream zurück

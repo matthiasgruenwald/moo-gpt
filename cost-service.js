@@ -1,0 +1,155 @@
+/**
+ * cost-service.js — Werkzeug-Kosten-Service (#62)
+ *
+ * Kapselt alle Operationen für Werkzeug-Kosten.
+ * Kein HTTP-Bezug (analog zu criteria.js, optimize.js).
+ *
+ * Abhängigkeiten: db.js (Singleton), token-log.js (sumCostRows)
+ */
+
+import { getDb } from './db.js';
+import { sumCostRows } from './token-log.js';
+
+// Deutsche Anzeige-Labels für call_type-Werte
+const CALL_TYPE_LABELS = {
+  'live-summary':  'Live-Zusammenfassung',
+  'prompt-assist': 'Prompt-Assistent',
+  'criteria':      'Kriterien',
+  'optimize':      'Optimierung',
+  'persona':       'Persona',
+  'simulation':    'Simulation',
+};
+
+/**
+ * Speichert einen Werkzeug-Aufruf in token_log.
+ * Wird von Wave-2-Slices aufgerufen, nachdem textCall/jsonCall ausgeführt wurde.
+ *
+ * @param {string} activityId
+ * @param {string} callType  Einer der CALL_TYPE_LABELS-Keys
+ * @param {string} model
+ * @param {{ input_tokens, output_tokens, total_tokens? }} usage  Objekt aus AIClient
+ */
+export function recordWerkzeugUsage(activityId, callType, model, usage) {
+  if (!activityId || !callType || !usage) return;
+
+  const promptTokens     = usage.input_tokens  ?? null;
+  const completionTokens = usage.output_tokens ?? null;
+  const totalTokens      = usage.total_tokens
+    ?? (promptTokens != null && completionTokens != null
+        ? promptTokens + completionTokens
+        : null);
+
+  getDb().prepare(`
+    INSERT INTO token_log (activity_id, call_type, model, prompt_tokens, completion_tokens, total_tokens)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(activityId, callType, model, promptTokens, completionTokens, totalTokens);
+}
+
+// Interne Hilfsfunktionen für gefilterte Kosten-Rows
+function getChatCostRows(activityId) {
+  return getDb().prepare(`
+    SELECT model,
+           COALESCE(SUM(prompt_tokens), 0)     AS prompt_tokens,
+           COALESCE(SUM(completion_tokens), 0) AS completion_tokens
+    FROM token_log
+    WHERE activity_id = ? AND call_type IS NULL
+    GROUP BY model
+  `).all(activityId);
+}
+
+function getWerkzeugCostRows(activityId) {
+  return getDb().prepare(`
+    SELECT model,
+           COALESCE(SUM(prompt_tokens), 0)     AS prompt_tokens,
+           COALESCE(SUM(completion_tokens), 0) AS completion_tokens
+    FROM token_log
+    WHERE activity_id = ? AND call_type IS NOT NULL
+    GROUP BY model
+  `).all(activityId);
+}
+
+/**
+ * Gibt Chat- und Werkzeug-Kosten für eine Aktivität in EUR zurück.
+ * EUR-Werte sind null wenn Preisdaten noch nicht geladen sind.
+ *
+ * @param {string} activityId
+ * @returns {Promise<{ chatEur: number|null, werkzeugEur: number|null, totalEur: number|null }>}
+ */
+export async function getCostSummary(activityId) {
+  const [chatCost, werkzeugCost] = await Promise.all([
+    sumCostRows(getChatCostRows(activityId)),
+    sumCostRows(getWerkzeugCostRows(activityId)),
+  ]);
+
+  const chatEur     = chatCost?.totalEur     ?? null;
+  const werkzeugEur = werkzeugCost?.totalEur ?? null;
+  const totalEur    = chatEur != null && werkzeugEur != null
+    ? chatEur + werkzeugEur
+    : (chatEur ?? werkzeugEur ?? null);
+
+  return { chatEur, werkzeugEur, totalEur };
+}
+
+/**
+ * Gibt alle Werkzeug-Aufrufe einer Aktivität zurück.
+ *
+ * @param {string} activityId
+ * @returns {Array<{ id, createdAt, callType, callTypeLabel, model, promptTokens, completionTokens, totalTokens }>}
+ */
+export function getWerkzeugLog(activityId) {
+  const rows = getDb().prepare(`
+    SELECT id, created_at, call_type, model, prompt_tokens, completion_tokens, total_tokens
+    FROM token_log
+    WHERE activity_id = ? AND call_type IS NOT NULL
+    ORDER BY created_at DESC
+  `).all(activityId);
+
+  return rows.map(row => ({
+    id:               row.id,
+    createdAt:        row.created_at,
+    callType:         row.call_type,
+    callTypeLabel:    CALL_TYPE_LABELS[row.call_type] ?? row.call_type,
+    model:            row.model,
+    promptTokens:     row.prompt_tokens,
+    completionTokens: row.completion_tokens,
+    totalTokens:      row.total_tokens,
+  }));
+}
+
+/**
+ * Gibt Gesamtkosten aller Lehrer mit ihren Aktivitäten zurück (Admin-Ansicht).
+ *
+ * @returns {Promise<Array<{ teacherId, teacherName, activities: Array<{ activityId, activityName, chatEur, werkzeugEur, totalEur }> }>>}
+ */
+export async function getAdminCostsByTeacher() {
+  const teachers = getDb().prepare(`
+    SELECT DISTINCT teacher_id, teacher_name
+    FROM activities
+    WHERE teacher_id IS NOT NULL
+    ORDER BY teacher_name
+  `).all();
+
+  return Promise.all(teachers.map(async t => {
+    const acts = getDb().prepare(`
+      SELECT activity_id, activity_name
+      FROM activities
+      WHERE teacher_id = ?
+      ORDER BY activity_name
+    `).all(t.teacher_id);
+
+    const activities = await Promise.all(acts.map(async a => {
+      const costSummary = await getCostSummary(a.activity_id);
+      return {
+        activityId:   a.activity_id,
+        activityName: a.activity_name,
+        ...costSummary,
+      };
+    }));
+
+    return {
+      teacherId:   t.teacher_id,
+      teacherName: t.teacher_name,
+      activities,
+    };
+  }));
+}

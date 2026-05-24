@@ -38,7 +38,7 @@ router.post('/personas-suggest', requireDashboardAuth, async (req, res) => {
     const { genModel } = req.body;
     const msgs   = getStudentMessages(activityId);
     const sample = msgs.slice(0, 60).map(m => m.content).join('\n---\n');
-    const result = await aiClient.jsonCall(
+    const { text: result } = await aiClient.jsonCall(
       `Du analysierst Schüleräußerungen aus einer Lernaktivität und leitest typische Schüler-Personas ab.
 Antworte AUSSCHLIESSLICH mit validem JSON:
 { "personas": [{ "name": "...", "description": "...", "example_msgs": "Beispiel 1|Beispiel 2|Beispiel 3" }] }

@@ -99,7 +99,7 @@ router.post('/activity/:activityId/overview-summary', requireDashboardAuth, asyn
     const userMessage =
       `Hier sind die Chatverläufe der Schulklasse (${studentsWithChats.length} Schüler):\n\n${chatBlocks}`;
 
-    const summary = await aiClient.textCall(systemPrompt, userMessage, GEN_MODEL, { timeout: 60_000 });
+    const { text: summary } = await aiClient.textCall(systemPrompt, userMessage, GEN_MODEL, { timeout: 60_000 });
 
     res.json({
       summary,

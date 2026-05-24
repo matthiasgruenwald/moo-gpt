@@ -209,6 +209,11 @@ export function initDb() {
   // Issue #55: Rückfragen-Präferenz pro Lehrkraft
   try { db.exec(`ALTER TABLE teacher_preferences ADD COLUMN prefer_suggest_questions INTEGER DEFAULT 1`); } catch (_) {}
 
+  // Issue #61: Werkzeug-Kosten — call_type in token_log, teacher_id/name in activities
+  try { db.exec(`ALTER TABLE token_log ADD COLUMN call_type TEXT`); } catch (_) {}
+  try { db.exec(`ALTER TABLE activities ADD COLUMN teacher_id TEXT`); } catch (_) {}
+  try { db.exec(`ALTER TABLE activities ADD COLUMN teacher_name TEXT`); } catch (_) {}
+
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;
 }

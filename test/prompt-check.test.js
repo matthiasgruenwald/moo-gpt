@@ -37,7 +37,8 @@ describe('POST /activity/:activityId/prompt-check', () => {
   test('valider Input → korrekte JSON-Response mit suggestion (kein weaknesses)', async () => {
     const mockAiClient = {
       jsonCall: async (instructions, userMessage, model, opts) => ({
-        suggestion: 'Verbesserter Prompt',
+        text: { suggestion: 'Verbesserter Prompt' },
+        usage: {},
       }),
     };
 
@@ -78,7 +79,7 @@ describe('POST /activity/:activityId/prompt-check', () => {
     const mockAiClient = {
       jsonCall: async (instructions, userMessage, model, opts) => {
         capturedUserMessage = userMessage;
-        return { suggestion: 'Prompt ohne Aufgabe' };
+        return { text: { suggestion: 'Prompt ohne Aufgabe' }, usage: {} };
       },
     };
 
@@ -98,7 +99,7 @@ describe('POST /activity/:activityId/prompt-check', () => {
     const mockAiClient = {
       jsonCall: async (instructions, userMessage, model, opts) => {
         capturedOpts = opts;
-        return { suggestion: 'Mit Bildern' };
+        return { text: { suggestion: 'Mit Bildern' }, usage: {} };
       },
     };
 
@@ -126,7 +127,7 @@ describe('POST /activity/:activityId/prompt-check', () => {
     const mockAiClient = {
       jsonCall: async (instructions, userMessage, model, opts) => {
         capturedOpts = opts;
-        return { suggestion: 'Mit Bildern ohne null' };
+        return { text: { suggestion: 'Mit Bildern ohne null' }, usage: {} };
       },
     };
 
@@ -153,7 +154,7 @@ describe('POST /activity/:activityId/prompt-check', () => {
     const mockAiClient = {
       jsonCall: async (instructions, userMessage, model, opts) => {
         capturedOpts = opts;
-        return { suggestion: 'Ohne Bilder' };
+        return { text: { suggestion: 'Ohne Bilder' }, usage: {} };
       },
     };
 

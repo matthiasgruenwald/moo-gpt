@@ -75,8 +75,8 @@ async function computeRunCostForModel(promptTokens, completionTokens, model) {
   };
 }
 
-// Summiert Kosten über alle Modell-Gruppen auf
-async function sumCostRows(rows) {
+// Summiert Kosten über alle Modell-Gruppen auf (auch von cost-service.js genutzt)
+export async function sumCostRows(rows) {
   if (!rows || rows.length === 0) return null;
   let totalEur = 0;
   let inputEur = 0;
