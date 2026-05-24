@@ -72,6 +72,7 @@ const costBar        = document.getElementById('cost-bar');
 const costBarInput   = document.getElementById('cost-bar-input');
 const costBarOutput  = document.getElementById('cost-bar-output');
 const costBarTotal   = document.getElementById('cost-bar-total');
+const costSummaryBar = document.getElementById('cost-summary-bar');
 const lockBtn        = document.getElementById('lock-btn');
 const lockTimer      = document.getElementById('lock-timer');
 const lockBadge      = document.getElementById('lock-badge');
@@ -191,6 +192,13 @@ function formatCostTriple(inputEur, outputEur) {
   return { inputStr: inp.str, outputStr: out.str, totalStr };
 }
 
+/** Formatiert einen EUR-Betrag für die Cost-Summary-Zeile. */
+function formatEur(eur) {
+  if (eur == null) return '–';
+  if (eur < 0.005) return '< 0,01 €';
+  return eur.toFixed(2).replace('.', ',') + ' €';
+}
+
 /** Rendert die Aktivitäts-Gesamtkosten in der cost-bar. */
 function renderActivityCost(cost) {
   if (!cost) {
@@ -269,6 +277,8 @@ function handleServerMessage(msg) {
       renderLockState(msg.locked === true);
       // Issue #54: Memory für alle Schüler laden, dann rendern
       loadStudentMemories().then(() => renderStudentList());
+      // Issue #69: Werkzeug-Kosten-Summary laden
+      fetchAndRenderCostSummary();
       break;
 
     case 'messages':
@@ -1199,6 +1209,7 @@ tabBtns.forEach(btn => {
     const isStudents = tab === 'students';
     toolbarEl.style.display = isStudents ? '' : 'none';
     costBar.style.display   = isStudents ? '' : 'none';
+    if (costSummaryBar) costSummaryBar.style.display = isStudents ? '' : 'none';
     mainEl.style.display    = isStudents ? '' : 'none';
     settingsPanel?.classList.toggle('visible', tab === 'settings');
     optimizePanel?.classList.toggle('visible', tab === 'optimize');
@@ -1274,6 +1285,27 @@ const apiGet    = path          => apiFetch(path);
 const apiPut    = (path, body)  => apiFetch(path, { method: 'PUT',    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 const apiPost   = (path, body)  => apiFetch(path, { method: 'POST',   headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 const apiDelete = path          => apiFetch(path, { method: 'DELETE' });
+
+// ── Cost-Summary (Issue #69) ──────────────────────────────────────────────────
+
+/** Lädt und rendert die Aktivitäts-Kosten-Summary (Chat + Werkzeug). */
+async function fetchAndRenderCostSummary() {
+  if (!costSummaryBar) return;
+  try {
+    const { chatEur, werkzeugEur, totalEur } = await apiGet(
+      `/api/activity/${encodeURIComponent(activityId)}/cost-summary`
+    );
+    if (chatEur == null && werkzeugEur == null) {
+      costSummaryBar.classList.remove('visible');
+      return;
+    }
+    document.getElementById('cost-summary-text').textContent =
+      `Chat-Kosten ${formatEur(chatEur)} · Werkzeug-Kosten ${formatEur(werkzeugEur)} · Gesamt ${formatEur(totalEur)}`;
+    costSummaryBar.classList.add('visible');
+  } catch {
+    costSummaryBar.classList.remove('visible');
+  }
+}
 
 // ── Settings laden ────────────────────────────────────────────────────────────
 

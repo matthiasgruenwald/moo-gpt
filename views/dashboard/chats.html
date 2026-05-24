@@ -285,6 +285,20 @@
     #cost-bar .cost-value { font-family: monospace; letter-spacing: 0.02em; }
     #cost-bar .cost-total { color: rgba(255,255,255,0.95); font-weight: 600; }
 
+    /* Werkzeug-Kosten-Summary (Issue #69) */
+    #cost-summary-bar {
+      background: #001f44;
+      color: rgba(255,255,255,0.72);
+      padding: 4px 20px;
+      font-size: 12px;
+      display: none;
+      flex-shrink: 0;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      font-family: monospace;
+      letter-spacing: 0.02em;
+    }
+    #cost-summary-bar.visible { display: block; }
+
     /* Kosten in Schüler-Sidebar */
     .student-cost {
       font-size: 11px;
@@ -1236,6 +1250,11 @@
   <span class="cost-value" id="cost-bar-input" title="Eingabe-Kosten">↑ –</span>
   <span class="cost-value" id="cost-bar-output" title="Ausgabe-Kosten">↓ –</span>
   <span class="cost-value cost-total" id="cost-bar-total" title="Gesamtkosten">=  –</span>
+</div>
+
+<!-- Werkzeug-Kosten-Summary (Issue #69) -->
+<div id="cost-summary-bar">
+  <span id="cost-summary-text"></span>
 </div>
 
 <!-- Optimierungs-Panel (P7: enthält One-Click + manuelle Simulation + Vorschlag + Erfahrungsprompt) -->
