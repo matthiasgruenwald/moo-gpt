@@ -34,9 +34,11 @@ Quiz-Fragen blockieren `<script>`-Tags – hier wird eine iframe-Variante verwen
 
 Lehrkräfte sehen nach dem Öffnen des Chat-Widgets automatisch einen Dashboard-Button (blaues Icon über dem Chat-Button). Ein Klick öffnet das Dashboard in einem neuen Tab.
 
-**Inhalte:**
+Das Dashboard gliedert sich in drei Bereiche: **Chats**, **Überblick** und **Einstellungen** (Tab-Leiste oben).
+
+**Chats-Seite:**
 - Schülerliste mit Name, letzter Aktivität, Nachrichtenanzahl
-- Vollständiger Chatverlauf je Schüler (read-only)
+- Vollständiger Chatverlauf je Schüler; KI-Antworten können inline bearbeitet werden (Originalversion bleibt erhalten)
 - Live-Updates: neue Nachrichten erscheinen sofort
 - Token-Kosten je Session
 
@@ -49,11 +51,40 @@ Lehrkräfte sehen nach dem Öffnen des Chat-Widgets automatisch einen Dashboard-
 
 </details>
 
+## Plenumsmodus
+
+Über den **Stop-Button** (rotes Symbol über dem Chat-Button, nur für Lehrkräfte sichtbar) lässt sich der Chat für alle Schüler einer Aktivität sperren – ohne das Dashboard zu öffnen. Optional kann eine Dauer in Minuten angegeben werden; nach Ablauf wird der Chat automatisch freigegeben.
+
+> 📸 *Screenshot: Stop-Button und Dauer-Modal (folgt)*
+
+## Live-Unterrichts-Überblick
+
+Die Seite **Überblick** im Dashboard bietet auf Knopfdruck eine thematische Zusammenfassung aller Chat-Verläufe der Aktivität: häufige Fragen, häufige Missverständnisse. Außerdem sichtbar: welche Schüler noch nicht gechattet haben. Kein automatisches Polling – nur manuell auslösbar.
+
+> 📸 *Screenshot: Überblick-Seite (folgt)*
+
 ## Aufgabe konfigurieren
 
 Über das Dashboard können Lehrkräfte den KI-Assistenten je Aufgabe anpassen: Titel, Bot-Typ, Erfahrungsprompt (Hinweise zum Lösungsweg) und weitere Einstellungen. Die Konfiguration öffnet sich über den Einstellungen-Button im Dashboard.
 
 ![Aktivitätseinstellungen](images/Aktivitätseinstellungen.png)
+
+## Prompt mit KI erstellen (Prompt-Assistent)
+
+Auf der Konfig-Seite gibt es zwei Wege, den Erfahrungsprompt per KI zu erstellen:
+
+- **Rückfragen-Modus (Standard):** Die KI stellt 5 Klärungsfragen (Fach, Jahrgang, Rolle, Lernziel, Stil) und generiert daraus einen vollständigen Prompt.
+- **Direktmodus:** Ein vorhandener Prompt wird sofort optimiert, ohne Rückfragen.
+
+Der Vorschlag erscheint als Vorschau und wird erst nach bewusstem „Übernehmen" gespeichert.
+
+> 📸 *Screenshot: Prompt-Assistent Dialog (folgt)*
+
+## Prompt prüfen & verbessern
+
+Der Button **„🔍 Prompt prüfen & verbessern"** (ebenfalls auf der Konfig-Seite) analysiert den vorhandenen Erfahrungsprompt auf Schwachstellen und schlägt eine verbesserte Version vor. Die Unterschiede werden als Word-Level-Diff hervorgehoben (Gelöschtes rot, Neues grün). Den Vorschlag kann man mit einem Klick übernehmen oder verwerfen.
+
+> 📸 *Screenshot: Prompt-Check Panel mit Diff (folgt)*
 
 ## Prompt optimieren
 
@@ -68,6 +99,15 @@ Lehrkräfte sehen nach dem Öffnen des Chat-Widgets automatisch einen Dashboard-
 ![Dashboard Optimierung-Tab](images/Dashboard-Optimierung.png)
 
 </details>
+
+## Schüler-Memory (Personalisierung)
+
+Schüler können unter jeder KI-Antwort ein Feedback hinterlassen und optional eine Präferenz angeben (z. B. „Bitte kürzer antworten"). Die KI berücksichtigt diese Präferenz ab dem nächsten Chat-Start.
+
+- **Schüler:** Das Memory-Icon im Widget-Header (nur sichtbar wenn Memory vorhanden) zeigt den gespeicherten Text – bearbeitbar und löschbar.
+- **Lehrkraft:** Memory pro Schüler im Dashboard (**Chats**-Seite) sichtbar und verwaltbar – auch ohne vorherige Schüler-Aktion (z. B. um Hinweise für einzelne Schüler direkt einzutragen).
+
+> 📸 *Screenshot: Feedback-Buttons und Memory-Overlay im Widget (folgt)*
 
 ## Einstellungen (Admin)
 
