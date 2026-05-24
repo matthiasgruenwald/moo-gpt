@@ -148,6 +148,13 @@
     .cfg-suggest-btn:hover { background: #f0f0f0; }
     .cfg-suggest-btn:disabled { opacity: 0.6; cursor: default; }
 
+    /* Issue #70: Kosten-Zeile unterm Prompt-Assistent-Button */
+    #cfg-suggest-cost {
+      font-size: 10px;
+      color: #aaa;
+      min-height: 14px;
+    }
+
     .cfg-suggest-checkbox-label {
       display: flex;
       align-items: center;
@@ -304,6 +311,7 @@
           <button class="cfg-suggest-btn" id="cfg-suggest-btn">&#10024; Prompt mit KI erstellen</button>
         </div>
       </div>
+      <div id="cfg-suggest-cost"></div>
       <textarea class="cfg-textarea" id="cfg-hints" rows="5"></textarea>
       <div class="cfg-hint">Ergänzung zum System-Prompt für diese Aufgabe (z.&nbsp;B. Fach, Thema, Jahrgang)</div>
     </div>

@@ -460,6 +460,14 @@ button:hover {
     max-width: 90%;
 }
 
+/* Issue #70: Kosten-Zeile im Prompt-Assistent-Panel */
+.suggest-smsg-cost {
+    font-size: 10px;
+    color: #aaa;
+    align-self: flex-start;
+    padding: 0 2px 4px 2px;
+}
+
 .suggest-panel-loading {
     padding: 10px 14px;
     font-size: 13px;

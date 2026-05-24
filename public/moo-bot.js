@@ -363,6 +363,20 @@ export class MOOBOT {
         if (previewText) previewText.textContent = e.data.prompt;
         document.getElementById('suggest-panel-preview').style.display = 'flex';
       }
+      if (e.data?.type === 'moogpt:suggestCost') {
+        const msgs = document.getElementById('suggest-panel-messages');
+        if (!msgs) return;
+        const { cost, sessionPrompt, sessionCompletion } = e.data;
+        const total = cost.promptTokens + cost.completionTokens;
+        const sessionTotal = sessionPrompt + sessionCompletion;
+        const costEl = document.createElement('div');
+        costEl.className = 'suggest-smsg-cost';
+        costEl.textContent =
+          `${total} Tokens (↑ ${cost.promptTokens} + ↓ ${cost.completionTokens})` +
+          `  |  Sitzung: ${sessionTotal}`;
+        msgs.appendChild(costEl);
+        msgs.scrollTop = msgs.scrollHeight;
+      }
       if (e.data?.type === 'moogpt:suggestClose') {
         const panel = document.getElementById('suggest-panel');
         if (panel) panel.style.display = 'none';

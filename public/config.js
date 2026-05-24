@@ -417,6 +417,9 @@
 
   // ── Interaktiver Prompt-Assistent (via postMessage an Parent-Panel) ─────────
   let suggestHistory = [];
+  // Issue #70: Session-Kosten akkumulieren (pro Sitzung, Reset bei neuem Dialog)
+  let suggestSessionPrompt = 0;
+  let suggestSessionCompletion = 0;
 
   async function suggestSend(userText) {
     if (userText) {
@@ -439,6 +442,16 @@
       if (!res.ok) throw new Error(`Server-Fehler ${res.status}`);
       const data = await res.json();
 
+      if (data.cost?.promptTokens != null) {
+        suggestSessionPrompt += data.cost.promptTokens;
+        suggestSessionCompletion += data.cost.completionTokens;
+        window.parent.postMessage({
+          type: 'moogpt:suggestCost',
+          cost: data.cost,
+          sessionPrompt: suggestSessionPrompt,
+          sessionCompletion: suggestSessionCompletion,
+        }, '*');
+      }
       if (data.type === 'question') {
         suggestHistory.push({ role: 'assistant', content: data.question });
         window.parent.postMessage({ type: 'moogpt:suggestQuestion', question: data.question }, '*');
@@ -481,6 +494,12 @@
       } else {
         showStatus('Kein Prompt erhalten', 'err');
       }
+      const cfgCostEl = document.getElementById('cfg-suggest-cost');
+      if (cfgCostEl && data.cost?.promptTokens != null) {
+        const total = data.cost.promptTokens + data.cost.completionTokens;
+        cfgCostEl.textContent =
+          `${total} Tokens (↑ ${data.cost.promptTokens} + ↓ ${data.cost.completionTokens})`;
+      }
     } catch (err) {
       showStatus(`Fehler: ${err.message}`, 'err');
     } finally {
@@ -493,6 +512,8 @@
     const wantsQuestions = document.getElementById('cfg-suggest-questions').checked;
     if (wantsQuestions) {
       suggestHistory = [];
+      suggestSessionPrompt = 0;
+      suggestSessionCompletion = 0;
       const existingPrompt = document.getElementById('cfg-hints').value?.trim() || '';
       const taskText = taskContext.task
         ? `\nAufgabenstellung aus Moodle:\n${taskContext.task.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim()}\n`

@@ -169,6 +169,19 @@
       word-break: break-word;
     }
 
+    /* ── Kosten-Zeile (Issue #70) ───────────────────────────────────────── */
+    #cost-line {
+      font-size: 11px;
+      color: #999;
+      margin-top: -8px;
+    }
+    #session-cost-line {
+      font-size: 11px;
+      color: #bbb;
+      text-align: right;
+      margin-top: -12px;
+    }
+
     /* ── Schüler-Karten ──────────────────────────────────────────────────── */
     #present-card, #missing-card { display: none; }
     #present-card.visible { display: flex; }
@@ -239,6 +252,8 @@
   <div class="card" id="result-section">
     <h2>KI-Zusammenfassung <span id="result-timestamp"></span></h2>
     <div id="summary-text"></div>
+    <div id="cost-line"></div>
+    <div id="session-cost-line"></div>
   </div>
 
   <!-- Haben gechattet -->
@@ -281,12 +296,33 @@
   const resultSection   = document.getElementById('result-section');
   const summaryText     = document.getElementById('summary-text');
   const timestampEl     = document.getElementById('result-timestamp');
+  const costLineEl      = document.getElementById('cost-line');
+  const sessionCostEl   = document.getElementById('session-cost-line');
   const presentCard     = document.getElementById('present-card');
   const presentList     = document.getElementById('present-list');
   const presentCount    = document.getElementById('present-count');
   const missingCard     = document.getElementById('missing-card');
   const missingList     = document.getElementById('missing-list');
   const missingCount    = document.getElementById('missing-count');
+
+  // Issue #70: Session-Kosten akkumulieren
+  let sessionPromptTokens = 0;
+  let sessionCompletionTokens = 0;
+
+  function renderCostLine(cost) {
+    if (!cost || cost.promptTokens == null || cost.completionTokens == null) {
+      costLineEl.textContent = '';
+      return;
+    }
+    const total = cost.promptTokens + cost.completionTokens;
+    costLineEl.textContent =
+      `${total} Tokens (↑ ${cost.promptTokens} + ↓ ${cost.completionTokens})`;
+    sessionPromptTokens += cost.promptTokens;
+    sessionCompletionTokens += cost.completionTokens;
+    const sessionTotal = sessionPromptTokens + sessionCompletionTokens;
+    sessionCostEl.textContent =
+      `Sitzung: ${sessionTotal} Tokens (↑ ${sessionPromptTokens} + ↓ ${sessionCompletionTokens})`;
+  }
 
   function showError(msg) {
     errorEl.textContent = msg;
@@ -305,6 +341,7 @@
     resultSection.classList.remove('visible');
     presentCard.classList.remove('visible');
     missingCard.classList.remove('visible');
+    costLineEl.textContent = '';
 
     try {
       const resp = await fetch(
@@ -329,6 +366,7 @@
       const tsFormatted = ts.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
       timestampEl.textContent = '— ' + tsFormatted + ' Uhr';
       summaryText.textContent = data.summary || '(Keine Zusammenfassung erhalten)';
+      renderCostLine(data.cost);
       resultSection.classList.add('visible');
 
       // Karte: haben gechattet
