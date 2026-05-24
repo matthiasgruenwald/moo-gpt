@@ -6,7 +6,7 @@ Kanonische Fachbegriffe für dieses Projekt. Neue Konzepte werden hier eingetrag
 
 ## Aktivität
 
-Eine Moodle-Aktivität (Textseite oder Aufgabe), in die ein Chat-Widget eingebettet ist. Jede Aktivität hat eine eindeutige `activityId` und eine eigene Widget-Konfiguration.
+Eine Moodle-Aktivität (Textseite oder Aufgabe), in die ein Chat-Widget eingebettet ist. Jede Aktivität hat eine eindeutige `activityId` und eine eigene Widget-Konfiguration. Wird einer Lehrkraft zugeordnet (`teacher_id` in `activities`-Tabelle), sobald die Lehrkraft das Dashboard für diese Aktivität öffnet. Ermöglicht Admin-seitige Kosten-Aufschlüsselung nach Lehrer.
 
 ## Widget-Konfiguration
 
@@ -55,6 +55,36 @@ Schülerspezifische Präferenzen und Wünsche, die als unsichtbare Instruktion i
 ## Prompt-Assistent
 
 Workflow zur Erstellung eines Aufgabenprompts vor dem Unterricht. KI analysiert die Aufgabe, stellt bei aktiver Option Rückfragen (grill-me-Muster), und generiert daraus einen fertigen Aufgabenprompt-Vorschlag. Option „Rückfragen erwünscht" ist standardmäßig aktiv, wird aber nutzerspezifisch gespeichert. Ersetzt die Simulation als primären Weg zu einem guten Prompt vor dem Unterricht.
+
+## Werkzeug-Aufruf
+
+Ein einzelner messbarer AI-Call, ausgelöst durch ein Lehrer-Werkzeug. Hat einen `call_type`, einen Zeitstempel, ein Modell, Token-Zahlen (Eingabe/Ausgabe) und berechenbare Kosten in €. Erscheint in der Detailliste auf `/dashboard/costs`. Pro Simulations-Durchlauf zählt ein Werkzeug-Aufruf (alle Teil-Calls zusammengefasst).
+
+**Darstellung:**
+- *Inline* (direkt nach jedem Schritt im Dashboard-Werkzeug): nur Betrag in € für diesen Schritt, dezent
+- *Laufende Summe* (unten im Werkzeug-Panel, analog zu Schüler-Chat-Gesamtkosten): akkumuliert clientseitig über alle Schritte der aktuellen Sitzung
+- *Detailliste* (`/dashboard/costs`): Zeitstempel, Typ, Modell, Eingabe-Token, Ausgabe-Token, Kosten in €
+
+Falls Preisdaten noch nicht geladen: Inline-Anzeige entfällt still, Detailliste zeigt „–" statt Betrag.
+
+## Chat-Kosten
+
+Token-Kosten, die durch Schüler-Chats entstehen. Werden pro Nachricht in `token_log` mit `thread_id` und `activity_id` gespeichert und sind im Dashboard pro Thread sichtbar.
+
+## Werkzeug-Kosten
+
+Token-Kosten, die durch Lehrer-Werkzeuge im Dashboard entstehen: Live-Unterrichts-Zusammenfassung, Prompt-Assistent, Kriterien-Generierung, Persona-Generierung, Simulation, Prompt-Optimierung. Immer aktivitätsbezogen — Calls ohne `activityId` werden nicht erfasst. Werden in `token_log` mit einer neuen Spalte `call_type` gespeichert (Chat-Einträge haben `call_type = NULL`). Bekannte Typen und ihre Anzeigenamen:
+
+| `call_type` | Anzeige |
+|---|---|
+| `live-summary` | Unterrichts-Zusammenfassung |
+| `prompt-assist` | Prompt-Assistent |
+| `criteria` | Kriterien-Generierung |
+| `optimize` | Prompt-Optimierung |
+| `persona` | Persona-Generierung |
+| `simulation` | Simulation |
+
+Pro Simulations-Durchlauf ein Eintrag (alle Teil-Calls summiert). Calls ohne `activityId` werden nicht erfasst.
 
 ## Live-Unterrichts-Überblick
 
