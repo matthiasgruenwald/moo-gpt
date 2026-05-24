@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { requireDashboardAuth } from '../auth-middleware.js';
-import { getActivity } from '../stores/activity.js';
+import { requireDashboardAuth, getUserNameFromToken } from '../auth-middleware.js';
+import { getActivity, setTeacherIfUnset } from '../stores/activity.js';
 import { getMessages } from '../stores/chat.js';
 import { getStudents } from '../stores/dashboard.js';
 import { enrichMessagesWithCost, computeThreadCost } from '../token-log.js';
@@ -19,6 +19,11 @@ const router = Router();
 
 router.get('/dashboard/students', requireDashboardAuth, async (req, res) => {
   const { activityId } = req;
+
+  // Issue #63: Lehrer beim ersten Dashboard-Aufruf als Eigentümer der Aktivität eintragen
+  const teacherName = getUserNameFromToken(req.query.token);
+  setTeacherIfUnset(activityId, req.userId, teacherName);
+
   try {
     const students = getStudents(activityId);
     const act      = getActivity(activityId);

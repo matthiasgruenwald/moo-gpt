@@ -21,6 +21,14 @@ export function getActivity(activity_id) {
   ).get(activity_id) || null;
 }
 
+export function setTeacherIfUnset(activity_id, teacher_id, teacher_name) {
+  if (!activity_id || !teacher_id) return;
+  getDb().prepare(`
+    UPDATE activities SET teacher_id = ?, teacher_name = ?
+    WHERE activity_id = ? AND teacher_id IS NULL
+  `).run(teacher_id, teacher_name ?? null, activity_id);
+}
+
 export function setActivityConfig(activity_id, opener, uploadMode, title, botIcon) {
   getDb().prepare(`
     INSERT INTO activities (activity_id, opener, upload_mode, title, bot_icon, updated_at)
