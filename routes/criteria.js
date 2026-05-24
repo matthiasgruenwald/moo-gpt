@@ -9,6 +9,8 @@ import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { suggestCriteriaList } from '../criteria.js';
 import { aiClient } from '../ai-instance.js';
 import { getCachedConfig } from '../config-cache.js';
+import { recordWerkzeugUsage } from '../cost-service.js';
+import { GEN_MODEL } from '../env-config.js';
 
 const router = Router();
 
@@ -20,9 +22,14 @@ router.get('/criteria/:activityId', requireDashboardAuth, (req, res) => {
 router.post('/criteria-suggest/:activityId', requireDashboardAuth, async (req, res) => {
   const { activityId } = req;
   try {
-    const erf = getActiveErfahrungsprompt(activityId);
-    const suggestions = await suggestCriteriaList({ config: getCachedConfig(), erfahrungsprompt: erf?.content || null, genModel: req.body.genModel, aiClient });
-    res.json({ suggestions });
+    const erf       = getActiveErfahrungsprompt(activityId);
+    const genModel  = req.body.genModel || GEN_MODEL;
+    const { suggestions, usage } = await suggestCriteriaList({ config: getCachedConfig(), erfahrungsprompt: erf?.content || null, genModel, aiClient });
+    recordWerkzeugUsage(activityId, 'criteria', genModel, usage);
+    res.json({
+      suggestions,
+      cost: { promptTokens: usage?.input_tokens ?? null, completionTokens: usage?.output_tokens ?? null },
+    });
   } catch (e) {
     console.error('[Criteria] Suggest-Fehler:', e);
     res.status(500).json({ error: e.message });

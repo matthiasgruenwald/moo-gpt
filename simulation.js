@@ -3,7 +3,7 @@ import { buildInstructions } from './prompt-builder.js';
 const SIMULATION_TIMEOUT_MS = 90_000;
 
 async function generateSimulatedUtterances(persona, count, model, aiClient) {
-  const { text } = await aiClient.jsonCall(
+  const { text, usage } = await aiClient.jsonCall(
     `Du simulierst Schüleräußerungen für Prompt-Engineering-Tests an einer IGS (Klasse 9).
 Generiere exakt ${count} kurze Schüleräußerungen für den beschriebenen Schüler-Typ.
 Antworte NUR mit einem JSON-Array von Strings: ["Äußerung 1", "Äußerung 2", ...]`,
@@ -12,13 +12,13 @@ Antworte NUR mit einem JSON-Array von Strings: ["Äußerung 1", "Äußerung 2", 
     model,
     { timeout: SIMULATION_TIMEOUT_MS }
   );
-  return text;
+  return { text, usage };
 }
 
 async function generateAIResponse(config, erfahrungContent, utterance, aiClient) {
   const instructions = buildInstructions({ systemContent: config.content, erfahrungContent });
-  const { text } = await aiClient.textCall(instructions, utterance, config.model, { timeout: SIMULATION_TIMEOUT_MS });
-  return text;
+  const { text, usage } = await aiClient.textCall(instructions, utterance, config.model, { timeout: SIMULATION_TIMEOUT_MS });
+  return { text, usage };
 }
 
 async function evaluateResponse(utterance, aiResponse, criteria, model, aiClient) {
@@ -26,7 +26,7 @@ async function evaluateResponse(utterance, aiResponse, criteria, model, aiClient
     ? criteria.map(c => `- ${c.content}`).join('\n')
     : '- Gibt keine fertigen Lösungen\n- Stellt Rückfragen\n- Fördert eigenständiges Denken';
 
-  const { text } = await aiClient.jsonCall(
+  const { text, usage } = await aiClient.jsonCall(
     `Du bewertest KI-Antworten nach pädagogischen Kriterien.
 Antworte AUSSCHLIESSLICH mit validem JSON (keine Markdown-Blöcke):
 {
@@ -40,25 +40,42 @@ Wähle nur Highlights deren Wortlaut EXAKT so in der KI-Antwort steht.`,
     model,
     { timeout: SIMULATION_TIMEOUT_MS }
   );
-  return text;
+  return { text, usage };
 }
 
 export async function runSimulation({ persona, config, erfahrungsprompt, criteria, models, aiClient, onPair }) {
   const { utteranceModel, evalModel } = models;
   const count = 4;
 
-  const utterances = await generateSimulatedUtterances(persona, count, utteranceModel, aiClient);
+  // Akkumulierter Token-Verbrauch aller AI-Calls dieser Simulation
+  const totalUsage = { input_tokens: 0, output_tokens: 0 };
+
+  function accUsage(usage) {
+    if (!usage) return;
+    totalUsage.input_tokens  += usage.input_tokens  ?? 0;
+    totalUsage.output_tokens += usage.output_tokens ?? 0;
+  }
+
+  const { text: utterancesText, usage: utteranceUsage } =
+    await generateSimulatedUtterances(persona, count, utteranceModel, aiClient);
+  accUsage(utteranceUsage);
 
   const pairs = [];
-  for (const utterance of utterances) {
-    const aiResponse = await generateAIResponse(config, erfahrungsprompt, utterance, aiClient);
+  for (const utterance of utterancesText) {
+    const { text: aiResponseText, usage: responseUsage } =
+      await generateAIResponse(config, erfahrungsprompt, utterance, aiClient);
+    accUsage(responseUsage);
+
     let evaluation;
     try {
-      evaluation = await evaluateResponse(utterance, aiResponse, criteria, evalModel, aiClient);
+      const { text: evalText, usage: evalUsage } =
+        await evaluateResponse(utterance, aiResponseText, criteria, evalModel, aiClient);
+      accUsage(evalUsage);
+      evaluation = evalText;
     } catch (_) {
       evaluation = { overall: 'gemischt', score: 3, highlights: [], summary: 'Evaluierung nicht möglich.' };
     }
-    const pair = { utterance, aiResponse, evaluation };
+    const pair = { utterance, aiResponse: aiResponseText, evaluation };
     pairs.push(pair);
     onPair?.(pair, pairs.length - 1);
   }
@@ -69,5 +86,5 @@ export async function runSimulation({ persona, config, erfahrungsprompt, criteri
     `Bewertung: ${r.evaluation.overall} (Score ${r.evaluation.score}/5) – ${r.evaluation.summary || ''}`
   ).join('\n---\n');
 
-  return { pairs, simResultsText };
+  return { pairs, simResultsText, totalUsage };
 }

@@ -11,6 +11,7 @@ import { augmentCriteria } from '../criteria.js';
 import { aiClient } from '../ai-instance.js';
 import { getCachedConfig } from '../config-cache.js';
 import { GEN_MODEL } from '../env-config.js';
+import { recordWerkzeugUsage } from '../cost-service.js';
 
 const router = Router();
 
@@ -42,7 +43,7 @@ router.post('/simulate', requireDashboardAuth, async (req, res) => {
     sendEvent('start', { total, personaName: persona.name });
     sendEvent('progress', { label: 'Simulation läuft, dauert typischerweise 30–60 Sekunden…' });
 
-    const { pairs, simResultsText } = await runSimulation({
+    const { pairs, simResultsText, totalUsage } = await runSimulation({
       persona,
       config:           getCachedConfig(),
       erfahrungsprompt: erfahrungsprompt?.content || '',
@@ -52,6 +53,7 @@ router.post('/simulate', requireDashboardAuth, async (req, res) => {
       onPair: (pair, index) => sendEvent('pair', { index, pair, personaName: persona.name }),
     });
 
+    recordWerkzeugUsage(activityId, 'simulation', GEN_MODEL, totalUsage);
     console.log(`[Simulate] ${pairs.length} Paare abgeschlossen, generiere Erfahrungsprompt-Vorschlag`);
 
     sendEvent('progress', { label: 'Generiere Erfahrungsprompt-Vorschlag…' });
@@ -116,7 +118,7 @@ router.post('/one-click-optimize', requireDashboardAuth, async (req, res) => {
 
     await Promise.allSettled(personas.map(async (persona) => {
       try {
-        await runSimulation({
+        const { totalUsage: simUsage } = await runSimulation({
           persona,
           config:           getCachedConfig(),
           erfahrungsprompt: erfahrungsprompt?.content || '',
@@ -129,6 +131,7 @@ router.post('/one-click-optimize', requireDashboardAuth, async (req, res) => {
             sendEvent('sim_pair', { personaName: persona.name, index, pair, emitted: pairsEmitted, total });
           },
         });
+        recordWerkzeugUsage(activityId, 'simulation', GEN_MODEL, simUsage);
       } catch (e) {
         console.warn(`[OneClick] Simulation fehlgeschlagen für ${persona.name}:`, e.message);
         return;

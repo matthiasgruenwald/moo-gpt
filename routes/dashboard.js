@@ -6,6 +6,7 @@ import { getStudents } from '../stores/dashboard.js';
 import { enrichMessagesWithCost, computeThreadCost } from '../token-log.js';
 import { aiClient } from '../ai-instance.js';
 import { GEN_MODEL } from '../env-config.js';
+import { recordWerkzeugUsage } from '../cost-service.js';
 
 // Issue #41: Kosten pro Schüler aus per-Modell-Token-Daten berechnen
 export async function enrichStudentsWithCost(students) {
@@ -104,13 +105,19 @@ router.post('/activity/:activityId/overview-summary', requireDashboardAuth, asyn
     const userMessage =
       `Hier sind die Chatverläufe der Schulklasse (${studentsWithChats.length} Schüler):\n\n${chatBlocks}`;
 
-    const { text: summary } = await aiClient.textCall(systemPrompt, userMessage, GEN_MODEL, { timeout: 60_000 });
+    const { text: summary, usage } = await aiClient.textCall(systemPrompt, userMessage, GEN_MODEL, { timeout: 60_000 });
+
+    recordWerkzeugUsage(activityId, 'live-summary', GEN_MODEL, usage);
 
     res.json({
       summary,
       timestamp: new Date().toISOString(),
       studentsMissing,
       studentsPresent,
+      cost: {
+        promptTokens:     usage.input_tokens,
+        completionTokens: usage.output_tokens,
+      },
     });
   } catch (e) {
     console.error('[Dashboard] overview-summary error:', e);

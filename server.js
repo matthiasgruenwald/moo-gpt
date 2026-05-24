@@ -7,7 +7,7 @@ import http from "http";
 import https from "https";
 import cors from "cors";
 import { addAdmin } from './stores/admin.js';
-import { getActivity } from './stores/activity.js';
+import { getActivity, setTeacherIfUnset } from './stores/activity.js';
 import { getActiveSystemPrompt, saveSystemPrompt, getActiveErfahrungsprompt } from './stores/prompt.js';
 import { initDb } from './db.js';
 import { saveMessage, getMessages, getMessagesAll } from './stores/chat.js';
@@ -22,6 +22,8 @@ import {
   isOriginAllowed,
   generateDashboardToken,
   validateDashboardToken,
+  getUserIdFromToken,
+  getUserNameFromToken,
 } from './auth-middleware.js';
 import { recordUsage, enrichMessagesWithCost, computeThreadCost, computeActivityCost } from './token-log.js';
 import { ClientRegistry } from './client-registry.js';
@@ -38,6 +40,7 @@ import studentMemoryRouter from './routes/student-memory.js';
 import { getStudentMemory } from './stores/student-memory.js';
 import { LockManager } from './lock-manager.js';
 import dashboardPagesRouter from './routes/dashboard-pages.js';
+import { createCostsRouter } from './routes/costs.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -181,8 +184,10 @@ initDb();
 
 const activityRouter = createActivityRouter({ chatRegistry, dashboardRegistry, lockManager, aiClient });
 const adminRouter    = createAdminRouter({ dashboardRegistry });
+const costsRouter    = createCostsRouter();
 app.use('/api', activityRouter);
 app.use('/api', adminRouter);
+app.use('/api', costsRouter);
 app.use('/api', teacherRouter);
 app.use('/api', erfahrungspromptRouter);
 app.use('/api', personasRouter);
@@ -234,6 +239,11 @@ app.ws('/api/dashboard-ws', (ws, req) => {
     console.log(`[Dashboard] Ungültiger Token für activityId=${activityId}`);
     return;
   }
+
+  // Issue #63: Lehrer beim ersten Dashboard-Aufruf als Eigentümer eintragen
+  const teacherId   = getUserIdFromToken(token);
+  const teacherName = getUserNameFromToken(token);
+  setTeacherIfUnset(activityId, teacherId, teacherName);
 
   // Registrieren
   dashboardRegistry.register(activityId, ws);

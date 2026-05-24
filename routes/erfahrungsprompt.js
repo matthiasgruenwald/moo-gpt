@@ -9,6 +9,7 @@ import { getFeedbackByActivity } from '../stores/feedback.js';
 import { generateOptimizeProposal } from '../optimize.js';
 import { aiClient } from '../ai-instance.js';
 import { getCachedConfig } from '../config-cache.js';
+import { recordWerkzeugUsage } from '../cost-service.js';
 
 const router = Router();
 
@@ -47,16 +48,22 @@ router.post('/optimize-prompt', requireDashboardAuth, async (req, res) => {
     const erf          = getActiveErfahrungsprompt(activityId);
     const erkenntnisse = getErkenntnisse(activityId);
     const feedbacks    = getFeedbackByActivity(activityId);
+    const config       = getCachedConfig();
     const result = await generateOptimizeProposal({
       erfahrungsprompt: erf?.content || null,
       erkenntnisse,
       feedbacks,
       simResultsText: '',
-      config: getCachedConfig(),
+      config,
       aiClient,
     });
+    recordWerkzeugUsage(activityId, 'optimize', config.model, result.usage);
     console.log(`[Optimize] Vorschlag für ${activityId} generiert (${result.kausalkette.length} Kausalketten-Einträge)`);
-    res.json(result);
+    const { usage: _usage, ...resultWithoutUsage } = result;
+    res.json({
+      ...resultWithoutUsage,
+      cost: { promptTokens: result.usage?.input_tokens ?? null, completionTokens: result.usage?.output_tokens ?? null },
+    });
   } catch (e) {
     console.error('[Optimize] Fehler:', e);
     res.status(500).json({ error: e.message });

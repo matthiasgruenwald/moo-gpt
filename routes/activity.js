@@ -6,6 +6,7 @@ import { getTeacherPreference, setTeacherSuggestPreference } from '../stores/tea
 import { AVAILABLE_MODELS, GEN_MODEL, MODEL_NAME } from '../env-config.js';
 import { validateWidgetConfig } from '../validators.js';
 import { getCachedConfig } from '../config-cache.js';
+import { recordWerkzeugUsage } from '../cost-service.js';
 
 function buildPromptCheckSystem(hasImages) {
   const sections = 'Rolle | Ziel | Antwortstil | Didaktisches Verhalten | Verbote | Beispiele (Schüler: … / Gut: … / Schlecht: …)';
@@ -125,10 +126,11 @@ export function buildSuggestPromptHandler({ aiClient: client }) {
     }
 
     try {
-      const { text: raw } = await client.textCall(systemPrompt, '', MODEL_NAME, {
+      const { text: raw, usage } = await client.textCall(systemPrompt, '', MODEL_NAME, {
         timeout: 120_000,
         input: history.map(m => ({ role: m.role, content: m.content })),
       });
+      recordWerkzeugUsage(req.activityId, 'prompt-assist', MODEL_NAME, usage);
       // Robust JSON extraction: find first { ... } block
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       let parsed;
@@ -136,7 +138,11 @@ export function buildSuggestPromptHandler({ aiClient: client }) {
         try { parsed = JSON.parse(jsonMatch[0]); } catch { parsed = null; }
       }
       if (!parsed) parsed = { type: 'final', prompt: raw.trim() };
-      res.json(parsed);
+      const cost = {
+        promptTokens:     usage?.input_tokens  ?? null,
+        completionTokens: usage?.output_tokens ?? null,
+      };
+      res.json({ ...parsed, cost });
     } catch (err) {
       console.log(`[SuggestPrompt] Fehler: ${err.message}`);
       res.status(502).json({ error: 'KI-Aufruf fehlgeschlagen' });

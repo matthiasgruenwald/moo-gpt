@@ -9,6 +9,7 @@ import {
 } from '../stores/persona.js';
 import { aiClient } from '../ai-instance.js';
 import { GEN_MODEL } from '../env-config.js';
+import { recordWerkzeugUsage } from '../cost-service.js';
 
 const router = Router();
 
@@ -36,17 +37,24 @@ router.post('/personas-suggest', requireDashboardAuth, async (req, res) => {
   const { activityId } = req;
   try {
     const { genModel } = req.body;
+    const model  = genModel || GEN_MODEL;
     const msgs   = getStudentMessages(activityId);
     const sample = msgs.slice(0, 60).map(m => m.content).join('\n---\n');
-    const { text: result } = await aiClient.jsonCall(
+    const { text: result, usage } = await aiClient.jsonCall(
       `Du analysierst Schüleräußerungen aus einer Lernaktivität und leitest typische Schüler-Personas ab.
 Antworte AUSSCHLIESSLICH mit validem JSON:
 { "personas": [{ "name": "...", "description": "...", "example_msgs": "Beispiel 1|Beispiel 2|Beispiel 3" }] }
 Leite 3–5 gut unterscheidbare Personas ab. Wenn keine Äußerungen vorliegen, erstelle generische Schüler-Typen für eine IGS Klasse 9.`,
       msgs.length ? `Schüler-Äußerungen:\n${sample}` : 'Noch keine Schüler-Äußerungen vorhanden. Erstelle typische Klasse-9-Personas.',
-      genModel || GEN_MODEL
+      model
     );
-    res.json({ suggestions: result.personas || [] });
+    if (activityId) {
+      recordWerkzeugUsage(activityId, 'persona', model, usage);
+    }
+    res.json({
+      suggestions: result.personas || [],
+      cost: { promptTokens: usage?.input_tokens ?? null, completionTokens: usage?.output_tokens ?? null },
+    });
   } catch (e) {
     console.error('[Personas-Suggest] Fehler:', e);
     res.status(500).json({ error: e.message });
