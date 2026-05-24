@@ -126,7 +126,7 @@ export function buildSuggestPromptHandler({ aiClient: client }) {
 
     try {
       const { text: raw } = await client.textCall(systemPrompt, '', MODEL_NAME, {
-        timeout: 60_000,
+        timeout: 120_000,
         input: history.map(m => ({ role: m.role, content: m.content })),
       });
       // Robust JSON extraction: find first { ... } block
