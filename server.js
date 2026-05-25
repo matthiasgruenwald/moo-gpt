@@ -30,6 +30,7 @@ import { LockManager } from './lock-manager.js';
 import dashboardPagesRouter from './routes/dashboard-pages.js';
 import { createCostsRouter } from './routes/costs.js';
 import { createStreamResponse } from './services/chat-response.js';
+import { createRateLimiter } from './rate-limiter.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -57,56 +58,7 @@ if (fs.existsSync(CERT_FILE) && fs.existsSync(KEY_FILE)) {
   console.log("Starting HTTP/WS server");
 }
 
-/**
- * Middle ware to limit the number of requests from a single IP address
- */
-const requests = {};
-
-// Prune stale IP entries daily to prevent unbounded growth
-setInterval(() => {
-  const today = new Date().toISOString().slice(0, 10);
-  for (const ip of Object.keys(requests)) {
-    if (requests[ip].date !== today) delete requests[ip];
-  }
-}, 24 * 60 * 60 * 1000);
-
-function limitRequests(ws, req, message, next) {
-  const ip = req.socket.remoteAddress;
-  console.log("Client IP:", ip);
-
-  // Sicherstellen, dass das `requests` Objekt die IP enthält
-  if (!requests[ip]) {
-    requests[ip] = { count: 0, date: "" };
-  }
-
-  const today = new Date().toISOString().slice(0, 10);
-
-  // Überprüfen, ob das Datum aktualisiert werden muss
-  if (requests[ip].date !== today) {
-    requests[ip].count = 0;
-    requests[ip].date = today;
-  }
-
-  // Erhöhe den Anfragenzähler
-  requests[ip].count++;
-
-  console.log("requests", JSON.stringify(requests[ip]));
-  console.log("MAX_REQUESTS", process.env.MAX_REQUESTS);
-  // Prüfen, ob ein Limit definiert ist und ob es überschritten wurde
-  if (process.env.MAX_REQUESTS != undefined) {
-    if (requests[ip].count > process.env.MAX_REQUESTS) {
-      const chatMsg = {
-        end: true,
-        messages: "Error: Too many requests from this IP",
-      };
-      ws.send(JSON.stringify(chatMsg));
-      ws.close(1008, "Rate limit exceeded"); // Code 1008: Policy Violation
-      return;
-    }
-  }
-
-  next();
-}
+const limitRequests = createRateLimiter();
 
 // Issue #5: Teacher-Dashboard -----------------------------------------------
 
