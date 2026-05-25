@@ -68,3 +68,25 @@ export function requireAdminAuth(req, res, next) {
   req.userId = userId;
   next();
 }
+
+/**
+ * WebSocket-Middleware: prüft die Origin gegen ALLOWED_ORIGIN.
+ * Sendet bei verbotener Origin einen Fehler-Frame und schließt den WS.
+ *
+ * @param {object} ws
+ * @param {object} req
+ * @param {Function} next
+ */
+export function checkOriginWs(ws, req, next) {
+  const origin = req.headers.origin;
+  if (process.env.ALLOWED_ORIGIN != undefined) {
+    const allowedOrigins = process.env.ALLOWED_ORIGIN.split(',').map(o => o.trim());
+    const allowed = allowedOrigins.some(o => origin && origin.startsWith(o));
+    if (!allowed) {
+      ws.send(JSON.stringify({ end: true, messages: 'Error: Origin not allowed' }));
+      ws.close(1008, 'Origin not allowed');
+      return;
+    }
+  }
+  next();
+}
