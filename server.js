@@ -6,13 +6,8 @@ import expressWs from "express-ws";
 import http from "http";
 import https from "https";
 import cors from "cors";
-import { addAdmin } from './stores/admin.js';
-import { getActiveSystemPrompt, saveSystemPrompt } from './stores/prompt.js';
-import { initDb } from './db.js';
 import { ChatSession } from "./chat-session.js";
-import { getCachedConfig, updateCachedConfig } from './config-cache.js';
 import { oai, aiClient } from './ai-instance.js';
-import { MODEL_NAME } from './env-config.js';
 import { generateDashboardToken, checkOriginWs } from './auth-middleware.js';
 import { ClientRegistry } from './client-registry.js';
 import { createActivityRouter } from './routes/activity.js';
@@ -31,6 +26,7 @@ import dashboardPagesRouter from './routes/dashboard-pages.js';
 import { createCostsRouter } from './routes/costs.js';
 import { createStreamResponse } from './services/chat-response.js';
 import { createRateLimiter } from './rate-limiter.js';
+import { initApp } from './app-init.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -60,8 +56,6 @@ if (fs.existsSync(CERT_FILE) && fs.existsSync(KEY_FILE)) {
 
 const limitRequests = createRateLimiter();
 
-// Issue #5: Teacher-Dashboard -----------------------------------------------
-
 const dashboardRegistry = new ClientRegistry();
 const chatRegistry      = new ClientRegistry();
 
@@ -73,33 +67,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static("public"));
 app.use('/graphify', express.static("graphify-out"));
 
-// Issue #13: System-Prompt aus Env (Fallback, wenn DB noch leer)
-const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || '';
-
-// SQLite-DB initialisieren
-initDb();
-
-// Issue #17: Admins aus ADMIN_USER_IDS-Env seeden (idempotent via INSERT OR IGNORE)
-{
-  const adminIds = process.env.ADMIN_USER_IDS
-    ? process.env.ADMIN_USER_IDS.split(',').map(s => s.trim()).filter(Boolean)
-    : [];
-  for (const uid of adminIds) addAdmin(uid, 'env');
-  if (adminIds.length > 0) console.log(`[Admin] ${adminIds.length} Admin(s) aus ADMIN_USER_IDS eingetragen`);
-}
-
-// Issue #17/#18: Systemprompt + Modell aus DB laden; bei Erststart aus Env migrieren
-{
-  const dbPrompt = getActiveSystemPrompt();
-  if (dbPrompt) {
-    updateCachedConfig(dbPrompt.content, dbPrompt.model || MODEL_NAME);
-    console.log(`[Config] Systemprompt aus DB (v${dbPrompt.version}), Modell: ${getCachedConfig().model}`);
-  } else {
-    saveSystemPrompt(SYSTEM_PROMPT || '', MODEL_NAME, 'env-migration');
-    updateCachedConfig(SYSTEM_PROMPT || '', MODEL_NAME);
-    console.log(`[Config] Systemprompt aus ENV in DB migriert, Modell: ${MODEL_NAME}`);
-  }
-}
+// DB-Init + Admin-Seed + Config-Load (→ app-init.js)
+initApp();
 
 const streamResponse     = createStreamResponse({ dashboardRegistry, aiClient });
 const activityRouter     = createActivityRouter({ chatRegistry, dashboardRegistry, lockManager, aiClient });
@@ -120,8 +89,6 @@ app.use('/api', dashboardRouter);
 app.use(dashboardWsRouter);
 app.use(dashboardPagesRouter);
 
-// ---------------------------------------------------------------------------
-
 function checkFormat(ws, msgObj, next) {
   const sendErr = (msg) => { ws.send(JSON.stringify({ end: true, messages: msg })); console.log(msg); };
   if (!msgObj.hasOwnProperty("type"))       return sendErr("Error: Missing or wrong Parameter 'type' in JSON message");
@@ -130,11 +97,6 @@ function checkFormat(ws, msgObj, next) {
   if (typeof msgObj.data !== "object")      return sendErr("Error: Parameter 'data' is not a object in JSON message");
   next();
 }
-
-// ── Issue #5/#75: Dashboard-WS → routes/dashboard-ws.js ─────────────────────
-// Registriert via dashboardWsRouter (createDashboardWsRouter) — siehe oben.
-
-// ────────────────────────────────────────────────────────────────────────────
 
 app.ws("/api/chat", (ws, req) => {
   checkOriginWs(ws, req, () => {
