@@ -369,9 +369,9 @@
   }
 
   // ── Admin-Sektion laden ─────────────────────────────────────────────────
+  let isAdmin = false; // Modul-Ebene: von loadWerkzeugLog gelesen
+
   async function loadAdminSection() {
-    // Prüfe ob Admin
-    let isAdmin = false;
     try {
       const resp = await fetch(
         `/api/admin/config?activityId=${encodeURIComponent(activityId)}&token=${encodeURIComponent(token)}`
@@ -462,9 +462,13 @@
   }
 
   // ── Init ────────────────────────────────────────────────────────────────
+  // loadAdminSection zuerst awaiten: setzt isAdmin, bevor loadWerkzeugLog es liest
+  // Async-IIFE nötig weil <script> kein type="module" hat (kein Top-Level await)
   if (activityId && token) {
-    loadWerkzeugLog(activityId);
-    loadAdminSection();
+    (async () => {
+      await loadAdminSection();
+      loadWerkzeugLog(activityId);
+    })();
   }
 </script>
 </body>
