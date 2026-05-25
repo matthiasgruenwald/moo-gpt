@@ -23,9 +23,9 @@ export function createCostsRouter() {
     }
   });
 
-  router.get('/activity/:activityId/werkzeug-log', requireDashboardAuth, (req, res) => {
+  router.get('/activity/:activityId/werkzeug-log', requireDashboardAuth, async (req, res) => {
     try {
-      const log = getWerkzeugLog(req.activityId);
+      const log = await getWerkzeugLog(req.activityId);
       res.json(log);
     } catch (err) {
       console.log(`[Costs] werkzeug-log Fehler: ${err.message}`);

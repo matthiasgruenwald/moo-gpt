@@ -1222,6 +1222,7 @@
 <nav id="dashboard-nav">
   <a class="dash-nav-link active" href="#" id="nav-chats">Chats</a>
   <a class="dash-nav-link" href="#" id="nav-overview">Überblick</a>
+  <a class="dash-nav-link" href="#" id="nav-costs">Kosten</a>
   <a class="dash-nav-link" href="#" id="nav-settings">Einstellungen</a>
 </nav>
 
@@ -1459,6 +1460,7 @@
     var qs = params.toString() ? '?' + params.toString() : '';
     document.getElementById('nav-chats').href    = '/dashboard/chats'    + qs;
     document.getElementById('nav-overview').href = '/dashboard/overview' + qs;
+    document.getElementById('nav-costs').href    = '/dashboard/costs'    + qs;
     document.getElementById('nav-settings').href = '/dashboard/settings' + qs;
   })();
 </script>

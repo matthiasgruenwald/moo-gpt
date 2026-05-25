@@ -27,7 +27,7 @@ router.get('/dashboard', requireDashboardAuth, (req, res) => {
 <body>
 <script>
   var last = localStorage.getItem('dashboard_last_page');
-  var allowed = ['/dashboard/chats', '/dashboard/overview', '/dashboard/settings'];
+  var allowed = ['/dashboard/chats', '/dashboard/overview', '/dashboard/costs', '/dashboard/settings'];
   var target = (last && allowed.indexOf(last) !== -1) ? last : '/dashboard/chats';
   window.location.replace(target + '?${qs}');
 </script>
@@ -41,6 +41,10 @@ router.get('/dashboard/chats', requireDashboardAuth, (req, res) => {
 
 router.get('/dashboard/overview', requireDashboardAuth, (req, res) => {
   res.sendFile(path.join(viewsDir, 'dashboard', 'overview.html'));
+});
+
+router.get('/dashboard/costs', requireDashboardAuth, (req, res) => {
+  res.sendFile(path.join(viewsDir, 'dashboard', 'costs.html'));
 });
 
 router.get('/dashboard/settings', requireDashboardAuth, (req, res) => {

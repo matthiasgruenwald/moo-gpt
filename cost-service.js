@@ -94,9 +94,9 @@ export async function getCostSummary(activityId) {
  * Gibt alle Werkzeug-Aufrufe einer Aktivität zurück.
  *
  * @param {string} activityId
- * @returns {Array<{ id, createdAt, callType, callTypeLabel, model, promptTokens, completionTokens, totalTokens }>}
+ * @returns {Promise<Array<{ id, createdAt, callType, callTypeLabel, model, promptTokens, completionTokens, totalTokens, costEur }>>}
  */
-export function getWerkzeugLog(activityId) {
+export async function getWerkzeugLog(activityId) {
   const rows = getDb().prepare(`
     SELECT id, created_at, call_type, model, prompt_tokens, completion_tokens, total_tokens
     FROM token_log
@@ -104,15 +104,24 @@ export function getWerkzeugLog(activityId) {
     ORDER BY created_at DESC
   `).all(activityId);
 
-  return rows.map(row => ({
-    id:               row.id,
-    createdAt:        row.created_at,
-    callType:         row.call_type,
-    callTypeLabel:    CALL_TYPE_LABELS[row.call_type] ?? row.call_type,
-    model:            row.model,
-    promptTokens:     row.prompt_tokens,
-    completionTokens: row.completion_tokens,
-    totalTokens:      row.total_tokens,
+  return Promise.all(rows.map(async row => {
+    const cost = await sumCostRows([{
+      model:             row.model,
+      prompt_tokens:     row.prompt_tokens,
+      completion_tokens: row.completion_tokens,
+    }]);
+    const costEur = cost?.totalEur ?? null;
+    return {
+      id:               row.id,
+      createdAt:        row.created_at,
+      callType:         row.call_type,
+      callTypeLabel:    CALL_TYPE_LABELS[row.call_type] ?? row.call_type,
+      model:            row.model,
+      promptTokens:     row.prompt_tokens,
+      completionTokens: row.completion_tokens,
+      totalTokens:      row.total_tokens,
+      costEur,
+    };
   }));
 }
 
@@ -129,7 +138,7 @@ export async function getAdminCostsByTeacher() {
     ORDER BY teacher_name
   `).all();
 
-  return Promise.all(teachers.map(async t => {
+  const result = await Promise.all(teachers.map(async t => {
     const acts = getDb().prepare(`
       SELECT activity_id, activity_name
       FROM activities
@@ -152,4 +161,22 @@ export async function getAdminCostsByTeacher() {
       activities,
     };
   }));
+
+  // Aktivitäten ohne Lehrer-Zuordnung
+  const unknownActs = getDb().prepare(`
+    SELECT activity_id, activity_name
+    FROM activities
+    WHERE teacher_id IS NULL
+    ORDER BY activity_name
+  `).all();
+
+  if (unknownActs.length > 0) {
+    const activities = await Promise.all(unknownActs.map(async a => {
+      const costSummary = await getCostSummary(a.activity_id);
+      return { activityId: a.activity_id, activityName: a.activity_name, ...costSummary };
+    }));
+    result.push({ teacherId: null, teacherName: 'Unbekannt', activities });
+  }
+
+  return result;
 }

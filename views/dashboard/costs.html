@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>moo-gpt – Kosten</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f4f8;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    #header {
+      background: #003366;
+      color: white;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    #header h1 { font-size: 18px; font-weight: 600; }
+
+    /* ── Dashboard-Nav-Bar ───────────────────────────────────────────────── */
+    #dashboard-nav {
+      background: #002a55;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      flex-shrink: 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .dash-nav-link {
+      display: inline-block;
+      color: rgba(255,255,255,0.55);
+      font-size: 13px;
+      padding: 9px 14px;
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .dash-nav-link:hover { color: rgba(255,255,255,0.85); }
+    .dash-nav-link.active { color: white; border-bottom-color: #5599ff; }
+    @media (max-width: 480px) {
+      .dash-nav-link { padding: 9px 10px; font-size: 12px; }
+    }
+
+    /* ── Initialer Fehler ───────────────────────────────────────────────── */
+    #initial-error {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #f0f4f8;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    #initial-error.visible { display: flex; }
+    #initial-error .error-box {
+      text-align: center;
+      max-width: 420px;
+      padding: 40px 32px;
+    }
+    #initial-error .error-box h2 {
+      font-size: 22px;
+      color: #c0392b;
+      margin-bottom: 16px;
+    }
+    #initial-error .error-box p {
+      color: #555;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* ── Toolbar ─────────────────────────────────────────────────────────── */
+    #toolbar {
+      background: #004085;
+      color: white;
+      padding: 8px 20px;
+      font-size: 13px;
+      flex-shrink: 0;
+      opacity: 0.9;
+    }
+
+    /* ── Main-Inhalt ────────────────────────────────────────────────────── */
+    #main {
+      flex: 1;
+      padding: 24px 20px;
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Karte ──────────────────────────────────────────────────────────── */
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px 24px;
+      border: 1px solid #dde3ea;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .card h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #003366;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eef0f3;
+      margin: 0;
+    }
+
+    /* ── Tabelle ────────────────────────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      text-align: left;
+      padding: 8px 10px;
+      background: #f5f7fa;
+      border-bottom: 2px solid #dde3ea;
+      font-weight: 600;
+      color: #444;
+      white-space: nowrap;
+    }
+    td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #eef0f3;
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    .col-cost { text-align: right; font-variant-numeric: tabular-nums; }
+    .col-tokens { text-align: right; font-variant-numeric: tabular-nums; color: #555; }
+
+    /* ── Leer-Hinweis ───────────────────────────────────────────────────── */
+    #empty-hint {
+      display: none;
+      font-size: 13px;
+      color: #888;
+      padding: 16px 0;
+    }
+    #empty-hint.visible { display: block; }
+
+    /* ── Lade-/Fehler-Hinweise ──────────────────────────────────────────── */
+    .status-line {
+      font-size: 13px;
+      color: #888;
+      padding: 4px 0;
+    }
+    .error-line {
+      font-size: 13px;
+      color: #c0392b;
+      padding: 4px 0;
+    }
+
+    /* ── Admin-Sektion ──────────────────────────────────────────────────── */
+    #admin-section { display: none; }
+    #admin-section.visible { display: flex; flex-direction: column; gap: 14px; }
+
+    details {
+      border: 1px solid #dde3ea;
+      border-radius: 6px;
+      background: #f9fbfd;
+    }
+    summary {
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      color: #003366;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::after {
+      content: '▸';
+      font-size: 12px;
+      color: #888;
+      transition: transform 0.15s;
+    }
+    details[open] summary::after { transform: rotate(90deg); }
+
+    .teacher-total {
+      font-size: 13px;
+      font-weight: normal;
+      color: #555;
+    }
+
+    .activity-list {
+      padding: 8px 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .activity-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 8px;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #1a1a1a;
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      text-align: left;
+      width: 100%;
+      transition: background 0.12s;
+    }
+    .activity-item:hover { background: #e8eef5; }
+    .activity-item.selected { background: #d4e2f5; font-weight: 600; }
+    .activity-cost { color: #555; font-size: 12px; white-space: nowrap; margin-left: 12px; }
+  </style>
+</head>
+<body>
+
+<!-- Initialer Fehler -->
+<div id="initial-error">
+  <div class="error-box">
+    <h2>Kein Zugang</h2>
+    <p>Dieses Dashboard kann nur über den Chat-Button in Moodle geöffnet werden. Der Zugangslink ist ungültig oder fehlt.</p>
+  </div>
+</div>
+
+<div id="header">
+  <h1>moo-gpt</h1>
+</div>
+<nav id="dashboard-nav">
+  <a class="dash-nav-link" href="#" id="nav-chats">Chats</a>
+  <a class="dash-nav-link" href="#" id="nav-overview">Überblick</a>
+  <a class="dash-nav-link active" href="#" id="nav-costs">Kosten</a>
+  <a class="dash-nav-link" href="#" id="nav-settings">Einstellungen</a>
+</nav>
+
+<div id="toolbar">
+  Aktivität: <span id="toolbar-activity-id">–</span>
+</div>
+
+<div id="main">
+
+  <!-- Admin-Sektion (nur für Admins sichtbar) -->
+  <div class="card" id="admin-section">
+    <h2>Lehrer-Übersicht (Admin)</h2>
+    <div id="admin-loading" class="status-line">Lade Lehrer-Daten…</div>
+    <div id="admin-error" class="error-line" style="display:none"></div>
+    <div id="admin-list"></div>
+  </div>
+
+  <!-- Werkzeug-Log -->
+  <div class="card">
+    <h2>Werkzeug-Aufrufe</h2>
+    <div id="log-loading" class="status-line">Lade Werkzeug-Log…</div>
+    <div id="log-error" class="error-line" style="display:none"></div>
+    <div id="empty-hint">Noch keine Werkzeug-Aufrufe für diese Aktivität.</div>
+    <table id="log-table" style="display:none">
+      <thead>
+        <tr>
+          <th>Zeitstempel</th>
+          <th>Typ</th>
+          <th>Modell</th>
+          <th class="col-tokens">Eingabe-Token</th>
+          <th class="col-tokens">Ausgabe-Token</th>
+          <th class="col-cost">Kosten</th>
+        </tr>
+      </thead>
+      <tbody id="log-tbody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+  localStorage.setItem('dashboard_last_page', window.location.pathname);
+
+  const params     = new URLSearchParams(window.location.search);
+  const token      = params.get('token');
+  const qs         = params.toString() ? '?' + params.toString() : '';
+  let   activityId = params.get('activityId');
+
+  // Nav-Links mit Query-Params befüllen
+  document.getElementById('nav-chats').href    = '/dashboard/chats'    + qs;
+  document.getElementById('nav-overview').href = '/dashboard/overview' + qs;
+  document.getElementById('nav-costs').href    = '/dashboard/costs'    + qs;
+  document.getElementById('nav-settings').href = '/dashboard/settings' + qs;
+
+  if (!activityId || !token) {
+    document.getElementById('initial-error').classList.add('visible');
+  }
+
+  document.getElementById('toolbar-activity-id').textContent = activityId || '–';
+
+  // ── Kosten-Format ───────────────────────────────────────────────────────
+  function fmtCt(eur) {
+    if (eur == null || isNaN(eur)) return '–';
+    const raw = eur * 100;
+    if (raw < 0.01) return '<0,01 Ct';
+    const ct = Math.round(raw * 100) / 100;
+    return ct.toFixed(2).replace('.', ',') + ' Ct';
+  }
+
+  // ── Werkzeug-Log laden ──────────────────────────────────────────────────
+  async function loadWerkzeugLog(aid) {
+    const loadingEl = document.getElementById('log-loading');
+    const errorEl   = document.getElementById('log-error');
+    const emptyEl   = document.getElementById('empty-hint');
+    const tableEl   = document.getElementById('log-table');
+    const tbody     = document.getElementById('log-tbody');
+
+    loadingEl.style.display = 'block';
+    errorEl.style.display   = 'none';
+    emptyEl.classList.remove('visible');
+    tableEl.style.display   = 'none';
+    tbody.innerHTML = '';
+
+    try {
+      const resp = await fetch(
+        `/api/activity/${encodeURIComponent(aid)}/werkzeug-log?token=${encodeURIComponent(token)}`
+      );
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(body.error || `Serverfehler (${resp.status})`);
+      }
+      const rows = await resp.json();
+
+      loadingEl.style.display = 'none';
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        emptyEl.classList.add('visible');
+        return;
+      }
+
+      rows.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${new Date(row.createdAt).toLocaleString('de-DE')}</td>
+          <td>${row.callTypeLabel ?? row.callType ?? '–'}</td>
+          <td style="font-size:11px;color:#666">${row.model ?? '–'}</td>
+          <td class="col-tokens">${row.promptTokens ?? '–'}</td>
+          <td class="col-tokens">${row.completionTokens ?? '–'}</td>
+          <td class="col-cost">${fmtCt(row.costEur)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      tableEl.style.display = 'table';
+    } catch (err) {
+      loadingEl.style.display = 'none';
+      errorEl.textContent     = 'Fehler: ' + err.message;
+      errorEl.style.display   = 'block';
+    }
+  }
+
+  // ── Admin-Sektion laden ─────────────────────────────────────────────────
+  async function loadAdminSection() {
+    // Prüfe ob Admin
+    let isAdmin = false;
+    try {
+      const resp = await fetch(
+        `/api/admin/config?activityId=${encodeURIComponent(activityId)}&token=${encodeURIComponent(token)}`
+      );
+      if (resp.ok) {
+        const data = await resp.json();
+        isAdmin = data.isAdmin === true;
+      }
+    } catch (_) {
+      // kein Admin oder Netzwerkfehler — Admin-Sektion bleibt verborgen
+    }
+
+    if (!isAdmin) return;
+
+    const adminSection = document.getElementById('admin-section');
+    const loadingEl    = document.getElementById('admin-loading');
+    const errorEl      = document.getElementById('admin-error');
+    const listEl       = document.getElementById('admin-list');
+
+    adminSection.classList.add('visible');
+
+    try {
+      const resp = await fetch(`/api/admin/costs?token=${encodeURIComponent(token)}`);
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(body.error || `Serverfehler (${resp.status})`);
+      }
+      const teachers = await resp.json();
+
+      loadingEl.style.display = 'none';
+
+      teachers.forEach(teacher => {
+        const totalEur = teacher.activities.reduce((sum, a) => {
+          return a.totalEur != null ? sum + a.totalEur : sum;
+        }, 0);
+        const hasAnyEur = teacher.activities.some(a => a.totalEur != null);
+
+        const details = document.createElement('details');
+        const summary = document.createElement('summary');
+        summary.innerHTML = `
+          <span>${teacher.teacherName}</span>
+          <span class="teacher-total">Gesamt: ${hasAnyEur ? fmtCt(totalEur) : '–'}</span>
+        `;
+        details.appendChild(summary);
+
+        const actList = document.createElement('div');
+        actList.className = 'activity-list';
+
+        teacher.activities.forEach(act => {
+          const btn = document.createElement('button');
+          btn.className = 'activity-item';
+          if (act.activityId === activityId) btn.classList.add('selected');
+          btn.innerHTML = `
+            <span>${act.activityName || act.activityId}</span>
+            <span class="activity-cost">${fmtCt(act.totalEur)}</span>
+          `;
+          btn.addEventListener('click', () => {
+            activityId = act.activityId;
+            document.getElementById('toolbar-activity-id').textContent = activityId;
+            // Alle selected-Klassen entfernen und neu setzen
+            listEl.querySelectorAll('.activity-item').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            loadWerkzeugLog(activityId);
+          });
+          actList.appendChild(btn);
+        });
+
+        if (teacher.activities.length === 0) {
+          const empty = document.createElement('p');
+          empty.style.cssText = 'font-size:13px;color:#aaa;padding:8px 8px';
+          empty.textContent = 'Keine Aktivitäten.';
+          actList.appendChild(empty);
+        }
+
+        details.appendChild(actList);
+        listEl.appendChild(details);
+      });
+
+      if (teachers.length === 0) {
+        loadingEl.style.display = 'none';
+        listEl.textContent = 'Keine Lehrer-Daten vorhanden.';
+      }
+    } catch (err) {
+      loadingEl.style.display = 'none';
+      errorEl.textContent     = 'Fehler: ' + err.message;
+      errorEl.style.display   = 'block';
+    }
+  }
+
+  // ── Init ────────────────────────────────────────────────────────────────
+  if (activityId && token) {
+    loadWerkzeugLog(activityId);
+    loadAdminSection();
+  }
+</script>
+</body>
+</html>
