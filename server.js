@@ -7,18 +7,13 @@ import http from "http";
 import https from "https";
 import cors from "cors";
 import { addAdmin } from './stores/admin.js';
-import { getActiveSystemPrompt, saveSystemPrompt, getActiveErfahrungsprompt } from './stores/prompt.js';
+import { getActiveSystemPrompt, saveSystemPrompt } from './stores/prompt.js';
 import { initDb } from './db.js';
-import { saveMessage, getMessagesAll } from './stores/chat.js';
 import { ChatSession } from "./chat-session.js";
-import { buildInstructions } from "./prompt-builder.js";
 import { getCachedConfig, updateCachedConfig } from './config-cache.js';
 import { oai, aiClient } from './ai-instance.js';
-import { MODEL_NAME, GEN_MODEL } from './env-config.js';
-import { buildInput } from './message-formatter.js';
-import { getEffectiveModel } from './model-resolver.js';
+import { MODEL_NAME } from './env-config.js';
 import { generateDashboardToken } from './auth-middleware.js';
-import { recordUsage } from './token-log.js';
 import { ClientRegistry } from './client-registry.js';
 import { createActivityRouter } from './routes/activity.js';
 import dashboardRouter from './routes/dashboard.js';
@@ -31,10 +26,10 @@ import criteriaRouter from './routes/criteria.js';
 import simulationRouter from './routes/simulation.js';
 import messageEditsRouter from './routes/message-edits.js';
 import studentMemoryRouter from './routes/student-memory.js';
-import { getStudentMemory } from './stores/student-memory.js';
 import { LockManager } from './lock-manager.js';
 import dashboardPagesRouter from './routes/dashboard-pages.js';
 import { createCostsRouter } from './routes/costs.js';
+import { createStreamResponse } from './services/chat-response.js';
 
 // Verhindert Prozess-Crash bei unhandled Promise rejections (z.B. saveMessage in async WS-Handler)
 process.on('unhandledRejection', (reason) => {
@@ -176,6 +171,7 @@ initDb();
   }
 }
 
+const streamResponse     = createStreamResponse({ dashboardRegistry, aiClient });
 const activityRouter     = createActivityRouter({ chatRegistry, dashboardRegistry, lockManager, aiClient });
 const adminRouter        = createAdminRouter({ dashboardRegistry });
 const costsRouter        = createCostsRouter();
@@ -239,81 +235,6 @@ app.ws("/api/chat", (ws, req) => {
     });
   });
 });
-
-/**
- * Streamt eine Antwort via Responses API und spiegelt sie in SQLite.
- * History wird vollständig aus der DB aufgebaut (inkl. task_image).
- */
-async function streamResponse(ws, settings, threadDbId) {
-  const chatMsg = { end: false, messages: '' };
-
-  const effectiveModel = getEffectiveModel(ws.isTeacher, ws.userId);
-  const memoryEntry    = (!ws.isTeacher && settings.userId && settings.activityId)
-    ? getStudentMemory(settings.userId, settings.activityId)
-    : null;
-  const instructions   = buildInstructions({
-    systemContent:    getCachedConfig().content,
-    erfahrungContent: getActiveErfahrungsprompt(settings.activityId)?.content ?? '',
-    hints:            settings.hints,
-    task:             settings.task,
-    date:             new Date(),
-    studentMemory:    memoryEntry?.preference_text ?? null,
-  });
-  const input          = buildInput(getMessagesAll(threadDbId));
-
-  let resContent = '';
-
-  try {
-    const stream = await aiClient.stream(instructions, input, effectiveModel);
-
-    let usage = null;
-    for await (const event of stream) {
-      if (event.type === 'response.output_text.delta') {
-        resContent += event.delta;
-        chatMsg.messages = resContent;
-        if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(chatMsg));
-      } else if (event.type === 'response.completed') {
-        usage = event.response?.usage ?? null;
-      }
-    }
-
-    resContent = resContent.replace('sandbox:/mnt/data/', 'storage/');
-    console.log(`[Chat] Antwort (${resContent.length} Zeichen)`);
-
-    // Assistenten-Antwort in DB spiegeln
-    const msgId = saveMessage({ thread_db_id: threadDbId, role: 'assistant', content: resContent });
-
-    // Token-Verbrauch speichern (Responses API: input_tokens / output_tokens)
-    const costs = await recordUsage(threadDbId, settings?.activityId || null, effectiveModel, usage, msgId);
-
-    // Dashboard benachrichtigen
-    if (settings.activityId) {
-      dashboardRegistry.broadcast(settings.activityId, {
-        type:         'newMessage',
-        threadDbId,
-        userId:       settings.userId   || null,
-        userName:     settings.userName || null,
-        role:         'assistant',
-        content:      resContent,
-        createdAt:    new Date().toISOString(),
-        messageId:    msgId,
-        runCost:      costs?.runCost      ?? null,
-        threadCost:   costs?.threadCost   ?? null,
-        activityCost: costs?.activityCost ?? null,
-      });
-    }
-
-    chatMsg.end      = true;
-    chatMsg.messages = resContent;
-    if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(chatMsg));
-
-  } catch (error) {
-    console.error('[Chat] streamResponse Fehler:', error);
-    chatMsg.end      = true;
-    chatMsg.messages = 'Error: ' + error.message;
-    if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(chatMsg));
-  }
-}
 
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT} Version: ${VERSION}`);
