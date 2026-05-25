@@ -7,11 +7,9 @@ import http from "http";
 import https from "https";
 import cors from "cors";
 import { addAdmin } from './stores/admin.js';
-import { getActivity, setTeacherIfUnset } from './stores/activity.js';
 import { getActiveSystemPrompt, saveSystemPrompt, getActiveErfahrungsprompt } from './stores/prompt.js';
 import { initDb } from './db.js';
-import { saveMessage, getMessages, getMessagesAll } from './stores/chat.js';
-import { getStudents } from './stores/dashboard.js';
+import { saveMessage, getMessagesAll } from './stores/chat.js';
 import { ChatSession } from "./chat-session.js";
 import { buildInstructions } from "./prompt-builder.js";
 import { getCachedConfig, updateCachedConfig } from './config-cache.js';
@@ -19,17 +17,12 @@ import { oai, aiClient } from './ai-instance.js';
 import { MODEL_NAME, GEN_MODEL } from './env-config.js';
 import { buildInput } from './message-formatter.js';
 import { getEffectiveModel } from './model-resolver.js';
-import {
-  isOriginAllowed,
-  generateDashboardToken,
-  validateDashboardToken,
-  getUserIdFromToken,
-  getUserNameFromToken,
-} from './auth-middleware.js';
-import { recordUsage, enrichMessagesWithCost, computeThreadCost, computeActivityCost } from './token-log.js';
+import { generateDashboardToken } from './auth-middleware.js';
+import { recordUsage } from './token-log.js';
 import { ClientRegistry } from './client-registry.js';
 import { createActivityRouter } from './routes/activity.js';
-import dashboardRouter, { enrichStudentsWithCost } from './routes/dashboard.js';
+import dashboardRouter from './routes/dashboard.js';
+import { createDashboardWsRouter } from './routes/dashboard-ws.js';
 import { createAdminRouter } from './routes/admin.js';
 import teacherRouter from './routes/teacher.js';
 import erfahrungspromptRouter from './routes/erfahrungsprompt.js';
@@ -183,9 +176,10 @@ initDb();
   }
 }
 
-const activityRouter = createActivityRouter({ chatRegistry, dashboardRegistry, lockManager, aiClient });
-const adminRouter    = createAdminRouter({ dashboardRegistry });
-const costsRouter    = createCostsRouter();
+const activityRouter     = createActivityRouter({ chatRegistry, dashboardRegistry, lockManager, aiClient });
+const adminRouter        = createAdminRouter({ dashboardRegistry });
+const costsRouter        = createCostsRouter();
+const dashboardWsRouter  = createDashboardWsRouter({ dashboardRegistry, lockManager });
 app.use('/api', activityRouter);
 app.use('/api', adminRouter);
 app.use('/api', costsRouter);
@@ -197,6 +191,7 @@ app.use('/api', simulationRouter);
 app.use('/api', messageEditsRouter);
 app.use('/api', studentMemoryRouter);
 app.use('/api', dashboardRouter);
+app.use(dashboardWsRouter);
 app.use(dashboardPagesRouter);
 
 // ---------------------------------------------------------------------------
@@ -210,87 +205,8 @@ function checkFormat(ws, msgObj, next) {
   next();
 }
 
-// ── Issue #5: Teacher-Dashboard WebSocket (Live-Updates) ────────────────────
-
-app.ws('/api/dashboard-ws', (ws, req) => {
-  if (!isOriginAllowed(req)) {
-    ws.close(1008, 'Origin not allowed');
-    return;
-  }
-
-  const params     = new URLSearchParams((req.url || '').split('?')[1] || '');
-  const activityId = params.get('activityId');
-  const token      = params.get('token');
-
-  // Token-Validierung (Issue #5: Zugriffsschutz)
-  if (!activityId || !token || !validateDashboardToken(token, activityId)) {
-    ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized' }));
-    ws.close(1008, 'Unauthorized');
-    console.log(`[Dashboard] Ungültiger Token für activityId=${activityId}`);
-    return;
-  }
-
-  // Issue #63: Lehrer beim ersten Dashboard-Aufruf als Eigentümer eintragen
-  const teacherId   = getUserIdFromToken(token);
-  const teacherName = getUserNameFromToken(token);
-  setTeacherIfUnset(activityId, teacherId, teacherName);
-
-  // Registrieren
-  dashboardRegistry.register(activityId, ws);
-  console.log(`[Dashboard] Lehrer verbunden, activityId=${activityId}`);
-
-  // Initialliste + Aufgabentitel + Kosten senden (Issue #12)
-  (async () => {
-    try {
-      const [students, activityCost] = await Promise.all([
-        enrichStudentsWithCost(getStudents(activityId)),
-        computeActivityCost(activityId),
-      ]);
-      const act = getActivity(activityId);
-      ws.send(JSON.stringify({
-        type: 'students',
-        data: students,
-        activityName: act?.activity_name,
-        opener:       act?.opener,
-        activityCost,
-        locked:       lockManager.isLocked(activityId),
-      }));
-    } catch (e) {
-      console.error('[Dashboard] Initial-students error:', e);
-    }
-  })();
-
-  // Nachrichten-Anfrage vom Dashboard-Client
-  ws.on('message', (msg) => {
-    try {
-      const obj = JSON.parse(msg);
-      if (obj.type === 'getMessages' && obj.threadDbId) {
-        const threadDbId = parseInt(obj.threadDbId);
-        const students = getStudents(activityId);
-        const student = students.find(s => s.thread_db_id === threadDbId);
-        if (!student) {
-          ws.send(JSON.stringify({ type: 'error', message: 'Forbidden' }));
-          return;
-        }
-        Promise.all([
-          enrichMessagesWithCost(getMessages(threadDbId)),
-          computeThreadCost(threadDbId),
-        ]).then(([messages, threadCost]) => {
-          ws.send(JSON.stringify({ type: 'messages', threadDbId, student, data: messages, threadCost }));
-        }).catch(e => {
-          console.error('[Dashboard] enrichMessages error:', e);
-        });
-      }
-    } catch (e) {
-      console.error('[Dashboard] WS message error:', e);
-    }
-  });
-
-  ws.on('close', () => {
-    dashboardRegistry.unregister(activityId, ws);
-    console.log(`[Dashboard] Lehrer getrennt, activityId=${activityId}`);
-  });
-});
+// ── Issue #5/#75: Dashboard-WS → routes/dashboard-ws.js ─────────────────────
+// Registriert via dashboardWsRouter (createDashboardWsRouter) — siehe oben.
 
 // ────────────────────────────────────────────────────────────────────────────
 
