@@ -416,10 +416,24 @@
   }
 
   // ── Interaktiver Prompt-Assistent (via postMessage an Parent-Panel) ─────────
+  function _fmtCt(eur) {
+    if (eur == null) return null;
+    const ct = eur * 100;
+    if (ct < 0.01) return '< 0,01 Ct';
+    return (Math.round(ct * 100) / 100).toFixed(2).replace('.', ',') + ' Ct';
+  }
+  function _fmtCost(cost) {
+    const total  = (cost.promptTokens || 0) + (cost.completionTokens || 0);
+    const ctStr  = _fmtCt(cost.costEur);
+    const tokStr = `${total} Tokens (↑ ${cost.promptTokens} + ↓ ${cost.completionTokens})`;
+    return ctStr ? `${ctStr}  —  ${tokStr}` : tokStr;
+  }
+
   let suggestHistory = [];
   // Issue #70: Session-Kosten akkumulieren (pro Sitzung, Reset bei neuem Dialog)
   let suggestSessionPrompt = 0;
   let suggestSessionCompletion = 0;
+  let suggestSessionCostEur = null;
 
   async function suggestSend(userText) {
     if (userText) {
@@ -445,11 +459,13 @@
       if (data.cost?.promptTokens != null) {
         suggestSessionPrompt += data.cost.promptTokens;
         suggestSessionCompletion += data.cost.completionTokens;
+        if (data.cost.costEur != null) suggestSessionCostEur = (suggestSessionCostEur ?? 0) + data.cost.costEur;
         window.parent.postMessage({
           type: 'moogpt:suggestCost',
           cost: data.cost,
           sessionPrompt: suggestSessionPrompt,
           sessionCompletion: suggestSessionCompletion,
+          sessionCostEur: suggestSessionCostEur,
         }, '*');
       }
       if (data.type === 'question') {
@@ -496,9 +512,7 @@
       }
       const cfgCostEl = document.getElementById('cfg-suggest-cost');
       if (cfgCostEl && data.cost?.promptTokens != null) {
-        const total = data.cost.promptTokens + data.cost.completionTokens;
-        cfgCostEl.textContent =
-          `${total} Tokens (↑ ${data.cost.promptTokens} + ↓ ${data.cost.completionTokens})`;
+        cfgCostEl.textContent = _fmtCost(data.cost);
       }
     } catch (err) {
       showStatus(`Fehler: ${err.message}`, 'err');
@@ -514,6 +528,7 @@
       suggestHistory = [];
       suggestSessionPrompt = 0;
       suggestSessionCompletion = 0;
+      suggestSessionCostEur = null;
       const existingPrompt = document.getElementById('cfg-hints').value?.trim() || '';
       const taskText = taskContext.task
         ? `\nAufgabenstellung aus Moodle:\n${taskContext.task.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim()}\n`

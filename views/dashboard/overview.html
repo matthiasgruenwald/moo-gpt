@@ -308,20 +308,34 @@
   // Issue #70: Session-Kosten akkumulieren
   let sessionPromptTokens = 0;
   let sessionCompletionTokens = 0;
+  let sessionCostEur = null;
+
+  function fmtCt(eur) {
+    if (eur == null) return null;
+    const ct = eur * 100;
+    if (ct < 0.01) return '< 0,01 Ct';
+    return (Math.round(ct * 100) / 100).toFixed(2).replace('.', ',') + ' Ct';
+  }
 
   function renderCostLine(cost) {
     if (!cost || cost.promptTokens == null || cost.completionTokens == null) {
       costLineEl.textContent = '';
       return;
     }
-    const total = cost.promptTokens + cost.completionTokens;
-    costLineEl.textContent =
-      `${total} Tokens (↑ ${cost.promptTokens} + ↓ ${cost.completionTokens})`;
+    const total    = cost.promptTokens + cost.completionTokens;
+    const ctStr    = fmtCt(cost.costEur);
+    const tokStr   = `${total} Tokens (↑ ${cost.promptTokens} + ↓ ${cost.completionTokens})`;
+    costLineEl.textContent = ctStr ? `${ctStr}  —  ${tokStr}` : tokStr;
+
     sessionPromptTokens += cost.promptTokens;
     sessionCompletionTokens += cost.completionTokens;
+    if (cost.costEur != null) sessionCostEur = (sessionCostEur ?? 0) + cost.costEur;
     const sessionTotal = sessionPromptTokens + sessionCompletionTokens;
-    sessionCostEl.textContent =
-      `Sitzung: ${sessionTotal} Tokens (↑ ${sessionPromptTokens} + ↓ ${sessionCompletionTokens})`;
+    const sessCtStr = fmtCt(sessionCostEur);
+    const sessTokStr = `${sessionTotal} Tokens`;
+    sessionCostEl.textContent = sessCtStr
+      ? `Sitzung: ${sessCtStr}  —  ${sessTokStr}`
+      : `Sitzung: ${sessTokStr}`;
   }
 
   function showError(msg) {
