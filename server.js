@@ -12,13 +12,13 @@ import { getActiveSystemPrompt, saveSystemPrompt, getActiveErfahrungsprompt } fr
 import { initDb } from './db.js';
 import { saveMessage, getMessages, getMessagesAll } from './stores/chat.js';
 import { getStudents } from './stores/dashboard.js';
-import { getTeacherPreference } from './stores/teacher.js';
 import { ChatSession } from "./chat-session.js";
 import { buildInstructions } from "./prompt-builder.js";
 import { getCachedConfig, updateCachedConfig } from './config-cache.js';
 import { oai, aiClient } from './ai-instance.js';
-import { MODEL_NAME, AVAILABLE_MODELS, GEN_MODEL } from './env-config.js';
+import { MODEL_NAME, GEN_MODEL } from './env-config.js';
 import { buildInput } from './message-formatter.js';
+import { getEffectiveModel } from './model-resolver.js';
 import {
   isOriginAllowed,
   generateDashboardToken,
@@ -198,17 +198,6 @@ app.use('/api', messageEditsRouter);
 app.use('/api', studentMemoryRouter);
 app.use('/api', dashboardRouter);
 app.use(dashboardPagesRouter);
-
-/** Gibt das effektive Modell zurück: persönliche Präferenz > globaler DB-Wert. */
-function getEffectiveModel(isTeacher, userId) {
-  if (isTeacher && userId) {
-    const pref = getTeacherPreference(userId);
-    if (pref?.preferred_model && AVAILABLE_MODELS.includes(pref.preferred_model)) {
-      return pref.preferred_model;
-    }
-  }
-  return getCachedConfig().model || MODEL_NAME;
-}
 
 // ---------------------------------------------------------------------------
 
