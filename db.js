@@ -214,6 +214,9 @@ export function initDb() {
   try { db.exec(`ALTER TABLE activities ADD COLUMN teacher_id TEXT`); } catch (_) {}
   try { db.exec(`ALTER TABLE activities ADD COLUMN teacher_name TEXT`); } catch (_) {}
 
+  // Issue #87: Audio-Transkription — Sekunden in token_log
+  try { db.exec(`ALTER TABLE token_log ADD COLUMN audio_seconds REAL`); } catch (_) {}
+
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;
 }
