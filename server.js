@@ -18,6 +18,7 @@ import { buildInstructions } from "./prompt-builder.js";
 import { getCachedConfig, updateCachedConfig } from './config-cache.js';
 import { oai, aiClient } from './ai-instance.js';
 import { MODEL_NAME, AVAILABLE_MODELS, GEN_MODEL } from './env-config.js';
+import { buildInput } from './message-formatter.js';
 import {
   isOriginAllowed,
   generateDashboardToken,
@@ -333,37 +334,6 @@ app.ws("/api/chat", (ws, req) => {
     });
   });
 });
-
-/**
- * Baut das input-Array für oai.responses.create() aus der SQLite-History.
- * Inkl. task_image-Einträge (Aufgabenbilder).
- */
-function buildInput(messages) {
-  return messages.map(m => {
-    const ct = m.content_type || 'text';
-
-    if (ct === 'image' || ct === 'task_image') {
-      if (m.content.startsWith('data:')) {
-        return { role: m.role, content: [{ type: 'input_image', image_url: m.content }] };
-      }
-      // Marker [image:file-xxx] oder [pdf:file-xxx]
-      const match = m.content.match(/^\[(?:image|pdf):([^\]]+)\]$/);
-      if (match) {
-        return { role: m.role, content: [{ type: 'input_image', file_id: match[1] }] };
-      }
-    }
-
-    if (ct === 'pdf') {
-      const match = m.content.match(/^\[pdf:([^\]]+)\]$/);
-      if (match) {
-        return { role: m.role, content: [{ type: 'input_file', file_id: match[1] }] };
-      }
-    }
-
-    // Default: Plaintext
-    return { role: m.role, content: m.content };
-  });
-}
 
 /**
  * Streamt eine Antwort via Responses API und spiegelt sie in SQLite.
