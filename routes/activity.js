@@ -7,7 +7,7 @@ import { AVAILABLE_MODELS, GEN_MODEL, MODEL_NAME } from '../env-config.js';
 import { validateWidgetConfig } from '../validators.js';
 import { getCachedConfig } from '../config-cache.js';
 import { recordWerkzeugUsage } from '../cost-service.js';
-import { computeRunCost } from '../token-log.js';
+import { sumCostRows } from '../token-log.js';
 
 function buildPromptCheckSystem(hasImages) {
   const sections = 'Rolle | Ziel | Antwortstil | Didaktisches Verhalten | Verbote | Beispiele (Schüler: … / Gut: … / Schlecht: …)';
@@ -139,10 +139,15 @@ export function buildSuggestPromptHandler({ aiClient: client }) {
         try { parsed = JSON.parse(jsonMatch[0]); } catch { parsed = null; }
       }
       if (!parsed) parsed = { type: 'final', prompt: raw.trim() };
+      const runCost = await sumCostRows([{
+        prompt_tokens:     usage?.input_tokens  ?? 0,
+        completion_tokens: usage?.output_tokens ?? 0,
+        model:             MODEL_NAME,
+      }]);
       const cost = {
         promptTokens:     usage?.input_tokens  ?? null,
         completionTokens: usage?.output_tokens ?? null,
-        costEur:          computeRunCost(usage?.input_tokens, usage?.output_tokens, MODEL_NAME)?.totalEur ?? null,
+        costEur:          runCost?.totalEur ?? null,
       };
       res.json({ ...parsed, cost });
     } catch (err) {

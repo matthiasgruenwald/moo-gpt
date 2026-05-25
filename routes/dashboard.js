@@ -3,7 +3,7 @@ import { requireDashboardAuth, getUserNameFromToken } from '../auth-middleware.j
 import { getActivity, setTeacherIfUnset } from '../stores/activity.js';
 import { getMessages } from '../stores/chat.js';
 import { getStudents } from '../stores/dashboard.js';
-import { enrichMessagesWithCost, computeThreadCost, computeRunCost } from '../token-log.js';
+import { enrichMessagesWithCost, computeThreadCost, sumCostRows } from '../token-log.js';
 import { aiClient } from '../ai-instance.js';
 import { GEN_MODEL } from '../env-config.js';
 import { recordWerkzeugUsage } from '../cost-service.js';
@@ -109,6 +109,12 @@ router.post('/activity/:activityId/overview-summary', requireDashboardAuth, asyn
 
     recordWerkzeugUsage(activityId, 'live-summary', GEN_MODEL, usage);
 
+    const runCost = await sumCostRows([{
+      prompt_tokens:     usage.input_tokens,
+      completion_tokens: usage.output_tokens,
+      model:             GEN_MODEL,
+    }]);
+
     res.json({
       summary,
       timestamp: new Date().toISOString(),
@@ -117,7 +123,7 @@ router.post('/activity/:activityId/overview-summary', requireDashboardAuth, asyn
       cost: {
         promptTokens:     usage.input_tokens,
         completionTokens: usage.output_tokens,
-        costEur:          computeRunCost(usage.input_tokens, usage.output_tokens, GEN_MODEL)?.totalEur ?? null,
+        costEur:          runCost?.totalEur ?? null,
       },
     });
   } catch (e) {
