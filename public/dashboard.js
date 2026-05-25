@@ -1292,19 +1292,27 @@ const apiDelete = path          => apiFetch(path, { method: 'DELETE' });
 
 // ── Cost-Summary (Issue #69) ──────────────────────────────────────────────────
 
-/** Lädt und rendert die Aktivitäts-Kosten-Summary (Chat + Werkzeug). */
+/** Lädt und rendert die Aktivitäts-Kosten-Summary (Chat + Werkzeug + Audio). */
 async function fetchAndRenderCostSummary() {
   if (!costSummaryBar) return;
   try {
-    const { chatEur, werkzeugEur, totalEur } = await apiGet(
+    const { chatEur, werkzeugEur, totalEur, audioEur, audioSeconds } = await apiGet(
       `/api/activity/${encodeURIComponent(activityId)}/cost-summary`
     );
-    if (chatEur == null && werkzeugEur == null) {
+    if (chatEur == null && werkzeugEur == null && audioEur == null) {
       costSummaryBar.classList.remove('visible');
       return;
     }
-    document.getElementById('cost-summary-text').textContent =
-      `Chat-Kosten ${formatEur(chatEur)} · Werkzeug-Kosten ${formatEur(werkzeugEur)} · Gesamt ${formatEur(totalEur)}`;
+
+    // Issue #93: Audio-Block in der Cost-Summary
+    let text = `Chat-Kosten ${formatEur(chatEur)} · Werkzeug-Kosten ${formatEur(werkzeugEur)}`;
+    if (audioSeconds > 0 || audioEur != null) {
+      const secStr = audioSeconds ? `${Math.round(audioSeconds)} s` : '0 s';
+      text += ` · 🎤 Audio ${secStr} / ${formatEur(audioEur)}`;
+    }
+    text += ` · Gesamt ${formatEur(totalEur)}`;
+
+    document.getElementById('cost-summary-text').textContent = text;
     costSummaryBar.classList.add('visible');
   } catch {
     costSummaryBar.classList.remove('visible');

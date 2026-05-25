@@ -8,7 +8,8 @@
  */
 
 import { getDb } from './db.js';
-import { sumCostRows } from './token-log.js';
+import { sumCostRows, computeAudioCost } from './token-log.js';
+import { getActivityAudioSeconds } from './stores/token.js';
 
 // Deutsche Anzeige-Labels für call_type-Werte
 const CALL_TYPE_LABELS = {
@@ -63,31 +64,43 @@ function getWerkzeugCostRows(activityId) {
            COALESCE(SUM(prompt_tokens), 0)     AS prompt_tokens,
            COALESCE(SUM(completion_tokens), 0) AS completion_tokens
     FROM token_log
-    WHERE activity_id = ? AND call_type IS NOT NULL
+    WHERE activity_id = ? AND call_type IS NOT NULL AND call_type != 'transcription'
     GROUP BY model
   `).all(activityId);
 }
 
 /**
- * Gibt Chat- und Werkzeug-Kosten für eine Aktivität in EUR zurück.
+ * Gibt Chat-, Werkzeug- und Audio-Kosten für eine Aktivität in EUR zurück.
  * EUR-Werte sind null wenn Preisdaten noch nicht geladen sind.
  *
  * @param {string} activityId
- * @returns {Promise<{ chatEur: number|null, werkzeugEur: number|null, totalEur: number|null }>}
+ * @returns {Promise<{
+ *   chatEur: number|null,
+ *   werkzeugEur: number|null,
+ *   totalEur: number|null,
+ *   audioEur: number|null,
+ *   audioSeconds: number
+ * }>}
  */
 export async function getCostSummary(activityId) {
-  const [chatCost, werkzeugCost] = await Promise.all([
+  // Audio-Sekunden abrufen (synchron, kein Netz)
+  const audioRow     = getActivityAudioSeconds(activityId);
+  const audioSeconds = audioRow?.total_seconds ?? 0;
+
+  const [chatCost, werkzeugCost, audioEur] = await Promise.all([
     sumCostRows(getChatCostRows(activityId)),
     sumCostRows(getWerkzeugCostRows(activityId)),
+    computeAudioCost(audioSeconds),
   ]);
 
   const chatEur     = chatCost?.totalEur     ?? null;
   const werkzeugEur = werkzeugCost?.totalEur ?? null;
-  const totalEur    = chatEur != null && werkzeugEur != null
-    ? chatEur + werkzeugEur
-    : (chatEur ?? werkzeugEur ?? null);
 
-  return { chatEur, werkzeugEur, totalEur };
+  // totalEur: Summe aller verfügbaren Kosten-Typen
+  const parts = [chatEur, werkzeugEur, audioEur].filter(v => v != null);
+  const totalEur = parts.length > 0 ? parts.reduce((a, b) => a + b, 0) : null;
+
+  return { chatEur, werkzeugEur, totalEur, audioEur, audioSeconds };
 }
 
 /**
