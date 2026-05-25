@@ -329,9 +329,11 @@
     tbody.innerHTML = '';
 
     try {
-      const resp = await fetch(
-        `/api/activity/${encodeURIComponent(aid)}/werkzeug-log?token=${encodeURIComponent(token)}`
-      );
+      // Admins haben kein gültiges Token für fremde Aktivitäten → Admin-Endpunkt nutzen
+      const logUrl = isAdmin
+        ? `/api/admin/werkzeug-log/${encodeURIComponent(aid)}?token=${encodeURIComponent(token)}`
+        : `/api/activity/${encodeURIComponent(aid)}/werkzeug-log?token=${encodeURIComponent(token)}`;
+      const resp = await fetch(logUrl);
       if (!resp.ok) {
         const body = await resp.json().catch(() => ({}));
         throw new Error(body.error || `Serverfehler (${resp.status})`);

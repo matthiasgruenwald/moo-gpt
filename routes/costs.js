@@ -43,5 +43,17 @@ export function createCostsRouter() {
     }
   });
 
+  // Admin-Endpunkt für werkzeug-log ohne activityId-Bindung (Token gehört zur eigenen Aktivität
+  // des Admins, nicht zur angefragten — requireAdminAuth prüft nur isAdmin, nicht activityId)
+  router.get('/admin/werkzeug-log/:activityId', requireAdminAuth, async (req, res) => {
+    try {
+      const log = await getWerkzeugLog(req.params.activityId);
+      res.json(log);
+    } catch (err) {
+      console.log(`[Costs] admin/werkzeug-log Fehler: ${err.message}`);
+      res.status(500).json({ error: 'Interner Fehler' });
+    }
+  });
+
   return router;
 }
