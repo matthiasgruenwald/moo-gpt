@@ -366,14 +366,26 @@ export class MOOBOT {
       if (e.data?.type === 'moogpt:suggestCost') {
         const msgs = document.getElementById('suggest-panel-messages');
         if (!msgs) return;
-        const { cost, sessionPrompt, sessionCompletion } = e.data;
+        const { cost, sessionPrompt, sessionCompletion, sessionCostEur } = e.data;
+        const fmtCt = (eur) => {
+          if (eur == null) return null;
+          const ct = eur * 100;
+          if (ct < 0.01) return '< 0,01 Ct';
+          return (Math.round(ct * 100) / 100).toFixed(2).replace('.', ',') + ' Ct';
+        };
         const total = cost.promptTokens + cost.completionTokens;
+        const ctStr = fmtCt(cost.costEur);
+        const sessCtStr = fmtCt(sessionCostEur);
         const sessionTotal = sessionPrompt + sessionCompletion;
+        const stepPart = ctStr
+          ? `${ctStr}  —  ${total} Tokens (↑ ${cost.promptTokens} + ↓ ${cost.completionTokens})`
+          : `${total} Tokens (↑ ${cost.promptTokens} + ↓ ${cost.completionTokens})`;
+        const sessPart = sessCtStr
+          ? `Sitzung: ${sessCtStr}  —  ${sessionTotal} Tokens`
+          : `Sitzung: ${sessionTotal} Tokens`;
         const costEl = document.createElement('div');
         costEl.className = 'suggest-smsg-cost';
-        costEl.textContent =
-          `${total} Tokens (↑ ${cost.promptTokens} + ↓ ${cost.completionTokens})` +
-          `  |  Sitzung: ${sessionTotal}`;
+        costEl.textContent = `${stepPart}  |  ${sessPart}`;
         msgs.appendChild(costEl);
         msgs.scrollTop = msgs.scrollHeight;
       }
