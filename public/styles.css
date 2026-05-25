@@ -920,3 +920,43 @@ button:hover {
     font-weight: 600;
 }
 .memory-overlay-save:hover { background: #512e74; }
+
+/* Issue #88: Mikrofon-Icon für Spracheingaben */
+.audio-badge {
+    font-size: 0.85em;
+    opacity: 0.75;
+    margin-right: 2px;
+    vertical-align: middle;
+}
+
+/* Issue #92: Mikrofon-Button im Widget */
+#mic-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 20px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: background 0.15s, opacity 0.15s;
+    line-height: 1;
+    flex-shrink: 0;
+}
+#mic-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+#mic-button.recording {
+    animation: mic-pulse 1s ease-in-out infinite;
+    color: #c0392b;
+}
+@keyframes mic-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.5; transform: scale(1.15); }
+}
+.mic-error {
+    font-size: 12px;
+    color: #c0392b;
+    padding: 2px 8px;
+    display: none;
+}
+.mic-error.visible { display: block; }

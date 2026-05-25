@@ -657,6 +657,10 @@ function renderMsgContent(role, content, contentType) {
         ? '📄 <em>PDF-Upload (1 Seite)</em>'
         : '📷 <em>Bild (extern gespeichert, ~30 Tage)</em>';
     }
+    // Issue #88: Mikrofon-Icon für transkribierte Nachrichten
+    if (contentType === 'audio') {
+      return `<span class="audio-badge" title="Spracheingabe (Whisper)">🎤</span> ${simpleMarkdown(content)}`;
+    }
     return simpleMarkdown(content);
   }
   return simpleMarkdown(content);

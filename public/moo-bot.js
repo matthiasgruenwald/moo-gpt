@@ -11,10 +11,12 @@ import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-json.min.js";
 export class MOOBOT {
   constructor(settings) {
     // P5a: nur host/protocol/port aus dem Snippet verwenden
+    // Issue #89: audioInput (Opt-in) direkt aus dem Snippet lesen
     this.settings = {
-      host:     settings.host,
-      protocol: settings.protocol,
-      port:     settings.port,
+      host:       settings.host,
+      protocol:   settings.protocol,
+      port:       settings.port,
+      audioInput: settings.audioInput || 'off',
     };
     this.msgCount = 0;
     this.ws = null;
@@ -1347,7 +1349,7 @@ export class MOOBOT {
     chatWindow.scrollTop = chatWindow.scrollHeight;
   }
 
-  /** Rendert den Inhalt einer Nutzernachricht (Text, Bild, PDF) als HTML-String. */
+  /** Rendert den Inhalt einer Nutzernachricht (Text, Bild, PDF, Audio) als HTML-String. */
   _renderUserContent(content, contentType) {
     if (contentType === 'image' || contentType === 'pdf') {
       if (content && content.startsWith('data:')) {
@@ -1357,6 +1359,10 @@ export class MOOBOT {
       return contentType === 'pdf'
         ? `<p>📄 <em>PDF-Upload (1 Seite)</em></p>`
         : `<p>📷 <em>Bild (extern gespeichert)</em></p>`;
+    }
+    // Issue #88: Mikrofon-Icon für transkribierte Nachrichten
+    if (contentType === 'audio') {
+      return `<p><span class="audio-badge" title="Spracheingabe (Whisper)">🎤</span> ${content}</p>`;
     }
     return `<p>${content}</p>`;
   }
