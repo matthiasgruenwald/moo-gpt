@@ -13,7 +13,7 @@ import { ChatSession } from "./chat-session.js";
 import { getCachedConfig, updateCachedConfig } from './config-cache.js';
 import { oai, aiClient } from './ai-instance.js';
 import { MODEL_NAME } from './env-config.js';
-import { generateDashboardToken } from './auth-middleware.js';
+import { generateDashboardToken, checkOriginWs } from './auth-middleware.js';
 import { ClientRegistry } from './client-registry.js';
 import { createActivityRouter } from './routes/activity.js';
 import dashboardRouter from './routes/dashboard.js';
@@ -108,28 +108,6 @@ function limitRequests(ws, req, message, next) {
   next();
 }
 
-function checkOrigin(ws, req, next) {
-  const origin = req.headers.origin;
-  console.log("origin", origin);
-  if (process.env.ALLOWED_ORIGIN != undefined) {
-    console.log("ALLOWED_ORIGIN", process.env.ALLOWED_ORIGIN);
-    // Komma-getrennte Liste von erlaubten Origins unterstützen
-    const allowedOrigins = process.env.ALLOWED_ORIGIN.split(",").map(o => o.trim());
-    const allowed = allowedOrigins.some(o => origin && origin.startsWith(o));
-    if (!allowed) {
-      const chatMsg = {
-        end: true,
-        messages: "Error: Origin not allowed",
-      };
-      ws.send(JSON.stringify(chatMsg));
-      console.log("Origin not allowed:", origin);
-      ws.close(1008, "Origin not allowed");
-      return;
-    }
-  }
-  next();
-}
-
 // Issue #5: Teacher-Dashboard -----------------------------------------------
 
 const dashboardRegistry = new ClientRegistry();
@@ -207,7 +185,7 @@ function checkFormat(ws, msgObj, next) {
 // ────────────────────────────────────────────────────────────────────────────
 
 app.ws("/api/chat", (ws, req) => {
-  checkOrigin(ws, req, () => {
+  checkOriginWs(ws, req, () => {
     const session = new ChatSession(ws, {
       chatRegistry, lockManager, generateDashboardToken,
       dashboardRegistry, streamResponse, oai, VERSION,
