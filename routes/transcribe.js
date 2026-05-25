@@ -17,11 +17,58 @@ import { toFile } from 'openai';
 import { isOriginAllowed } from '../auth-middleware.js';
 import { saveAudioUsage } from '../stores/token.js';
 
-// Multer: In-Memory-Speicherung (kein Temp-File auf Disk)
+// Erlaubte Audio-MIME-Types (Whitelist)
+const ALLOWED_AUDIO_TYPES = new Set([
+  'audio/webm',
+  'audio/mp4',
+  'audio/mpeg',
+  'audio/ogg',
+  'audio/wav',
+  'audio/x-m4a',
+  'video/webm', // Chrome/Firefox senden gelegentlich video/webm für Audio-Recordings
+]);
+
+// Multer: In-Memory-Speicherung, MIME-Type-Check per fileFilter
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB — Whisper-Limit
+  limits:  { fileSize: 25 * 1024 * 1024 }, // 25 MB — Whisper-Limit
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_AUDIO_TYPES.has(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unerlaubter Dateityp: ${file.mimetype}`));
+    }
+  },
 });
+
+// Einfacher IP-basierter Rate-Limiter für den Transcribe-Endpunkt (kostet Geld!)
+const transcribeRequests = new Map(); // ip → { count, resetAt }
+const TRANSCRIBE_LIMIT_PER_HOUR = 60; // max. 60 Transkriptionen/Stunde/IP
+
+function transcribeRateLimit(req, res, next) {
+  const ip  = req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const entry = transcribeRequests.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    transcribeRequests.set(ip, { count: 1, resetAt: now + 60 * 60 * 1000 });
+    return next();
+  }
+
+  entry.count += 1;
+  if (entry.count > TRANSCRIBE_LIMIT_PER_HOUR) {
+    return res.status(429).json({ error: 'Zu viele Anfragen. Bitte später erneut versuchen.' });
+  }
+  next();
+}
+
+// Stale Entries täglich bereinigen
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of transcribeRequests) {
+    if (now > entry.resetAt) transcribeRequests.delete(ip);
+  }
+}, 60 * 60 * 1000);
 
 /**
  * Erstellt den Transcribe-Router.
@@ -31,7 +78,7 @@ const upload = multer({
 export function createTranscribeRouter({ oai }) {
   const router = Router();
 
-  router.post('/transcribe', upload.single('audio'), async (req, res) => {
+  router.post('/transcribe', transcribeRateLimit, upload.single('audio'), async (req, res) => {
     // Auth: Origin-Check
     if (!isOriginAllowed(req)) {
       return res.status(403).json({ error: 'Forbidden' });
@@ -41,8 +88,9 @@ export function createTranscribeRouter({ oai }) {
       return res.status(400).json({ error: 'Keine Audio-Datei empfangen' });
     }
 
-    const threadId   = req.body?.threadId   || null;
-    const activityId = req.body?.activityId || null;
+    // threadId / activityId nur als Strings zulassen (Länge begrenzen)
+    const threadId   = typeof req.body?.threadId   === 'string' ? req.body.threadId.slice(0, 64)   : null;
+    const activityId = typeof req.body?.activityId === 'string' ? req.body.activityId.slice(0, 64) : null;
 
     try {
       // Safari/iOS: audio/mp4 → .mp4-Endung; Standard: .webm
