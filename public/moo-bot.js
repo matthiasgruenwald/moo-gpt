@@ -636,6 +636,8 @@ export class MOOBOT {
         if (file) this.handleFileUpload(file);
         e.target.value = '';
       });
+      // Issue #92: Mikrofon-Button
+      this._attachMicButton(inputContainer);
       const chatContainer = document.getElementById('chat-container');
       if (chatContainer && !this._dragListenerAdded) {
         chatContainer.addEventListener('dragover', (e) => { e.preventDefault(); chatContainer.classList.add('drag-over'); });
@@ -676,6 +678,15 @@ export class MOOBOT {
         }
       } else {
         existing?.remove();
+      }
+    }
+
+    // Issue #92: Mikrofon-Button im 'off'-Modus (Upload-Modus != 'off' wird oben schon behandelt)
+    if (mode === 'off') {
+      const ic = document.querySelector('.input-container');
+      if (ic) {
+        ic.innerHTML = this._buildInputHTML('off');
+        this._attachMicButton(ic);
       }
     }
 
@@ -1031,13 +1042,20 @@ export class MOOBOT {
 
     if (messageText.trim() !== "") {
       const nowStr = new Date().toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+
+      // Issue #92: content_type 'audio' wenn Nachricht per Whisper transkribiert wurde
+      const contentType = this._nextContentType || 'text';
+      this._nextContentType = null;
+
       const message = document.createElement("div");
       message.className = "message sent";
-      message.innerHTML = `<p>${messageText}</p><span class="msg-time">${nowStr}</span>`;
+      // Issue #88: Mikrofon-Icon für Audio-Nachrichten im Widget
+      const prefix = contentType === 'audio' ? '<span class="audio-badge">🎤</span> ' : '';
+      message.innerHTML = `<p>${prefix}${messageText}</p><span class="msg-time">${nowStr}</span>`;
       chatWindow.appendChild(message);
       chatInput.value = "";
       this.ws.send(
-        JSON.stringify({ type: "chatmsg", data: { message: messageText } })
+        JSON.stringify({ type: "chatmsg", data: { message: messageText, content_type: contentType } })
       );
 
       const loading = document.createElement("div");
@@ -1170,20 +1188,195 @@ export class MOOBOT {
           e.target.value = '';
         });
       }
+      // Issue #92: Mikrofon-Button nach Reconnect wieder anbinden
+      this._attachMicButton(inputContainer);
     }
   }
 
-  /** Erzeugt das HTML für den Input-Bereich (mit oder ohne Upload-Button). */
+  /** Erzeugt das HTML für den Input-Bereich (mit oder ohne Upload-Button, mit oder ohne Mikrofon). */
   _buildInputHTML(uploadMode) {
+    // Issue #92: Mikrofon-Button nur wenn audioInput=on UND MediaRecorder verfügbar
+    const hasMic = this.settings.audioInput === 'on'
+      && typeof MediaRecorder !== 'undefined'
+      && typeof navigator?.mediaDevices?.getUserMedia === 'function';
+
+    const micBtn = hasMic
+      ? `<button id="mic-button" title="Spracheingabe" aria-label="Mikrofon">🎤</button>`
+      : '';
+
     if (uploadMode === 'off') {
-      return `<input type="text" id="chat-input" placeholder="Geben Sie eine Nachricht ein..." onkeydown="handleKeyDown(event)">
+      return `${micBtn}<input type="text" id="chat-input" placeholder="Geben Sie eine Nachricht ein..." onkeydown="handleKeyDown(event)">
         <button id="send-button" onclick="sendMessage()">Senden</button>`;
     }
     const accept = uploadMode === 'files' ? 'image/*,application/pdf' : 'image/*';
     return `<input type="file" id="file-input" accept="${accept}" style="display:none">
       <button id="upload-button" title="Bild${uploadMode === 'files' ? ' oder PDF' : ''} hochladen">📎</button>
-      <input type="text" id="chat-input" placeholder="Geben Sie eine Nachricht ein..." onkeydown="handleKeyDown(event)">
+      ${micBtn}<input type="text" id="chat-input" placeholder="Geben Sie eine Nachricht ein..." onkeydown="handleKeyDown(event)">
       <button id="send-button" onclick="sendMessage()">Senden</button>`;
+  }
+
+  // ── Issue #92: Mikrofon-Eingabe ───────────────────────────────────────────
+
+  /**
+   * Bindet den #mic-button im gegebenen Container an die Aufnahme-Logik.
+   * Fügt auch das mic-error-Element ein (wenn noch nicht vorhanden).
+   * Kein Fehler wenn kein Button vorhanden (Feature-Detection griff schon in _buildInputHTML).
+   */
+  _attachMicButton(container) {
+    const btn = container?.querySelector('#mic-button');
+    if (!btn) return;
+    // Fehler-Element einfügen (nach dem Input-Container, falls noch nicht vorhanden)
+    if (!container.querySelector('.mic-error')) {
+      const errDiv = document.createElement('div');
+      errDiv.className = 'mic-error';
+      container.insertAdjacentElement('afterend', errDiv);
+    }
+    btn.addEventListener('click', () => this._handleMicClick());
+  }
+
+  _handleMicClick() {
+    if (this._micRecording) {
+      this._stopRecording();
+    } else {
+      this._startRecording();
+    }
+  }
+
+  async _startRecording() {
+    const btn = document.getElementById('mic-button');
+    if (!btn) return;
+
+    this._hideMicError();
+
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      this._showMicError('⚠️ Mikrofon-Berechtigung verweigert.');
+      return;
+    }
+
+    const mimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm';
+    const recorder = new MediaRecorder(stream, { mimeType });
+    this._micChunks   = [];
+    this._micMimeType = mimeType;
+    this._micRecorder = recorder;
+    this._micRecording = true;
+    this._micStream    = stream;
+
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) this._micChunks.push(e.data);
+    };
+
+    recorder.onstop = () => this._transcribeAudio();
+
+    recorder.start();
+    btn.classList.add('recording');
+    this._disableSendControls(true);
+
+    // Countdown (60 s Auto-Stop)
+    const MAX_SECONDS = 60;
+    this._micSecondsLeft = MAX_SECONDS;
+    btn.title = `Aufnahme läuft – ${this._micSecondsLeft} s`;
+
+    this._micCountdown = setInterval(() => {
+      this._micSecondsLeft -= 1;
+      if (btn) btn.title = `Aufnahme läuft – ${this._micSecondsLeft} s`;
+      if (this._micSecondsLeft <= 0) this._stopRecording();
+    }, 1000);
+  }
+
+  _stopRecording() {
+    clearInterval(this._micCountdown);
+    this._micRecording = false;
+
+    if (this._micRecorder?.state !== 'inactive') {
+      this._micRecorder.stop();
+    }
+    this._micStream?.getTracks().forEach(t => t.stop());
+
+    const btn = document.getElementById('mic-button');
+    if (btn) {
+      btn.classList.remove('recording');
+      btn.disabled = true;
+      btn.title = 'Transkription läuft…';
+    }
+  }
+
+  async _transcribeAudio() {
+    if (!this._micChunks?.length) {
+      this._resetMicButton();
+      return;
+    }
+
+    const blob     = new Blob(this._micChunks, { type: this._micMimeType });
+    const ext      = this._micMimeType.includes('mp4') ? '.mp4' : '.webm';
+    const filename = `audio${ext}`;
+
+    const formData = new FormData();
+    formData.append('audio', blob, filename);
+
+    const activityId = this.settings.activityId || '';
+    const threadId   = '';  // threadDbId ist clientseitig nicht bekannt; Server ignoriert leeren Wert
+    formData.append('activityId', activityId);
+    formData.append('threadId',   threadId);
+
+    try {
+      const baseUrl = this._baseUrl();
+      const res = await fetch(`${baseUrl}/api/transcribe`, {
+        method: 'POST',
+        body:   formData,
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const { text } = await res.json();
+
+      const chatInput = document.getElementById('chat-input');
+      if (chatInput && text) {
+        chatInput.value = text;
+        chatInput.focus();
+        // Markiere nächste Nachricht als audio
+        this._nextContentType = 'audio';
+      }
+    } catch {
+      this._showMicError('⚠️ Transkription fehlgeschlagen. Bitte erneut versuchen.');
+    } finally {
+      this._resetMicButton();
+    }
+  }
+
+  _resetMicButton() {
+    const btn = document.getElementById('mic-button');
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('recording');
+      btn.title = 'Spracheingabe';
+    }
+    this._disableSendControls(false);
+    this._micChunks   = [];
+    this._micRecorder = null;
+    this._micRecording = false;
+  }
+
+  /** Deaktiviert Senden und Upload-Button während Aufnahme/Transkription. */
+  _disableSendControls(disable) {
+    const sendBtn   = document.getElementById('send-button');
+    const uploadBtn = document.getElementById('upload-button');
+    const chatInput = document.getElementById('chat-input');
+    if (sendBtn)   sendBtn.disabled   = disable;
+    if (uploadBtn) uploadBtn.disabled = disable;
+    if (chatInput) chatInput.disabled = disable;
+  }
+
+  _showMicError(msg) {
+    const el = document.querySelector('.mic-error');
+    if (el) { el.textContent = msg; el.classList.add('visible'); }
+  }
+
+  _hideMicError() {
+    const el = document.querySelector('.mic-error');
+    if (el) el.classList.remove('visible');
   }
 
   // ── Issue #10: Dateiupload ────────────────────────────────────────────────
