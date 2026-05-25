@@ -44,6 +44,7 @@
       botIcon:       document.getElementById('cfg-bot-icon').value,
       opener:        document.getElementById('cfg-opener').value,
       uploadMode:    document.getElementById('cfg-upload-mode').value,
+      audioInput:    document.getElementById('cfg-audio-input').value,
       hintsTemplate: document.getElementById('cfg-hints').value,
     };
   }
@@ -125,7 +126,7 @@
     updateTemplateUI();
   });
 
-  ['cfg-title', 'cfg-bot-icon', 'cfg-opener', 'cfg-upload-mode', 'cfg-hints'].forEach(id => {
+  ['cfg-title', 'cfg-bot-icon', 'cfg-opener', 'cfg-upload-mode', 'cfg-audio-input', 'cfg-hints'].forEach(id => {
     const el = document.getElementById(id);
     el.addEventListener('input',  updateDirtyState);
     el.addEventListener('change', updateDirtyState);
@@ -300,6 +301,7 @@
       document.getElementById('cfg-bot-icon').value     = data.botIcon     || 'grw';
       document.getElementById('cfg-opener').value       = data.opener      || '';
       document.getElementById('cfg-upload-mode').value  = data.uploadMode  || 'off';
+      document.getElementById('cfg-audio-input').value  = data.audioInput  || 'off';
       document.getElementById('cfg-hints').value        = data.erfahrungsprompt || '';
 
       const modelSel = document.getElementById('cfg-model');
@@ -319,6 +321,7 @@
         botIcon:    data.botIcon          || 'grw',
         opener:     data.opener           || '',
         uploadMode: data.uploadMode       || 'off',
+        audioInput: data.audioInput       || 'off',
         hints:      data.erfahrungsprompt || '',
         model:      data.myModel          || '',
       };
@@ -340,6 +343,7 @@
     const botIcon    = document.getElementById('cfg-bot-icon').value;
     const opener     = document.getElementById('cfg-opener').value;
     const uploadMode = document.getElementById('cfg-upload-mode').value;
+    const audioInput = document.getElementById('cfg-audio-input').value;
     const hints      = document.getElementById('cfg-hints').value;
     const model      = document.getElementById('cfg-model').value;
 
@@ -350,13 +354,13 @@
     const errors = [];
 
     try {
-      if (title !== initial.title || botIcon !== initial.botIcon || opener !== initial.opener || uploadMode !== initial.uploadMode) {
+      if (title !== initial.title || botIcon !== initial.botIcon || opener !== initial.opener || uploadMode !== initial.uploadMode || audioInput !== initial.audioInput) {
         const res = await fetch(
           `/api/activity-config/${encodeURIComponent(activityId)}?token=${encodeURIComponent(token)}`,
           {
             method:  'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ title, botIcon, opener, uploadMode }),
+            body:    JSON.stringify({ title, botIcon, opener, uploadMode, audioInput }),
           }
         );
         if (res.ok) {
@@ -364,6 +368,7 @@
           initial.botIcon    = botIcon;
           initial.opener     = opener;
           initial.uploadMode = uploadMode;
+          initial.audioInput = audioInput;
         } else {
           errors.push('Einstellungen konnten nicht gespeichert werden.');
         }

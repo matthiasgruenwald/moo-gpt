@@ -172,6 +172,7 @@ export function createActivityRouter({ chatRegistry, dashboardRegistry, lockMana
       botIcon:                act?.bot_icon                  ?? 'grw',
       opener:                 act?.opener                    || '',
       uploadMode:             act?.upload_mode               || 'off',
+      audioInput:             act?.audio_input               || 'off',
       erfahrungsprompt:       erf?.content                   || '',
       myModel:                pref?.preferred_model          || null,
       availableModels:        AVAILABLE_MODELS,
@@ -181,10 +182,10 @@ export function createActivityRouter({ chatRegistry, dashboardRegistry, lockMana
 
   router.put('/activity-config/:activityId', requireDashboardAuth, (req, res) => {
     const { activityId, userId } = req;
-    const { opener, uploadMode, title, botIcon } = req.body;
-    const validErr = validateWidgetConfig(uploadMode, botIcon);
+    const { opener, uploadMode, title, botIcon, audioInput } = req.body;
+    const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput);
     if (validErr) return res.status(400).json({ error: validErr });
-    setActivityConfig(activityId, opener ?? null, uploadMode ?? null, title ?? null, botIcon ?? null);
+    setActivityConfig(activityId, opener ?? null, uploadMode ?? null, title ?? null, botIcon ?? null, audioInput ?? null);
     console.log(`[Config] Aktivität ${activityId} aktualisiert von ${userId}`);
     res.json({ ok: true });
   });

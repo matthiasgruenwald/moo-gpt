@@ -216,6 +216,8 @@ export function initDb() {
 
   // Issue #87: Audio-Transkription — Sekunden in token_log
   try { db.exec(`ALTER TABLE token_log ADD COLUMN audio_seconds REAL`); } catch (_) {}
+  // Issue #89: Mikrofon-Opt-in pro Aktivität
+  try { db.exec(`ALTER TABLE activities ADD COLUMN audio_input TEXT DEFAULT 'off'`); } catch (_) {}
 
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;

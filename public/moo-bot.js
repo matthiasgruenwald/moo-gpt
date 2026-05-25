@@ -11,12 +11,11 @@ import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-json.min.js";
 export class MOOBOT {
   constructor(settings) {
     // P5a: nur host/protocol/port aus dem Snippet verwenden
-    // Issue #89: audioInput (Opt-in) direkt aus dem Snippet lesen
+    // Issue #89: audioInput kommt via Server-Config (_applyConfig), nicht aus dem Snippet
     this.settings = {
-      host:       settings.host,
-      protocol:   settings.protocol,
-      port:       settings.port,
-      audioInput: settings.audioInput || 'off',
+      host:     settings.host,
+      protocol: settings.protocol,
+      port:     settings.port,
     };
     this.msgCount = 0;
     this.ws = null;
@@ -602,12 +601,13 @@ export class MOOBOT {
   // ── P5a: Config vom Server anwenden ──────────────────────────────────────
 
   _applyConfig(config) {
-    const { title, botIcon, opener, uploadMode, needsConfig } = config;
+    const { title, botIcon, opener, uploadMode, audioInput, needsConfig } = config;
 
     this.settings.title      = title      ?? null;
     this.settings.botIcon    = botIcon    ?? 'grw';
     this.settings.opener     = opener     ?? null;
     this.settings.uploadMode = uploadMode ?? 'off';
+    this.settings.audioInput = audioInput ?? 'off';
 
     const iconUrl = this._iconUrl(botIcon || 'grw');
     document.querySelectorAll('#chat-icon img, .chat-header-icon').forEach(img => { img.src = iconUrl; });
