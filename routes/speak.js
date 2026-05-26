@@ -88,8 +88,9 @@ export function createSpeakRouter({ oai }) {
         speed,
       });
 
-      const arrayBuffer = await speechResponse.arrayBuffer();
-      const audioBuffer = Buffer.from(arrayBuffer);
+      // SDK 6.x: __binaryResponse → .blob() verwenden, nicht .arrayBuffer() direkt
+      const blob = await speechResponse.blob();
+      const audioBuffer = Buffer.from(await blob.arrayBuffer());
 
       saveTtsUsage(threadId, activityId, cleanedText.length);
 
