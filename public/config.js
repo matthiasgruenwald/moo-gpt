@@ -301,8 +301,11 @@
       document.getElementById('cfg-bot-icon').value     = data.botIcon     || 'grw';
       document.getElementById('cfg-opener').value       = data.opener      || '';
       document.getElementById('cfg-upload-mode').value  = data.uploadMode  || 'off';
-      document.getElementById('cfg-audio-input').value  = data.audioInput  || 'off';
-      document.getElementById('cfg-hints').value        = data.erfahrungsprompt || '';
+      document.getElementById('cfg-audio-input').value            = data.audioInput         || 'off';
+      document.getElementById('cfg-audio-output').value           = data.audioOutput        || 'off';
+      document.getElementById('cfg-tts-voice').value              = data.ttsVoice           || 'nova';
+      document.getElementById('cfg-audio-student-options').value  = data.audioStudentOptions || 'off';
+      document.getElementById('cfg-hints').value                  = data.erfahrungsprompt   || '';
 
       const modelSel = document.getElementById('cfg-model');
       for (const m of (data.availableModels || [])) {
@@ -314,21 +317,24 @@
       modelSel.value = data.myModel || '';
 
       initial = {
-        title:      data.title            || '',
-        botIcon:    data.botIcon          || 'grw',
-        opener:     data.opener           || '',
-        uploadMode: data.uploadMode       || 'off',
-        audioInput: data.audioInput       || 'off',
-        hints:      data.erfahrungsprompt || '',
-        model:      data.myModel          || '',
+        title:               data.title               || '',
+        botIcon:             data.botIcon             || 'grw',
+        opener:              data.opener              || '',
+        uploadMode:          data.uploadMode          || 'off',
+        audioInput:          data.audioInput          || 'off',
+        audioOutput:         data.audioOutput         || 'off',
+        ttsVoice:            data.ttsVoice            || 'nova',
+        audioStudentOptions: data.audioStudentOptions || 'off',
+        hints:               data.erfahrungsprompt    || '',
+        model:               data.myModel             || '',
       };
 
       elLoading.style.display = 'none';
       elForm.style.display    = '';
 
+      updateAudioOutputDependents();
       updateOpenerSummary();
       updateAppearanceSummary();
-      updateAudioSummary();
       updateAdvancedSummary();
 
       await loadTemplates();
@@ -341,13 +347,16 @@
     const btn    = document.getElementById('cfg-save-btn');
     const status = document.getElementById('cfg-status');
 
-    const title      = document.getElementById('cfg-title').value;
-    const botIcon    = document.getElementById('cfg-bot-icon').value;
-    const opener     = document.getElementById('cfg-opener').value;
-    const uploadMode = document.getElementById('cfg-upload-mode').value;
-    const audioInput = document.getElementById('cfg-audio-input').value;
-    const hints      = document.getElementById('cfg-hints').value;
-    const model      = document.getElementById('cfg-model').value;
+    const title               = document.getElementById('cfg-title').value;
+    const botIcon             = document.getElementById('cfg-bot-icon').value;
+    const opener              = document.getElementById('cfg-opener').value;
+    const uploadMode          = document.getElementById('cfg-upload-mode').value;
+    const audioInput          = document.getElementById('cfg-audio-input').value;
+    const audioOutput         = document.getElementById('cfg-audio-output').value;
+    const ttsVoice            = document.getElementById('cfg-tts-voice').value;
+    const audioStudentOptions = document.getElementById('cfg-audio-student-options').value;
+    const hints               = document.getElementById('cfg-hints').value;
+    const model               = document.getElementById('cfg-model').value;
 
     btn.disabled       = true;
     status.className   = 'cfg-status';
@@ -356,21 +365,33 @@
     const errors = [];
 
     try {
-      if (title !== initial.title || botIcon !== initial.botIcon || opener !== initial.opener || uploadMode !== initial.uploadMode || audioInput !== initial.audioInput) {
+      if (
+        title               !== initial.title               ||
+        botIcon             !== initial.botIcon             ||
+        opener              !== initial.opener              ||
+        uploadMode          !== initial.uploadMode          ||
+        audioInput          !== initial.audioInput          ||
+        audioOutput         !== initial.audioOutput         ||
+        ttsVoice            !== initial.ttsVoice            ||
+        audioStudentOptions !== initial.audioStudentOptions
+      ) {
         const res = await fetch(
           `/api/activity-config/${encodeURIComponent(activityId)}?token=${encodeURIComponent(token)}`,
           {
             method:  'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ title, botIcon, opener, uploadMode, audioInput }),
+            body:    JSON.stringify({ title, botIcon, opener, uploadMode, audioInput, audioOutput, ttsVoice, audioStudentOptions }),
           }
         );
         if (res.ok) {
-          initial.title      = title;
-          initial.botIcon    = botIcon;
-          initial.opener     = opener;
-          initial.uploadMode = uploadMode;
-          initial.audioInput = audioInput;
+          initial.title               = title;
+          initial.botIcon             = botIcon;
+          initial.opener              = opener;
+          initial.uploadMode          = uploadMode;
+          initial.audioInput          = audioInput;
+          initial.audioOutput         = audioOutput;
+          initial.ttsVoice            = ttsVoice;
+          initial.audioStudentOptions = audioStudentOptions;
         } else {
           errors.push('Einstellungen konnten nicht gespeichert werden.');
         }
@@ -565,7 +586,9 @@
   function updateAppearanceSummary() {
     const title = (document.getElementById('cfg-title').value || '').trim();
     const icon  = document.getElementById('cfg-bot-icon').value || '';
-    const parts = [title, icon].filter(Boolean);
+    const parts = [];
+    if (title) parts.push('Titel: ' + title);
+    if (icon)  parts.push('Icon: ' + icon);
     const label = parts.length ? parts.join(' | ') : '–';
     document.querySelector('#cfg-appearance-details summary').textContent = 'Aussehen — ' + label;
   }
@@ -587,16 +610,18 @@
   function updateAdvancedSummary() {
     const upload = document.getElementById('cfg-upload-mode').value || '';
     const model  = document.getElementById('cfg-model').value || 'Standard';
-    const label  = [upload, model].filter(Boolean).join(' | ') || '–';
-    document.querySelector('#cfg-advanced-details summary').textContent = 'Erweitert — ' + label;
+    const parts  = [];
+    if (upload) parts.push('Upload: ' + upload);
+    parts.push('Modell: ' + model);
+    document.querySelector('#cfg-advanced-details summary').textContent = 'Erweitert — ' + parts.join(' | ');
   }
 
   function updateAudioOutputDependents() {
     const outputEl = document.getElementById('cfg-audio-output');
     if (!outputEl) return;
     const isOn = outputEl.value === 'on';
-    const voiceField = document.getElementById('cfg-tts-voice-field');
-    if (voiceField) voiceField.style.display = isOn ? '' : 'none';
+    document.getElementById('cfg-tts-voice-field').style.display             = isOn ? '' : 'none';
+    document.getElementById('cfg-audio-student-options-field').style.display = isOn ? '' : 'none';
     updateAudioSummary();
   }
 
@@ -608,15 +633,9 @@
   document.getElementById('cfg-upload-mode').addEventListener('change',  updateAdvancedSummary);
   document.getElementById('cfg-model').addEventListener('change',        updateAdvancedSummary);
 
-  // Audio-Output und TTS-Voice (optional, falls im DOM vorhanden)
-  const audioOutputEl = document.getElementById('cfg-audio-output');
-  if (audioOutputEl) {
-    audioOutputEl.addEventListener('change', updateAudioOutputDependents);
-  }
-  const ttsVoiceEl = document.getElementById('cfg-tts-voice');
-  if (ttsVoiceEl) {
-    ttsVoiceEl.addEventListener('change', updateAudioSummary);
-  }
+  document.getElementById('cfg-audio-output').addEventListener('change', updateAudioOutputDependents);
+  document.getElementById('cfg-tts-voice').addEventListener('change', updateAudioSummary);
+  document.getElementById('cfg-audio-student-options').addEventListener('change', updateAudioSummary);
 
   loadConfig();
 })();

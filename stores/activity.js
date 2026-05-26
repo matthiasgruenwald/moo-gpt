@@ -17,7 +17,7 @@ export function upsertActivity(activity_id, activity_name, opener, upload_mode, 
 
 export function getActivity(activity_id) {
   return getDb().prepare(
-    'SELECT activity_name, opener, upload_mode, audio_input, title, bot_icon FROM activities WHERE activity_id = ?'
+    'SELECT activity_name, opener, upload_mode, audio_input, audio_output, tts_voice, audio_student_options, title, bot_icon FROM activities WHERE activity_id = ?'
   ).get(activity_id) || null;
 }
 
@@ -29,16 +29,19 @@ export function setTeacherIfUnset(activity_id, teacher_id, teacher_name) {
   `).run(teacher_id, teacher_name ?? null, activity_id);
 }
 
-export function setActivityConfig(activity_id, opener, uploadMode, title, botIcon, audioInput) {
+export function setActivityConfig(activity_id, opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions) {
   getDb().prepare(`
-    INSERT INTO activities (activity_id, opener, upload_mode, title, bot_icon, audio_input, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    INSERT INTO activities (activity_id, opener, upload_mode, title, bot_icon, audio_input, audio_output, tts_voice, audio_student_options, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(activity_id) DO UPDATE SET
-      opener      = COALESCE(excluded.opener, activities.opener),
-      upload_mode = COALESCE(excluded.upload_mode, activities.upload_mode),
-      title       = COALESCE(excluded.title, activities.title),
-      bot_icon    = COALESCE(excluded.bot_icon, activities.bot_icon),
-      audio_input = COALESCE(excluded.audio_input, activities.audio_input, 'off'),
-      updated_at  = CURRENT_TIMESTAMP
-  `).run(activity_id, opener ?? null, uploadMode ?? null, title ?? null, botIcon ?? null, audioInput ?? null);
+      opener               = COALESCE(excluded.opener, activities.opener),
+      upload_mode          = COALESCE(excluded.upload_mode, activities.upload_mode),
+      title                = COALESCE(excluded.title, activities.title),
+      bot_icon             = COALESCE(excluded.bot_icon, activities.bot_icon),
+      audio_input          = COALESCE(excluded.audio_input, activities.audio_input, 'off'),
+      audio_output         = COALESCE(excluded.audio_output, activities.audio_output, 'off'),
+      tts_voice            = COALESCE(excluded.tts_voice, activities.tts_voice, 'nova'),
+      audio_student_options = COALESCE(excluded.audio_student_options, activities.audio_student_options, 'off'),
+      updated_at           = CURRENT_TIMESTAMP
+  `).run(activity_id, opener ?? null, uploadMode ?? null, title ?? null, botIcon ?? null, audioInput ?? null, audioOutput ?? null, ttsVoice ?? null, audioStudentOptions ?? null);
 }
