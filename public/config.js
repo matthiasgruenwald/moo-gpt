@@ -276,7 +276,7 @@
       showStatus(`Fehler: ${err.message}`, 'err');
     } finally {
       btn.disabled    = false;
-      btn.textContent = '🔍 Prompt prüfen & verbessern';
+      btn.textContent = '🔍 Prüfen & verbessern';
     }
   }
 
@@ -313,9 +313,6 @@
       }
       modelSel.value = data.myModel || '';
 
-      const preferSuggestQuestions = data.preferSuggestQuestions ?? 1;
-      document.getElementById('cfg-suggest-questions').checked = preferSuggestQuestions !== 0;
-
       initial = {
         title:      data.title            || '',
         botIcon:    data.botIcon          || 'grw',
@@ -328,6 +325,11 @@
 
       elLoading.style.display = 'none';
       elForm.style.display    = '';
+
+      updateOpenerSummary();
+      updateAppearanceSummary();
+      updateAudioSummary();
+      updateAdvancedSummary();
 
       await loadTemplates();
     } catch (e) {
@@ -515,50 +517,24 @@
       } else {
         showStatus('Kein Prompt erhalten', 'err');
       }
-      const cfgCostEl = document.getElementById('cfg-suggest-cost');
-      if (cfgCostEl && data.cost?.promptTokens != null) {
-        cfgCostEl.textContent = _fmtCost(data.cost);
-      }
     } catch (err) {
       showStatus(`Fehler: ${err.message}`, 'err');
     } finally {
       btn.disabled    = false;
-      btn.textContent = '✨ Prompt mit KI erstellen';
+      btn.textContent = '✨ Interaktiv erstellen';
     }
   }
 
   document.getElementById('cfg-suggest-btn').addEventListener('click', () => {
-    const wantsQuestions = document.getElementById('cfg-suggest-questions').checked;
-    if (wantsQuestions) {
-      suggestHistory = [];
-      suggestSessionPrompt = 0;
-      suggestSessionCompletion = 0;
-      suggestSessionCostEur = null;
-      const existingPrompt = document.getElementById('cfg-hints').value?.trim() || '';
-      const taskText = taskContext.task
-        ? `\nAufgabenstellung aus Moodle:\n${taskContext.task.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim()}\n`
-        : '';
-      const contextNote = existingPrompt ? `Vorhandener Prompt der Lehrkraft:\n${existingPrompt}\n` : '';
-      suggestHistory.push({ role: 'user', content: `${contextNote}${taskText}\nAnalysiere was bereits klar ist und frag gezielt nach den fehlenden Informationen.` });
-      window.parent.postMessage({ type: 'moogpt:suggestOpen' }, '*');
-      suggestSend('');
-    } else {
-      suggestDirect();
-    }
-  });
-
-  document.getElementById('cfg-suggest-questions').addEventListener('change', async function () {
-    const value = this.checked ? 1 : 0;
-    try {
-      await fetch(
-        `/api/activity-config/${encodeURIComponent(activityId)}/suggest-preference?token=${encodeURIComponent(token)}`,
-        {
-          method:  'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ preferSuggestQuestions: value }),
-        }
-      );
-    } catch (_) {}
+    suggestHistory = [];
+    suggestSessionPrompt = 0;
+    suggestSessionCompletion = 0;
+    suggestSessionCostEur = null;
+    const taskText = document.getElementById('cfg-hints').value.trim();
+    const contextNote = taskText ? `Aktueller Prompt:\n${taskText}\n\n` : '';
+    suggestHistory.push({ role: 'user', content: `${contextNote}Analysiere was bereits klar ist und frag gezielt nach den fehlenden Informationen.` });
+    window.parent.postMessage({ type: 'moogpt:suggestOpen' }, '*');
+    suggestSend('');
   });
 
   document.getElementById('cfg-save-btn').addEventListener('click', saveConfig);
@@ -577,6 +553,70 @@
   document.getElementById('cfg-compare-use-original').addEventListener('click', () => {
     useAndSave(document.getElementById('cfg-compare-original').value);
   });
+
+  // ── Summary-Funktionen ──────────────────────────────────────────────────────
+
+  function updateOpenerSummary() {
+    const text  = (document.getElementById('cfg-opener').value || '').trim();
+    const label = text.length > 60 ? text.slice(0, 60) + '…' : (text || '–');
+    document.querySelector('#cfg-opener-details summary').textContent = 'Begrüßung — ' + label;
+  }
+
+  function updateAppearanceSummary() {
+    const title = (document.getElementById('cfg-title').value || '').trim();
+    const icon  = document.getElementById('cfg-bot-icon').value || '';
+    const parts = [title, icon].filter(Boolean);
+    const label = parts.length ? parts.join(' | ') : '–';
+    document.querySelector('#cfg-appearance-details summary').textContent = 'Aussehen — ' + label;
+  }
+
+  function updateAudioSummary() {
+    const inputEl  = document.getElementById('cfg-audio-input');
+    const outputEl = document.getElementById('cfg-audio-output');
+    const voiceEl  = document.getElementById('cfg-tts-voice');
+    const input    = inputEl  ? inputEl.value  : 'off';
+    const output   = outputEl ? outputEl.value : 'off';
+    const voice    = voiceEl  ? voiceEl.value  : '';
+    const parts = [];
+    if (input  === 'on') parts.push('Eingabe: an');
+    if (output === 'on') parts.push(`Ausgabe: an (${voice})`);
+    const label = parts.length ? parts.join(' | ') : '–';
+    document.querySelector('#cfg-audio-details summary').textContent = 'Audio — ' + label;
+  }
+
+  function updateAdvancedSummary() {
+    const upload = document.getElementById('cfg-upload-mode').value || '';
+    const model  = document.getElementById('cfg-model').value || 'Standard';
+    const label  = [upload, model].filter(Boolean).join(' | ') || '–';
+    document.querySelector('#cfg-advanced-details summary').textContent = 'Erweitert — ' + label;
+  }
+
+  function updateAudioOutputDependents() {
+    const outputEl = document.getElementById('cfg-audio-output');
+    if (!outputEl) return;
+    const isOn = outputEl.value === 'on';
+    const voiceField = document.getElementById('cfg-tts-voice-field');
+    if (voiceField) voiceField.style.display = isOn ? '' : 'none';
+    updateAudioSummary();
+  }
+
+  // Change-Events für Summary-Aktualisierung
+  document.getElementById('cfg-opener').addEventListener('input',  updateOpenerSummary);
+  document.getElementById('cfg-title').addEventListener('input',   updateAppearanceSummary);
+  document.getElementById('cfg-bot-icon').addEventListener('change', updateAppearanceSummary);
+  document.getElementById('cfg-audio-input').addEventListener('change',  updateAudioSummary);
+  document.getElementById('cfg-upload-mode').addEventListener('change',  updateAdvancedSummary);
+  document.getElementById('cfg-model').addEventListener('change',        updateAdvancedSummary);
+
+  // Audio-Output und TTS-Voice (optional, falls im DOM vorhanden)
+  const audioOutputEl = document.getElementById('cfg-audio-output');
+  if (audioOutputEl) {
+    audioOutputEl.addEventListener('change', updateAudioOutputDependents);
+  }
+  const ttsVoiceEl = document.getElementById('cfg-tts-voice');
+  if (ttsVoiceEl) {
+    ttsVoiceEl.addEventListener('change', updateAudioSummary);
+  }
 
   loadConfig();
 })();
