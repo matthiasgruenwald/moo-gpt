@@ -120,7 +120,7 @@
     .cfg-error   { padding: 30px 20px; text-align: center; color: #dc3545; }
 
     .cfg-check-btn {
-      width: 100%;
+      flex: 1;
       padding: 10px;
       background: #f0f4ff;
       border: 1px solid #003366;
@@ -135,54 +135,77 @@
     .cfg-check-btn:disabled { opacity: 0.6; cursor: default; }
 
     .cfg-suggest-btn {
+      flex: 1;
+      padding: 10px;
       background: none;
       border: 1px solid #6c757d;
       border-radius: 6px;
-      padding: 5px 10px;
-      font-size: 12px;
+      font-size: 14px;
       cursor: pointer;
       color: #555;
+      font-weight: 700;
       transition: background 0.15s;
-      white-space: nowrap;
     }
     .cfg-suggest-btn:hover { background: #f0f0f0; }
     .cfg-suggest-btn:disabled { opacity: 0.6; cursor: default; }
 
-    /* Issue #70: Kosten-Zeile unterm Prompt-Assistent-Button */
-    #cfg-suggest-cost {
-      font-size: 10px;
-      color: #aaa;
-      min-height: 14px;
-    }
-
-    .cfg-suggest-checkbox-label {
+    .cfg-ai-btn-row {
       display: flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 12px;
-      color: #555;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .cfg-suggest-checkbox-label input[type="checkbox"] {
-      cursor: pointer;
-      width: 14px;
-      height: 14px;
-    }
-
-    .cfg-hints-right {
-      display: flex;
-      align-items: center;
       gap: 8px;
+      margin-top: 6px;
+    }
+    .cfg-ai-btn-row button {
+      flex: 1;
     }
 
     .cfg-hints-label-row {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
       margin-bottom: 4px;
     }
     .cfg-hints-label-row .cfg-label { margin-bottom: 0; }
+    .cfg-hints-inline-hint {
+      font-size: 11px;
+      color: #888;
+      font-weight: normal;
+    }
+
+    /* Akkordeon-Sektionen */
+    .cfg-section-details {
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      background: white;
+    }
+    .cfg-section-details summary {
+      padding: 10px 12px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 13px;
+      color: #003366;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+    }
+    .cfg-section-details summary::-webkit-details-marker { display: none; }
+    .cfg-section-details summary::before {
+      content: '▶';
+      font-size: 10px;
+      transition: transform 0.15s;
+      display: inline-block;
+    }
+    .cfg-section-details[open] summary::before {
+      transform: rotate(90deg);
+    }
+    .cfg-section-details .cfg-field {
+      padding: 0 12px 12px;
+    }
+    .cfg-section-details .cfg-field:first-of-type {
+      padding-top: 4px;
+    }
 
     .cfg-compare-panel {
       position: fixed;
@@ -271,63 +294,91 @@
     <hr class="cfg-divider">
 
     <div class="cfg-field">
-      <label class="cfg-label" for="cfg-title">Bot-Titel</label>
-      <input class="cfg-input" type="text" id="cfg-title" placeholder="z.&nbsp;B. Lern-Assistent">
-      <div class="cfg-hint">Name des Bots im Chat-Fenster (leer = kein Titel gesetzt, Badge erscheint)</div>
-    </div>
-
-    <div class="cfg-field">
-      <label class="cfg-label" for="cfg-bot-icon">Bot-Icon</label>
-      <select class="cfg-select" id="cfg-bot-icon">
-        <option value="grw">grw (Standard)</option>
-        <option value="grw2">grw2</option>
-        <option value="weiblich">weiblich</option>
-      </select>
-    </div>
-
-    <div class="cfg-field">
-      <label class="cfg-label" for="cfg-opener">Begrüßung (Opener)</label>
-      <textarea class="cfg-textarea" id="cfg-opener" rows="3"></textarea>
-      <div class="cfg-hint">Erste Nachricht des Bots beim Öffnen des Chats</div>
-    </div>
-
-    <div class="cfg-field">
-      <label class="cfg-label" for="cfg-upload-mode">Upload-Modus</label>
-      <select class="cfg-select" id="cfg-upload-mode">
-        <option value="off">Kein Upload (off)</option>
-        <option value="images">Bilder erlaubt (images)</option>
-        <option value="files">Bilder + PDF erlaubt (files)</option>
-      </select>
-    </div>
-
-    <div class="cfg-field">
-      <label class="cfg-label" for="cfg-audio-input">Mikrofon (Spracheingabe)</label>
-      <select class="cfg-select" id="cfg-audio-input">
-        <option value="off">Aus (off)</option>
-        <option value="on">An (on)</option>
-      </select>
-      <div class="cfg-hint">Aktiviert den Mikrofon-Button für Whisper-Transkription (nur HTTPS)</div>
-    </div>
-
-    <div class="cfg-field">
       <div class="cfg-hints-label-row">
-        <label class="cfg-label" for="cfg-hints">Aufgaben-Hinweise (Prompt-Ergänzung)</label>
-        <div class="cfg-hints-right">
-          <label class="cfg-suggest-checkbox-label" title="Wenn angehakt, stellt die KI Rückfragen; sonst wird sofort ein Prompt erstellt">
-            <input type="checkbox" id="cfg-suggest-questions" checked>
-            Rückfragen erwünscht (empfohlen)
-          </label>
-          <button class="cfg-suggest-btn" id="cfg-suggest-btn">&#10024; Prompt mit KI erstellen</button>
-        </div>
+        <label class="cfg-label" for="cfg-hints">Aufgaben-Hinweise</label>
+        <span class="cfg-hints-inline-hint">Fach/Thema &middot; Rolle des Bots &middot; Lernziel &middot; Antwortstil &middot; Didaktik &amp; Verbote</span>
       </div>
-      <div id="cfg-suggest-cost"></div>
-      <textarea class="cfg-textarea" id="cfg-hints" rows="5"></textarea>
-      <div class="cfg-hint">Ergänzung zum System-Prompt für diese Aufgabe (z.&nbsp;B. Fach, Thema, Jahrgang)</div>
+      <textarea class="cfg-textarea" id="cfg-hints" rows="8"></textarea>
+      <div class="cfg-ai-btn-row">
+        <button class="cfg-suggest-btn" id="cfg-suggest-btn">&#10024; Interaktiv erstellen</button>
+        <button class="cfg-check-btn"   id="cfg-check-btn">&#128269; Pr&uuml;fen &amp; verbessern</button>
+      </div>
     </div>
 
-    <div class="cfg-field">
-      <button class="cfg-check-btn" id="cfg-check-btn">🔍 Prompt prüfen &amp; verbessern</button>
-    </div>
+    <details class="cfg-section-details" id="cfg-opener-details">
+      <summary>Begrüßung</summary>
+      <div class="cfg-field">
+        <label class="cfg-label" for="cfg-opener">Begrüßungstext</label>
+        <textarea class="cfg-textarea" id="cfg-opener" rows="3"></textarea>
+        <div class="cfg-hint">Erste Nachricht des Bots beim Öffnen des Chats</div>
+      </div>
+    </details>
+
+    <details class="cfg-section-details" id="cfg-appearance-details">
+      <summary>Aussehen</summary>
+      <div class="cfg-field">
+        <label class="cfg-label" for="cfg-title">Bot-Titel</label>
+        <input class="cfg-input" type="text" id="cfg-title" placeholder="z.&nbsp;B. Lern-Assistent">
+        <div class="cfg-hint">Name des Bots im Chat-Fenster (leer = kein Titel gesetzt, Badge erscheint)</div>
+      </div>
+      <div class="cfg-field">
+        <label class="cfg-label" for="cfg-bot-icon">Bot-Icon</label>
+        <select class="cfg-select" id="cfg-bot-icon">
+          <option value="grw">grw (Standard)</option>
+          <option value="grw2">grw2</option>
+          <option value="weiblich">weiblich</option>
+        </select>
+      </div>
+    </details>
+
+    <details class="cfg-section-details" id="cfg-audio-details">
+      <summary>Audio</summary>
+      <div class="cfg-field">
+        <label class="cfg-label" for="cfg-audio-input">Mikrofon (Spracheingabe)</label>
+        <select class="cfg-select" id="cfg-audio-input">
+          <option value="off">Aus (off)</option>
+          <option value="on">An (on)</option>
+        </select>
+        <div class="cfg-hint">Aktiviert den Mikrofon-Button für Whisper-Transkription (nur HTTPS)</div>
+      </div>
+      <div class="cfg-field" id="cfg-audio-output-field">
+        <label class="cfg-label" for="cfg-audio-output">Sprachausgabe (TTS)</label>
+        <select class="cfg-select" id="cfg-audio-output">
+          <option value="off">Aus (off)</option>
+          <option value="on">An (on)</option>
+        </select>
+      </div>
+      <div class="cfg-field" id="cfg-tts-voice-field" style="display:none">
+        <label class="cfg-label" for="cfg-tts-voice">Stimme</label>
+        <select class="cfg-select" id="cfg-tts-voice">
+          <option value="alloy">alloy</option>
+          <option value="echo">echo</option>
+          <option value="fable">fable</option>
+          <option value="onyx">onyx</option>
+          <option value="nova">nova</option>
+          <option value="shimmer">shimmer</option>
+        </select>
+      </div>
+    </details>
+
+    <details class="cfg-section-details" id="cfg-advanced-details">
+      <summary>Erweitert</summary>
+      <div class="cfg-field">
+        <label class="cfg-label" for="cfg-upload-mode">Upload-Modus</label>
+        <select class="cfg-select" id="cfg-upload-mode">
+          <option value="off">Kein Upload (off)</option>
+          <option value="images">Bilder erlaubt (images)</option>
+          <option value="files">Bilder + PDF erlaubt (files)</option>
+        </select>
+      </div>
+      <div class="cfg-field">
+        <label class="cfg-label" for="cfg-model">Modell</label>
+        <select class="cfg-select" id="cfg-model">
+          <option value="">Globales Standardmodell</option>
+        </select>
+        <div class="cfg-hint">Gilt nur für dich; Schüler nutzen das globale Modell</div>
+      </div>
+    </details>
 
     <div class="cfg-compare-panel" id="cfg-compare-panel" style="display:none">
       <div class="cfg-compare-header">
@@ -346,14 +397,6 @@
           <button class="cfg-save-btn cfg-compare-btn" id="cfg-compare-use-original">Original behalten</button>
         </div>
       </div>
-    </div>
-
-    <div class="cfg-field">
-      <label class="cfg-label" for="cfg-model">Modell-Präferenz</label>
-      <select class="cfg-select" id="cfg-model">
-        <option value="">Globales Standardmodell</option>
-      </select>
-      <div class="cfg-hint">Gilt nur für dich; Schüler nutzen das globale Modell</div>
     </div>
 
     <div class="cfg-save-row">
