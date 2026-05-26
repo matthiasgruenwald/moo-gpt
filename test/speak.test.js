@@ -15,12 +15,12 @@ import { createSpeakRouter } from '../routes/speak.js';
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
-function buildApp({ oai, allowedOrigin = null }) {
+function buildApp({ oai, fetchFn = buildFetchMock(), allowedOrigin = null }) {
   const app = express();
   app.use(express.json());
   if (allowedOrigin) process.env.ALLOWED_ORIGIN = allowedOrigin;
   else delete process.env.ALLOWED_ORIGIN;
-  const router = createSpeakRouter({ oai });
+  const router = createSpeakRouter({ oai, fetchFn });
   app.use('/api', router);
   return app;
 }
@@ -69,20 +69,18 @@ async function postSpeak(app, { origin = null, body = {} } = {}) {
   });
 }
 
-// ── Gemockter OpenAI-Client ───────────────────────────────────────────────────
+// ── Gemockter OpenAI-Client + fetch ──────────────────────────────────────────
 
 /**
- * Erstellt einen Mock-oai mit konfigurierbarem Verhalten.
+ * Erstellt einen Mock-oai mit konfigurierbarem Preprocessing-Verhalten.
  */
 function buildOaiMock({
   prepResponse = null,   // null → Standardantwort
   prepError    = null,   // Error → wirft Fehler beim Preprocessing
-  ttsError     = null,   // Error → wirft Fehler bei TTS
-  ttsBuffer    = Buffer.from('fake-audio-data'),
 } = {}) {
   return {
     responses: {
-      create: async ({ input }) => {
+      create: async () => {
         if (prepError) throw prepError;
         return prepResponse ?? {
           output_text: 'Bereinigter Text ohne Markdown.',
@@ -90,20 +88,25 @@ function buildOaiMock({
         };
       },
     },
-    audio: {
-      speech: {
-        create: async () => {
-          if (ttsError) throw ttsError;
-          // OpenAI SDK gibt ein Response-Objekt zurück, dessen Body ein ArrayBuffer ist
-          return {
-            arrayBuffer: async () => ttsBuffer.buffer.slice(
-              ttsBuffer.byteOffset,
-              ttsBuffer.byteOffset + ttsBuffer.byteLength
-            ),
-          };
-        },
-      },
-    },
+  };
+}
+
+/**
+ * Erstellt einen Mock-fetch für die TTS-API.
+ * Gibt entweder einen audio/mpeg-Stream oder einen Fehler zurück.
+ */
+function buildFetchMock({
+  ttsStatus  = 200,
+  ttsBuffer  = Buffer.from('fake-audio-data'),
+} = {}) {
+  return async (url) => {
+    if (!url.includes('audio/speech')) throw new Error(`Unerwarteter fetch-Aufruf: ${url}`);
+    if (ttsStatus !== 200) {
+      return { ok: false, status: ttsStatus, text: async () => 'TTS error' };
+    }
+    const { Readable } = await import('node:stream');
+    const webStream = Readable.toWeb(Readable.from([ttsBuffer]));
+    return { ok: true, status: 200, body: webStream };
   };
 }
 
@@ -194,8 +197,8 @@ describe('POST /api/speak', () => {
   });
 
   test('TTS-Fehler: HTTP 500 ohne Stack-Trace', async () => {
-    const oai = buildOaiMock({ ttsError: new Error('TTS API down') });
-    const app = buildApp({ oai });
+    const oai = buildOaiMock();
+    const app = buildApp({ oai, fetchFn: buildFetchMock({ ttsStatus: 500 }) });
 
     const { status, body } = await postSpeak(app, {
       body: { text: 'Test', speed: 1.0, activityId: 'act-1', threadId: '1', userId: 'u1' },
@@ -242,5 +245,39 @@ describe('POST /api/speak', () => {
     });
 
     assert.equal(status, 200, `Erwartet 200 mit voice-Fallback nova, bekam ${status}`);
+  });
+
+  test('Preprocessing übersprungen bei Plaintext — oai.responses.create wird nicht aufgerufen', async () => {
+    let prepCalled = false;
+    const oai = {
+      responses: { create: async () => { prepCalled = true; return { output_text: 'ignored', usage: {} }; } },
+    };
+    const app = buildApp({ oai });
+
+    await postSpeak(app, {
+      body: { text: 'Pong 4', speed: 1.0, activityId: 'act-1', threadId: '1', userId: 'u1' },
+    });
+
+    assert.ok(!prepCalled, 'Preprocessing darf bei Plaintext nicht aufgerufen werden');
+  });
+
+  test('Preprocessing aufgerufen bei Markdown-Text', async () => {
+    let prepCalled = false;
+    const oai = {
+      responses: {
+        create: async () => {
+          prepCalled = true;
+          return { output_text: 'Hallo Welt', usage: { prompt_tokens: 10, completion_tokens: 5 } };
+        },
+      },
+    };
+    const app = buildApp({ oai });
+
+    const { status } = await postSpeak(app, {
+      body: { text: 'Hallo **Welt**', speed: 1.0, activityId: 'act-1', threadId: '1', userId: 'u1' },
+    });
+
+    assert.ok(prepCalled, 'Preprocessing muss bei Markdown-Text aufgerufen werden');
+    assert.equal(status, 200);
   });
 });

@@ -19,15 +19,23 @@ const PREPROCESS_INSTRUCTIONS =
   'Entferne alle Markdown-Formatierung und übersetze LaTeX-Formeln in natürlich gesprochenes Deutsch. ' +
   'Gib nur den bereinigten Fließtext zurück.';
 
+/**
+ * Prüft ob der Text Markdown-Syntax oder LaTeX enthält und Preprocessing benötigt.
+ * Reine Fließtexte (z. B. "Pong 4") werden direkt an TTS übergeben.
+ */
+function needsPreprocessing(text) {
+  return /[#*_`~]|\$\$?|\\\(|\\\[|={2,}|-{3,}|!\[/.test(text);
+}
+
 const DEFAULT_VOICE = 'nova';
 const DEFAULT_SPEED = 1.0;
 
 /**
  * Erstellt den Speak-Router.
  *
- * @param {{ oai: OpenAI }} deps — OpenAI-Client (injizierbar für Tests)
+ * @param {{ oai: OpenAI, fetchFn?: typeof fetch }} deps — OpenAI-Client + optionaler fetch-Override (für Tests)
  */
-export function createSpeakRouter({ oai }) {
+export function createSpeakRouter({ oai, fetchFn = globalThis.fetch }) {
   const router = Router();
 
   router.post('/speak', async (req, res) => {
@@ -53,9 +61,11 @@ export function createSpeakRouter({ oai }) {
 
     console.log(`[Speak] Request: voice=${voice}, speed=${speed}, textLen=${rawText.length}, activityId=${activityId}`);
 
-    // GPT-mini-Preprocessing: Markdown + LaTeX bereinigen
+    // GPT-mini-Preprocessing: nur wenn Markdown oder LaTeX erkannt
     let cleanedText = rawText;
-    try {
+    if (!needsPreprocessing(rawText)) {
+      console.log('[Speak] Kein Markdown/LaTeX — Preprocessing übersprungen');
+    } else try {
       console.log('[Speak] GPT-mini-Preprocessing startet…');
       const prepResponse = await oai.responses.create({
         model:        'gpt-4o-mini',
@@ -82,7 +92,7 @@ export function createSpeakRouter({ oai }) {
 
     // TTS-Synthese — direktes fetch() statt SDK (SDK 6.x BinaryResponse hängt in Express)
     try {
-      const ttsRes = await fetch('https://api.openai.com/v1/audio/speech', {
+      const ttsRes = await fetchFn('https://api.openai.com/v1/audio/speech', {
         method:  'POST',
         headers: {
           'Authorization': `Bearer ${process.env.APIKEY}`,
