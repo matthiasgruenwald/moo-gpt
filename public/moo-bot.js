@@ -1991,7 +1991,8 @@ export class MOOBOT {
       await audio.play();
       btn.textContent = '🔊';
       btn.disabled = false;
-    } catch {
+    } catch (err) {
+      console.error('[Speak] Fehler:', err?.name, err?.message, err);
       btn.disabled = false;
       btn.textContent = '🔊';
       this._showChatError('⚠️ Sprachausgabe fehlgeschlagen. Bitte erneut versuchen.');
