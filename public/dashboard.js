@@ -1294,14 +1294,14 @@ const apiDelete = path          => apiFetch(path, { method: 'DELETE' });
 
 // ── Cost-Summary (Issue #69) ──────────────────────────────────────────────────
 
-/** Lädt und rendert die Aktivitäts-Kosten-Summary (Chat + Werkzeug + Audio). */
+/** Lädt und rendert die Aktivitäts-Kosten-Summary (Chat + Werkzeug + Audio + TTS). */
 async function fetchAndRenderCostSummary() {
   if (!costSummaryBar) return;
   try {
-    const { chatEur, werkzeugEur, totalEur, audioEur, audioSeconds } = await apiGet(
+    const { chatEur, werkzeugEur, totalEur, audioEur, audioSeconds, ttsEur, ttsChars } = await apiGet(
       `/api/activity/${encodeURIComponent(activityId)}/cost-summary`
     );
-    if (chatEur == null && werkzeugEur == null && audioEur == null) {
+    if (chatEur == null && werkzeugEur == null && audioEur == null && ttsEur == null) {
       costSummaryBar.classList.remove('visible');
       return;
     }
@@ -1311,6 +1311,11 @@ async function fetchAndRenderCostSummary() {
     if (audioSeconds > 0 || audioEur != null) {
       const secStr = audioSeconds ? `${Math.round(audioSeconds)} s` : '0 s';
       text += ` · 🎤 Audio ${secStr} / ${formatEur(audioEur)}`;
+    }
+    // Issue #103: TTS-Block in der Cost-Summary
+    if (ttsChars > 0 || ttsEur != null) {
+      const charsStr = ttsChars ? `${ttsChars.toLocaleString('de-DE')} Z.` : '0 Z.';
+      text += ` · 🔊 TTS ${charsStr} / ${formatEur(ttsEur)}`;
     }
     text += ` · Gesamt ${formatEur(totalEur)}`;
 

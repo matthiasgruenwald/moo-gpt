@@ -116,3 +116,16 @@ export function saveTtsUsage(threadId, activityId, ttsCharacters) {
     VALUES (?, ?, 'tts', 'tts-1-hd', ?)
   `).run(threadId || null, activityId || null, ttsCharacters);
 }
+
+/**
+ * Summiert TTS-Zeichen pro Aktivität (für Kostenberechnung).
+ * @param {string} activityId
+ * @returns {{ total_chars: number }}
+ */
+export function getActivityTtsChars(activityId) {
+  return getDb().prepare(`
+    SELECT COALESCE(SUM(tts_characters), 0) AS total_chars
+    FROM token_log
+    WHERE activity_id = ? AND call_type = 'tts' AND tts_characters IS NOT NULL
+  `).get(activityId);
+}
