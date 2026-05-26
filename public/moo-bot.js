@@ -663,13 +663,34 @@ export class MOOBOT {
   // ── P5a: Config vom Server anwenden ──────────────────────────────────────
 
   _applyConfig(config) {
-    const { title, botIcon, opener, uploadMode, audioInput, needsConfig } = config;
+    const { title, botIcon, opener, uploadMode, audioInput, audioOutput, ttsVoice, audioStudentOptions, needsConfig } = config;
 
     this.settings.title      = title      ?? null;
     this.settings.botIcon    = botIcon    ?? 'grw';
     this.settings.opener     = opener     ?? null;
     this.settings.uploadMode = uploadMode ?? 'off';
     this.settings.audioInput = audioInput ?? 'off';
+    // TTS-Felder aus DB überschreiben Snippet-Defaults (analog zu audioInput)
+    this.settings.audioOutput         = audioOutput         ?? this.settings.audioOutput;
+    this.settings.audioStudentOptions = audioStudentOptions ?? this.settings.audioStudentOptions;
+    if (ttsVoice) this._ttsVoice = ttsVoice;
+    // Waveform-Icon nachrüsten falls DB audioStudentOptions=on (war im Constructor noch 'off')
+    const showWave = this.settings.audioStudentOptions === 'on' && this.settings.audioOutput === 'on';
+    const existingWaveBtn = document.getElementById('mmb-wave-btn');
+    if (showWave && !existingWaveBtn) {
+      const waveBtn = document.createElement('button');
+      waveBtn.className = 'mmb-wave-btn';
+      waveBtn.id = 'mmb-wave-btn';
+      waveBtn.title = 'Stimmwahl & Auto-Play';
+      waveBtn.setAttribute('aria-label', 'Sprachausgabe-Einstellungen');
+      waveBtn.innerHTML = '&#9641;&#9643;&#9608;';
+      waveBtn.addEventListener('click', () => this._toggleVoicePopover());
+      const chatHeader = document.querySelector('.chat-header');
+      const iconContainer = chatHeader?.querySelector('.chat-header-icon-container');
+      if (iconContainer) iconContainer.insertAdjacentElement('afterend', waveBtn);
+    } else if (!showWave && existingWaveBtn) {
+      existingWaveBtn.remove();
+    }
 
     const iconUrl = this._iconUrl(botIcon || 'grw');
     document.querySelectorAll('#chat-icon img, .chat-header-icon').forEach(img => { img.src = iconUrl; });

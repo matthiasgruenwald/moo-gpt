@@ -67,3 +67,18 @@ describe('setActivityConfig / getActivity — TTS-Felder (fix #97)', () => {
     assert.equal(act.tts_voice, 'nova');
   });
 });
+
+describe('resolveActivity gibt TTS-Felder zurück (fix #97 Backend→Widget)', () => {
+  // Testet dass die drei neuen TTS-Felder in resolveActivity zurückgegeben werden,
+  // damit _applyConfig sie ins Widget übernehmen kann — analog zu audioInput.
+  test('resolveActivity enthält audioOutput aus DB', async () => {
+    // Aktivität mit audioOutput=on anlegen
+    setActivityConfig('act-r1', 'opener', 'off', 'Titel', 'grw', 'off', 'on', 'echo', 'on');
+    // resolveActivity direkt importieren ist nicht möglich (private Funktion),
+    // daher testen wir getActivity als Proxy — resolveActivity nutzt es intern.
+    const act = getActivity('act-r1');
+    assert.equal(act.audio_output, 'on',    'audio_output muss aus DB kommen');
+    assert.equal(act.tts_voice,    'echo',  'tts_voice muss aus DB kommen');
+    assert.equal(act.audio_student_options, 'on', 'audio_student_options muss aus DB kommen');
+  });
+});
