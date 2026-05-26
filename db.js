@@ -218,6 +218,8 @@ export function initDb() {
   try { db.exec(`ALTER TABLE token_log ADD COLUMN audio_seconds REAL`); } catch (_) {}
   // Issue #89: Mikrofon-Opt-in pro Aktivität
   try { db.exec(`ALTER TABLE activities ADD COLUMN audio_input TEXT DEFAULT 'off'`); } catch (_) {}
+  // P8: TTS-Kosten — Zeichenanzahl in token_log (Issue #96)
+  try { db.exec(`ALTER TABLE token_log ADD COLUMN tts_characters INTEGER`); } catch (_) {}
 
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;
