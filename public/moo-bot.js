@@ -677,14 +677,13 @@ export class MOOBOT {
   _applyConfig(config) {
     const { title, botIcon, opener, uploadMode, audioInput, audioOutput, ttsVoice, audioStudentOptions, needsConfig } = config;
 
-    this.settings.title      = title      ?? null;
-    this.settings.botIcon    = botIcon    ?? 'grw';
-    this.settings.opener     = opener     ?? null;
-    this.settings.uploadMode = uploadMode ?? 'off';
-    this.settings.audioInput = audioInput ?? 'off';
-    // TTS-Felder aus DB überschreiben Snippet-Defaults (analog zu audioInput)
-    this.settings.audioOutput         = audioOutput         ?? this.settings.audioOutput;
-    this.settings.audioStudentOptions = audioStudentOptions ?? this.settings.audioStudentOptions;
+    this.settings.title               = title               ?? null;
+    this.settings.botIcon             = botIcon             ?? 'grw';
+    this.settings.opener              = opener              ?? null;
+    this.settings.uploadMode          = uploadMode          ?? 'off';
+    this.settings.audioInput          = audioInput          ?? 'off';
+    this.settings.audioOutput         = audioOutput         ?? this.settings.audioOutput         ?? 'off';
+    this.settings.audioStudentOptions = audioStudentOptions ?? this.settings.audioStudentOptions ?? 'off';
     if (ttsVoice) this._ttsVoice = ttsVoice;
     // Waveform-Icon nachrüsten falls DB audioStudentOptions=on (war im Constructor noch 'off')
     const showWave = this.settings.audioStudentOptions === 'on' && this.settings.audioOutput === 'on';

@@ -242,6 +242,11 @@ export function initDb() {
   try { db.exec(`ALTER TABLE activities ADD COLUMN tts_voice TEXT DEFAULT 'nova'`); } catch (_) {}
   try { db.exec(`ALTER TABLE activities ADD COLUMN audio_student_options TEXT DEFAULT 'off'`); } catch (_) {}
 
+  // Issue #94/#104: TTS-Ausgabe, Stimme, Schüler-Optionen pro Aktivität
+  try { db.exec(`ALTER TABLE activities ADD COLUMN audio_output TEXT DEFAULT 'off'`); } catch (_) {}
+  try { db.exec(`ALTER TABLE activities ADD COLUMN tts_voice TEXT DEFAULT 'nova'`); } catch (_) {}
+  try { db.exec(`ALTER TABLE activities ADD COLUMN audio_student_options TEXT DEFAULT 'off'`); } catch (_) {}
+
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;
 }

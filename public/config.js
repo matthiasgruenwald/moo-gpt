@@ -52,12 +52,6 @@
     };
   }
 
-  function updateAudioOutputDependents() {
-    const isOn = document.getElementById('cfg-audio-output').value === 'on';
-    document.getElementById('cfg-tts-voice-field').style.display            = isOn ? '' : 'none';
-    document.getElementById('cfg-audio-student-options-field').style.display = isOn ? '' : 'none';
-  }
-
   function getLoadedTemplate() {
     return loadedTemplateId === null ? null : (templates.find(t => t.id === loadedTemplateId) ?? null);
   }
@@ -288,7 +282,7 @@
       showStatus(`Fehler: ${err.message}`, 'err');
     } finally {
       btn.disabled    = false;
-      btn.textContent = '🔍 Prompt prüfen & verbessern';
+      btn.textContent = '🔍 Prüfen & verbessern';
     }
   }
 
@@ -309,16 +303,15 @@
 
       document.getElementById('cfg-activity-name').textContent =
         data.activityName || `Aktivität ${activityId}`;
-      document.getElementById('cfg-title').value                   = data.title               || '';
-      document.getElementById('cfg-bot-icon').value                = data.botIcon             || 'grw';
-      document.getElementById('cfg-opener').value                  = data.opener              || '';
-      document.getElementById('cfg-upload-mode').value             = data.uploadMode          || 'off';
-      document.getElementById('cfg-audio-input').value             = data.audioInput          || 'off';
-      document.getElementById('cfg-audio-output').value            = data.audioOutput         || 'off';
-      document.getElementById('cfg-tts-voice').value               = data.ttsVoice            || 'nova';
-      document.getElementById('cfg-audio-student-options').value   = data.audioStudentOptions || 'off';
-      document.getElementById('cfg-hints').value                   = data.erfahrungsprompt    || '';
-      updateAudioOutputDependents();
+      document.getElementById('cfg-title').value        = data.title       || '';
+      document.getElementById('cfg-bot-icon').value     = data.botIcon     || 'grw';
+      document.getElementById('cfg-opener').value       = data.opener      || '';
+      document.getElementById('cfg-upload-mode').value  = data.uploadMode  || 'off';
+      document.getElementById('cfg-audio-input').value            = data.audioInput         || 'off';
+      document.getElementById('cfg-audio-output').value           = data.audioOutput        || 'off';
+      document.getElementById('cfg-tts-voice').value              = data.ttsVoice           || 'nova';
+      document.getElementById('cfg-audio-student-options').value  = data.audioStudentOptions || 'off';
+      document.getElementById('cfg-hints').value                  = data.erfahrungsprompt   || '';
 
       const modelSel = document.getElementById('cfg-model');
       for (const m of (data.availableModels || [])) {
@@ -328,9 +321,6 @@
         modelSel.appendChild(opt);
       }
       modelSel.value = data.myModel || '';
-
-      const preferSuggestQuestions = data.preferSuggestQuestions ?? 1;
-      document.getElementById('cfg-suggest-questions').checked = preferSuggestQuestions !== 0;
 
       initial = {
         title:               data.title               || '',
@@ -347,6 +337,11 @@
 
       elLoading.style.display = 'none';
       elForm.style.display    = '';
+
+      updateAudioOutputDependents();
+      updateOpenerSummary();
+      updateAppearanceSummary();
+      updateAdvancedSummary();
 
       await loadTemplates();
     } catch (e) {
@@ -549,50 +544,24 @@
       } else {
         showStatus('Kein Prompt erhalten', 'err');
       }
-      const cfgCostEl = document.getElementById('cfg-suggest-cost');
-      if (cfgCostEl && data.cost?.promptTokens != null) {
-        cfgCostEl.textContent = _fmtCost(data.cost);
-      }
     } catch (err) {
       showStatus(`Fehler: ${err.message}`, 'err');
     } finally {
       btn.disabled    = false;
-      btn.textContent = '✨ Prompt mit KI erstellen';
+      btn.textContent = '✨ Interaktiv erstellen';
     }
   }
 
   document.getElementById('cfg-suggest-btn').addEventListener('click', () => {
-    const wantsQuestions = document.getElementById('cfg-suggest-questions').checked;
-    if (wantsQuestions) {
-      suggestHistory = [];
-      suggestSessionPrompt = 0;
-      suggestSessionCompletion = 0;
-      suggestSessionCostEur = null;
-      const existingPrompt = document.getElementById('cfg-hints').value?.trim() || '';
-      const taskText = taskContext.task
-        ? `\nAufgabenstellung aus Moodle:\n${taskContext.task.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim()}\n`
-        : '';
-      const contextNote = existingPrompt ? `Vorhandener Prompt der Lehrkraft:\n${existingPrompt}\n` : '';
-      suggestHistory.push({ role: 'user', content: `${contextNote}${taskText}\nAnalysiere was bereits klar ist und frag gezielt nach den fehlenden Informationen.` });
-      window.parent.postMessage({ type: 'moogpt:suggestOpen' }, '*');
-      suggestSend('');
-    } else {
-      suggestDirect();
-    }
-  });
-
-  document.getElementById('cfg-suggest-questions').addEventListener('change', async function () {
-    const value = this.checked ? 1 : 0;
-    try {
-      await fetch(
-        `/api/activity-config/${encodeURIComponent(activityId)}/suggest-preference?token=${encodeURIComponent(token)}`,
-        {
-          method:  'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ preferSuggestQuestions: value }),
-        }
-      );
-    } catch (_) {}
+    suggestHistory = [];
+    suggestSessionPrompt = 0;
+    suggestSessionCompletion = 0;
+    suggestSessionCostEur = null;
+    const taskText = document.getElementById('cfg-hints').value.trim();
+    const contextNote = taskText ? `Aktueller Prompt:\n${taskText}\n\n` : '';
+    suggestHistory.push({ role: 'user', content: `${contextNote}Analysiere was bereits klar ist und frag gezielt nach den fehlenden Informationen.` });
+    window.parent.postMessage({ type: 'moogpt:suggestOpen' }, '*');
+    suggestSend('');
   });
 
   document.getElementById('cfg-save-btn').addEventListener('click', saveConfig);
@@ -611,6 +580,71 @@
   document.getElementById('cfg-compare-use-original').addEventListener('click', () => {
     useAndSave(document.getElementById('cfg-compare-original').value);
   });
+
+  // ── Summary-Funktionen ──────────────────────────────────────────────────────
+
+  function updateOpenerSummary() {
+    const text  = (document.getElementById('cfg-opener').value || '').trim();
+    const label = text.length > 60 ? text.slice(0, 60) + '…' : (text || '–');
+    document.querySelector('#cfg-opener-details summary').textContent = 'Begrüßung — ' + label;
+  }
+
+  function updateAppearanceSummary() {
+    const title = (document.getElementById('cfg-title').value || '').trim();
+    const icon  = document.getElementById('cfg-bot-icon').value || '';
+    const parts = [];
+    if (title) parts.push('Titel: ' + title);
+    if (icon)  parts.push('Icon: ' + icon);
+    const label = parts.length ? parts.join(' | ') : '–';
+    document.querySelector('#cfg-appearance-details summary').textContent = 'Aussehen — ' + label;
+  }
+
+  function updateAudioSummary() {
+    const inputEl   = document.getElementById('cfg-audio-input');
+    const outputEl  = document.getElementById('cfg-audio-output');
+    const voiceEl   = document.getElementById('cfg-tts-voice');
+    const studentEl = document.getElementById('cfg-audio-student-options');
+    const input    = inputEl   ? inputEl.value   : 'off';
+    const output   = outputEl  ? outputEl.value  : 'off';
+    const voice    = voiceEl   ? voiceEl.value   : '';
+    const student  = studentEl ? studentEl.value : 'off';
+    const parts = [];
+    if (input   === 'on') parts.push('Eingabe: an');
+    if (output  === 'on') parts.push(`Ausgabe: an (${voice})`);
+    if (student === 'on') parts.push('Sch.-Opt.: an');
+    const label = parts.length ? parts.join(' | ') : '–';
+    document.querySelector('#cfg-audio-details summary').textContent = 'Audio — ' + label;
+  }
+
+  function updateAdvancedSummary() {
+    const upload = document.getElementById('cfg-upload-mode').value || '';
+    const model  = document.getElementById('cfg-model').value || 'Standard';
+    const parts  = [];
+    if (upload) parts.push('Upload: ' + upload);
+    parts.push('Modell: ' + model);
+    document.querySelector('#cfg-advanced-details summary').textContent = 'Erweitert — ' + parts.join(' | ');
+  }
+
+  function updateAudioOutputDependents() {
+    const outputEl = document.getElementById('cfg-audio-output');
+    if (!outputEl) return;
+    const isOn = outputEl.value === 'on';
+    document.getElementById('cfg-tts-voice-field').style.display             = isOn ? '' : 'none';
+    document.getElementById('cfg-audio-student-options-field').style.display = isOn ? '' : 'none';
+    updateAudioSummary();
+  }
+
+  // Change-Events für Summary-Aktualisierung
+  document.getElementById('cfg-opener').addEventListener('input',  updateOpenerSummary);
+  document.getElementById('cfg-title').addEventListener('input',   updateAppearanceSummary);
+  document.getElementById('cfg-bot-icon').addEventListener('change', updateAppearanceSummary);
+  document.getElementById('cfg-audio-input').addEventListener('change',  updateAudioSummary);
+  document.getElementById('cfg-upload-mode').addEventListener('change',  updateAdvancedSummary);
+  document.getElementById('cfg-model').addEventListener('change',        updateAdvancedSummary);
+
+  document.getElementById('cfg-audio-output').addEventListener('change', updateAudioOutputDependents);
+  document.getElementById('cfg-tts-voice').addEventListener('change', updateAudioSummary);
+  document.getElementById('cfg-audio-student-options').addEventListener('change', updateAudioSummary);
 
   loadConfig();
 })();

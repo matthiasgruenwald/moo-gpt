@@ -167,19 +167,19 @@ export function createActivityRouter({ chatRegistry, dashboardRegistry, lockMana
     const pref = getTeacherPreference(userId);
     res.json({
       activityId,
-      activityName:           act?.activity_name             || '',
-      title:                  act?.title                     ?? '',
-      botIcon:                act?.bot_icon                  ?? 'grw',
-      opener:                 act?.opener                    || '',
-      uploadMode:             act?.upload_mode               || 'off',
-      audioInput:             act?.audio_input               || 'off',
-      audioOutput:            act?.audio_output              || 'off',
-      ttsVoice:               act?.tts_voice                 || 'nova',
-      audioStudentOptions:    act?.audio_student_options     || 'off',
-      erfahrungsprompt:       erf?.content                   || '',
-      myModel:                pref?.preferred_model          || null,
+      activityName:           act?.activity_name              || '',
+      title:                  act?.title                      ?? '',
+      botIcon:                act?.bot_icon                   ?? 'grw',
+      opener:                 act?.opener                     || '',
+      uploadMode:             act?.upload_mode                || 'off',
+      audioInput:             act?.audio_input                || 'off',
+      audioOutput:            act?.audio_output               || 'off',
+      ttsVoice:               act?.tts_voice                  || 'nova',
+      audioStudentOptions:    act?.audio_student_options      || 'off',
+      erfahrungsprompt:       erf?.content                    || '',
+      myModel:                pref?.preferred_model           || null,
       availableModels:        AVAILABLE_MODELS,
-      preferSuggestQuestions: pref?.prefer_suggest_questions ?? 1,
+      preferSuggestQuestions: pref?.prefer_suggest_questions  ?? 1,
     });
   });
 
