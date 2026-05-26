@@ -281,23 +281,35 @@ describe('POST /api/speak', () => {
     assert.equal(status, 200);
   });
 
-  test('Preprocessing aufgerufen wenn Text Ziffern enthält (für deutsche Zahlwörter)', async () => {
-    let prepCalled = false;
+  test('Preprocessing aufgerufen wenn Text Ziffern enthält (spracherhaltend, nicht deutsch-erzwungen)', async () => {
+    // Zahlen werden in der Sprache des Textes ausgeschrieben — GPT-mini entscheidet,
+    // nicht hart auf Deutsch gezwungen (damit Englischunterricht nicht gebrochen wird).
+    let capturedInstructions = null;
     const oai = {
       responses: {
-        create: async () => {
-          prepCalled = true;
+        create: async ({ instructions }) => {
+          capturedInstructions = instructions;
           return { output_text: 'Pong zwölf', usage: { prompt_tokens: 10, completion_tokens: 5 } };
         },
       },
     };
     const app = buildApp({ oai });
 
-    const { status } = await postSpeak(app, {
+    await postSpeak(app, {
       body: { text: 'Pong 12', speed: 1.0, activityId: 'act-1', threadId: '1', userId: 'u1' },
     });
 
-    assert.ok(prepCalled, 'Preprocessing muss bei Ziffern aufgerufen werden');
-    assert.equal(status, 200);
+    assert.ok(capturedInstructions, 'Preprocessing muss bei Ziffern aufgerufen werden');
+    // Instruktion darf Zahlen NICHT hart auf Deutsch zwingen
+    assert.ok(
+      !capturedInstructions.toLowerCase().includes('deutschen zahlwörter') &&
+      !capturedInstructions.toLowerCase().includes('auf deutsch'),
+      'Instruktion darf nicht hart auf Deutsch zwingen — sonst bricht Englischunterricht'
+    );
+    // Instruktion soll sprachsensitiv sein
+    assert.ok(
+      capturedInstructions.includes('Sprache'),
+      'Instruktion soll auf Sprache des Textes verweisen'
+    );
   });
 });

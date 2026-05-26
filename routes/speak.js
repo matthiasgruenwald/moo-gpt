@@ -16,11 +16,11 @@ import { isOriginAllowed } from '../auth-middleware.js';
 import { saveTtsPrepUsage, saveTtsUsage } from '../stores/token.js';
 
 const PREPROCESS_INSTRUCTIONS =
-  'Bereinige den folgenden Text für deutsche Sprachausgabe.\n' +
+  'Bereinige den folgenden Text für Sprachausgabe.\n' +
   'REGELN:\n' +
   '- Entferne Markdown-Formatierung (**, *, __, #, `, etc.)\n' +
-  '- Übersetze LaTeX-Ausdrücke in gesprochenes Deutsch\n' +
-  '- Schreibe arabische Ziffern als deutsche Zahlwörter (12 → zwölf, 4 → vier)\n' +
+  '- Übersetze LaTeX-Ausdrücke in gesprochene Sprache\n' +
+  '- Schreibe arabische Ziffern als Zahlwörter in der Sprache des Textes\n' +
   'WICHTIG: Antworte AUSSCHLIESSLICH mit dem bereinigten Text. Kein Kommentar, keine Ergänzung, kein Satz dazu.';
 
 /**
