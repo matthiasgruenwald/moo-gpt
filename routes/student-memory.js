@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireDashboardAuth, isOriginAllowed } from '../auth-middleware.js';
 import {
   getStudentMemory,
-  getAllMemoryForActivity,
+  getAllMemory,
   upsertStudentMemory,
   deleteStudentMemory,
 } from '../stores/student-memory.js';
@@ -10,87 +10,84 @@ import {
 const router = Router();
 
 /**
- * GET /api/student-memory/:activityId
+ * GET /api/student-memory
  *
- * Schüler-Auth (query: userId): gibt eigene Memory zurück.
- * Dashboard-Auth (query: token): gibt alle Memory-Einträge der Aktivität zurück.
+ * Schüler-Auth (query: userId): gibt eigene globale Memory zurück.
+ * Dashboard-Auth (query: token): gibt alle globalen Memory-Einträge zurück.
  */
-router.get('/student-memory/:activityId', (req, res) => {
+router.get('/student-memory', (req, res) => {
   if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
 
-  const { activityId } = req.params;
   const { token, userId } = req.query;
 
   // Dashboard-Auth → alle Einträge
   if (token) {
     requireDashboardAuth(req, res, () => {
-      res.json({ memory: getAllMemoryForActivity(activityId) });
+      res.json({ memory: getAllMemory() });
     });
     return;
   }
 
   // Schüler-Auth → eigener Eintrag
   if (!userId) return res.status(400).json({ error: 'userId oder token erforderlich' });
-  const entry = getStudentMemory(userId, activityId);
+  const entry = getStudentMemory(userId);
   res.json({ memory: entry });
 });
 
 /**
- * POST /api/student-memory/:activityId
- * Body (Schüler): { userId, preferenceText }
- * Body (Dashboard): { studentId, preferenceText }
+ * POST /api/student-memory
+ * Body (Schüler): { userId, preferenceText, preferred_voice?, tts_autoplay? }
+ * Body (Dashboard): { studentId, preferenceText, preferred_voice?, tts_autoplay? }
  * Query: token (optional, Dashboard-Auth)
  */
-router.post('/student-memory/:activityId', (req, res) => {
+router.post('/student-memory', (req, res) => {
   if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
 
-  const { activityId } = req.params;
   const { token } = req.query;
 
   if (token) {
     // Dashboard-Auth: kann beliebigen Schüler setzen
     requireDashboardAuth(req, res, () => {
-      const { studentId, preferenceText } = req.body;
-      if (!studentId || !preferenceText) {
+      const { studentId, preferenceText, preferred_voice, tts_autoplay } = req.body;
+      if (!studentId || preferenceText === undefined) {
         return res.status(400).json({ error: 'studentId und preferenceText erforderlich' });
       }
-      upsertStudentMemory(studentId, activityId, preferenceText);
+      upsertStudentMemory(studentId, preferenceText, { preferred_voice, tts_autoplay });
       res.json({ ok: true });
     });
     return;
   }
 
   // Schüler-Auth: eigener Eintrag
-  const { userId, preferenceText } = req.body;
-  if (!userId || !preferenceText) {
+  const { userId, preferenceText, preferred_voice, tts_autoplay } = req.body;
+  if (!userId || preferenceText === undefined) {
     return res.status(400).json({ error: 'userId und preferenceText erforderlich' });
   }
-  upsertStudentMemory(userId, activityId, preferenceText);
+  upsertStudentMemory(userId, preferenceText, { preferred_voice, tts_autoplay });
   res.json({ ok: true });
 });
 
 /**
- * DELETE /api/student-memory/:activityId
+ * DELETE /api/student-memory
  * Query (Schüler): userId
  * Query (Dashboard): token + studentId
  */
-router.delete('/student-memory/:activityId', (req, res) => {
+router.delete('/student-memory', (req, res) => {
   if (!isOriginAllowed(req)) return res.status(403).json({ error: 'Forbidden' });
 
-  const { activityId } = req.params;
   const { token, userId, studentId } = req.query;
 
   if (token) {
     requireDashboardAuth(req, res, () => {
       if (!studentId) return res.status(400).json({ error: 'studentId erforderlich' });
-      deleteStudentMemory(studentId, activityId);
+      deleteStudentMemory(studentId);
       res.json({ ok: true });
     });
     return;
   }
 
   if (!userId) return res.status(400).json({ error: 'userId erforderlich' });
-  deleteStudentMemory(userId, activityId);
+  deleteStudentMemory(userId);
   res.json({ ok: true });
 });
 
