@@ -605,7 +605,7 @@
     const parts = [];
     if (input   === 'on') parts.push('Eingabe: an');
     if (output  === 'on') parts.push(`Ausgabe: an (${voice})`);
-    if (student === 'on') parts.push('Schüleroptionen: an');
+    if (student === 'on') parts.push('Sch.-Opt.: an');
     const label = parts.length ? parts.join(' | ') : '–';
     document.querySelector('#cfg-audio-details summary').textContent = 'Audio — ' + label;
   }
