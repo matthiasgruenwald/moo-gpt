@@ -83,6 +83,22 @@ export async function computeAudioCost(audioSeconds) {
   return audioSeconds * costPerSecond * EUR_RATE;
 }
 
+// Issue #96: TTS-Preis – tts-1-hd kostet $30 / 1M Zeichen
+const TTS_COST_PER_CHAR_USD = 30 / 1_000_000;
+
+/**
+ * Berechnet die Kosten einer TTS-Synthese in EUR.
+ * Gibt null zurück wenn kein EUR-Kurs verfügbar.
+ *
+ * @param {number} ttsCharacters - Anzahl der synthetisierten Zeichen
+ * @returns {Promise<number|null>} - EUR-Betrag oder null
+ */
+export async function computeTtsCost(ttsCharacters) {
+  if (ttsCharacters == null || ttsCharacters <= 0) return null;
+  if (!EUR_RATE) return null;
+  return ttsCharacters * TTS_COST_PER_CHAR_USD * EUR_RATE;
+}
+
 // Issue #41: Kostenberechnung für ein einzelnes Modell (async)
 async function computeRunCostForModel(promptTokens, completionTokens, model) {
   if (!EUR_RATE) return null;
