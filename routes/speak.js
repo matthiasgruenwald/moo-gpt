@@ -50,9 +50,12 @@ export function createSpeakRouter({ oai }) {
     const threadId   = typeof req.body?.threadId   === 'string' ? req.body.threadId.slice(0, 64)   : null;
     const activityId = typeof req.body?.activityId === 'string' ? req.body.activityId.slice(0, 64) : null;
 
+    console.log(`[Speak] Request: voice=${voice}, speed=${speed}, textLen=${rawText.length}, activityId=${activityId}`);
+
     // GPT-mini-Preprocessing: Markdown + LaTeX bereinigen
     let cleanedText = rawText;
     try {
+      console.log('[Speak] GPT-mini-Preprocessing startet…');
       const prepResponse = await oai.responses.create({
         model:        'gpt-4o-mini',
         instructions: PREPROCESS_INSTRUCTIONS,
@@ -73,6 +76,8 @@ export function createSpeakRouter({ oai }) {
       // Graceful degradation: Preprocessing fehlgeschlagen → unbereinigten Text verwenden
       console.error('[Speak] GPT-mini-Preprocessing fehlgeschlagen:', prepErr.message);
     }
+
+    console.log(`[Speak] Preprocessing abgeschlossen, starte TTS (${cleanedText.length} Zeichen)…`);
 
     // TTS-Synthese
     try {
