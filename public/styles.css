@@ -798,6 +798,24 @@ button:hover {
 }
 .mmb-fb-cancel:hover { background: rgba(255,255,255,0.1); }
 
+/* ── Issue #100: Lautsprecher-Button ───────────────────────────────────── */
+.mmb-speak-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 6px;
+    line-height: 1.4;
+    opacity: 0.75;
+    transition: opacity 0.15s, background 0.15s;
+    margin-top: 6px;
+    display: inline-block;
+}
+.mmb-speak-btn:hover { opacity: 1; background: rgba(255,255,255,0.12); }
+.mmb-speak-btn:disabled { cursor: default; opacity: 0.5; }
+
 /* ── Issue #53: Memory-Button + Memory-Overlay ──────────────────────────── */
 .memory-icon {
     position: fixed;

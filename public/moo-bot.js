@@ -13,9 +13,10 @@ export class MOOBOT {
     // P5a: nur host/protocol/port aus dem Snippet verwenden
     // Issue #89: audioInput kommt via Server-Config (_applyConfig), nicht aus dem Snippet
     this.settings = {
-      host:     settings.host,
-      protocol: settings.protocol,
-      port:     settings.port,
+      host:        settings.host,
+      protocol:    settings.protocol,
+      port:        settings.port,
+      audioOutput: settings.audioOutput || 'off',  // Issue #100: aus Snippet
     };
     this.msgCount = 0;
     this.ws = null;
@@ -28,6 +29,10 @@ export class MOOBOT {
     this._dragListenerAdded      = false;
     this._positionSide           = sessionStorage.getItem('moogpt-side') === 'left' ? 'left' : 'right';
     this._locked                 = false;
+    this._currentAudio           = null;  // Issue #100: laufende TTS-Wiedergabe
+    this._ttsVoice               = settings.ttsVoice || 'nova';  // Issue #100
+    this._ttsSpeed               = 1.0;  // Issue #100: nicht persistent, Default 1,0
+    this._lastRawText            = '';   // Issue #100: Rohtext der letzten Bot-Antwort
     this.marked = marked;
     this.katex = katex;
     this.renderMathInElement = renderMathInElement;
@@ -961,6 +966,10 @@ export class MOOBOT {
 
         let messageText = messageObj.messages;
 
+        // Issue #100: Rohtext für TTS akkumulieren (vor Mathe-Ersetzung)
+        if (this.msgCount === 0) this._lastRawText = '';
+        this._lastRawText = messageText;
+
         // Ersetzen von \[ durch $$
         messageText = messageText.replace(/\\\[/g, "$$");
         // Ersetzen von \] durch $$
@@ -1024,6 +1033,10 @@ export class MOOBOT {
           // Feedback-Buttons nur für Schüler
           if (!this.settings.isTeacher && lastMsg && !lastMsg.querySelector('.mmb-feedback')) {
             this._addFeedbackButtons(lastMsg);
+          }
+          // Issue #100: Lautsprecher-Icon nur wenn audioOutput=on
+          if (this.settings.audioOutput === 'on' && lastMsg && !lastMsg.querySelector('.mmb-speak-btn')) {
+            this._addSpeakButton(lastMsg, this._lastRawText);
           }
           this._enableInput();
         }
@@ -1821,6 +1834,81 @@ export class MOOBOT {
       });
     } catch (e) {
       console.error('[Feedback] Speichern fehlgeschlagen:', e);
+    }
+  }
+
+  // ── Issue #100: Lautsprecher-Icon + TTS-Wiedergabe ───────────────────────
+
+  /**
+   * Hängt einen Lautsprecher-Button an eine abgeschlossene Bot-Nachricht.
+   * Klick ruft _speakMessage auf. Guard: audioOutput=off → wird nie aufgerufen.
+   */
+  _addSpeakButton(msgEl, rawText) {
+    const btn = document.createElement('button');
+    btn.className = 'mmb-speak-btn';
+    btn.title = 'Vorlesen';
+    btn.textContent = '🔊';
+    btn.addEventListener('click', () => this._speakMessage(rawText, btn));
+    msgEl.appendChild(btn);
+  }
+
+  /**
+   * Ruft POST /api/speak auf, spielt den Audio-Blob ab.
+   * Stoppt laufende Wiedergabe bevor eine neue gestartet wird.
+   */
+  async _speakMessage(text, btn) {
+    // Laufende Wiedergabe stoppen
+    if (this._currentAudio) {
+      this._currentAudio.pause();
+      this._currentAudio = null;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳';
+
+    try {
+      const res = await fetch(`${this._baseUrl()}/api/speak`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          voice: this._ttsVoice,
+          speed: this._ttsSpeed,
+          activityId: this.settings.activityId || '',
+          threadId:   '',
+          userId:     this.settings.userId || '',
+        }),
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      this._currentAudio = audio;
+
+      audio.playbackRate = this._ttsSpeed;
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        this._currentAudio = null;
+        btn.disabled = false;
+        btn.textContent = '🔊';
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        this._currentAudio = null;
+        btn.disabled = false;
+        btn.textContent = '🔊';
+        this._showChatError('⚠️ Audio-Wiedergabe fehlgeschlagen.');
+      };
+
+      await audio.play();
+      btn.textContent = '🔊';
+      btn.disabled = false;
+    } catch {
+      btn.disabled = false;
+      btn.textContent = '🔊';
+      this._showChatError('⚠️ Sprachausgabe fehlgeschlagen. Bitte erneut versuchen.');
     }
   }
 
