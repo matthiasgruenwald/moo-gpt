@@ -11,6 +11,7 @@
  */
 
 import { Router } from 'express';
+import { Readable } from 'node:stream';
 import { isOriginAllowed } from '../auth-middleware.js';
 import { saveTtsPrepUsage, saveTtsUsage } from '../stores/token.js';
 
@@ -79,23 +80,29 @@ export function createSpeakRouter({ oai }) {
 
     console.log(`[Speak] Preprocessing abgeschlossen, starte TTS (${cleanedText.length} Zeichen)…`);
 
-    // TTS-Synthese
+    // TTS-Synthese — direktes fetch() statt SDK (SDK 6.x BinaryResponse hängt in Express)
     try {
-      const speechResponse = await oai.audio.speech.create({
-        model: 'tts-1-hd',
-        voice,
-        input: cleanedText,
-        speed,
+      const ttsRes = await fetch('https://api.openai.com/v1/audio/speech', {
+        method:  'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.APIKEY}`,
+          'Content-Type':  'application/json',
+        },
+        body: JSON.stringify({ model: 'tts-1-hd', voice, input: cleanedText, speed }),
+        signal: AbortSignal.timeout(30_000),
       });
 
-      // SDK 6.x: __binaryResponse → .blob() verwenden, nicht .arrayBuffer() direkt
-      const blob = await speechResponse.blob();
-      const audioBuffer = Buffer.from(await blob.arrayBuffer());
+      if (!ttsRes.ok) {
+        const errText = await ttsRes.text();
+        console.error(`[Speak] TTS-API Fehler ${ttsRes.status}:`, errText.slice(0, 200));
+        return res.status(500).json({ error: 'TTS-Synthese fehlgeschlagen' });
+      }
 
       saveTtsUsage(threadId, activityId, cleanedText.length);
+      console.log(`[Speak] TTS OK, streame Audio (${cleanedText.length} Zeichen)…`);
 
       res.set('Content-Type', 'audio/mpeg');
-      return res.send(audioBuffer);
+      Readable.fromWeb(ttsRes.body).pipe(res);
     } catch (ttsErr) {
       console.error('[Speak] TTS-Fehler:', ttsErr.message);
       return res.status(500).json({ error: 'TTS-Synthese fehlgeschlagen' });
