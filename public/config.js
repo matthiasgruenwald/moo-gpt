@@ -594,15 +594,18 @@
   }
 
   function updateAudioSummary() {
-    const inputEl  = document.getElementById('cfg-audio-input');
-    const outputEl = document.getElementById('cfg-audio-output');
-    const voiceEl  = document.getElementById('cfg-tts-voice');
-    const input    = inputEl  ? inputEl.value  : 'off';
-    const output   = outputEl ? outputEl.value : 'off';
-    const voice    = voiceEl  ? voiceEl.value  : '';
+    const inputEl   = document.getElementById('cfg-audio-input');
+    const outputEl  = document.getElementById('cfg-audio-output');
+    const voiceEl   = document.getElementById('cfg-tts-voice');
+    const studentEl = document.getElementById('cfg-audio-student-options');
+    const input    = inputEl   ? inputEl.value   : 'off';
+    const output   = outputEl  ? outputEl.value  : 'off';
+    const voice    = voiceEl   ? voiceEl.value   : '';
+    const student  = studentEl ? studentEl.value : 'off';
     const parts = [];
-    if (input  === 'on') parts.push('Eingabe: an');
-    if (output === 'on') parts.push(`Ausgabe: an (${voice})`);
+    if (input   === 'on') parts.push('Eingabe: an');
+    if (output  === 'on') parts.push(`Ausgabe: an (${voice})`);
+    if (student === 'on') parts.push('Schüler: an');
     const label = parts.length ? parts.join(' | ') : '–';
     document.querySelector('#cfg-audio-details summary').textContent = 'Audio — ' + label;
   }
