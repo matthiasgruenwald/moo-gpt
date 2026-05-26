@@ -247,7 +247,7 @@ describe('POST /api/speak', () => {
     assert.equal(status, 200, `Erwartet 200 mit voice-Fallback nova, bekam ${status}`);
   });
 
-  test('Preprocessing übersprungen bei Plaintext — oai.responses.create wird nicht aufgerufen', async () => {
+  test('Preprocessing übersprungen bei reinem Buchstabentext (keine Ziffern/Markdown)', async () => {
     let prepCalled = false;
     const oai = {
       responses: { create: async () => { prepCalled = true; return { output_text: 'ignored', usage: {} }; } },
@@ -255,10 +255,10 @@ describe('POST /api/speak', () => {
     const app = buildApp({ oai });
 
     await postSpeak(app, {
-      body: { text: 'Pong 4', speed: 1.0, activityId: 'act-1', threadId: '1', userId: 'u1' },
+      body: { text: 'Hallo Welt, alles gut?', speed: 1.0, activityId: 'act-1', threadId: '1', userId: 'u1' },
     });
 
-    assert.ok(!prepCalled, 'Preprocessing darf bei Plaintext nicht aufgerufen werden');
+    assert.ok(!prepCalled, 'Preprocessing darf bei Plaintext ohne Ziffern nicht aufgerufen werden');
   });
 
   test('Preprocessing aufgerufen bei Markdown-Text', async () => {
@@ -278,6 +278,26 @@ describe('POST /api/speak', () => {
     });
 
     assert.ok(prepCalled, 'Preprocessing muss bei Markdown-Text aufgerufen werden');
+    assert.equal(status, 200);
+  });
+
+  test('Preprocessing aufgerufen wenn Text Ziffern enthält (für deutsche Zahlwörter)', async () => {
+    let prepCalled = false;
+    const oai = {
+      responses: {
+        create: async () => {
+          prepCalled = true;
+          return { output_text: 'Pong zwölf', usage: { prompt_tokens: 10, completion_tokens: 5 } };
+        },
+      },
+    };
+    const app = buildApp({ oai });
+
+    const { status } = await postSpeak(app, {
+      body: { text: 'Pong 12', speed: 1.0, activityId: 'act-1', threadId: '1', userId: 'u1' },
+    });
+
+    assert.ok(prepCalled, 'Preprocessing muss bei Ziffern aufgerufen werden');
     assert.equal(status, 200);
   });
 });

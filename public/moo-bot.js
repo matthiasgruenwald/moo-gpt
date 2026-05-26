@@ -788,7 +788,8 @@ export class MOOBOT {
 
     // Issue #101: Präferenzen erst JETZT laden — audioStudentOptions kommt via _applyConfig,
     // der _loadTtsPreferences()-Aufruf im init() kam zu früh (audioStudentOptions war noch 'off').
-    if (!this.settings.isTeacher && this.settings.audioStudentOptions === 'on') {
+    // Auch für Lehrer laden: Lehrer können Popover nutzen und testen — ihre Prefs sollen erhalten bleiben.
+    if (this.settings.audioStudentOptions === 'on') {
       this._loadTtsPreferences();
     }
 

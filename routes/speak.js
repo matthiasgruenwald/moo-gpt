@@ -16,15 +16,20 @@ import { isOriginAllowed } from '../auth-middleware.js';
 import { saveTtsPrepUsage, saveTtsUsage } from '../stores/token.js';
 
 const PREPROCESS_INSTRUCTIONS =
-  'Entferne alle Markdown-Formatierung und übersetze LaTeX-Formeln in natürlich gesprochenes Deutsch. ' +
-  'Gib nur den bereinigten Fließtext zurück.';
+  'Bereinige den folgenden Text für deutsche Sprachausgabe.\n' +
+  'REGELN:\n' +
+  '- Entferne Markdown-Formatierung (**, *, __, #, `, etc.)\n' +
+  '- Übersetze LaTeX-Ausdrücke in gesprochenes Deutsch\n' +
+  '- Schreibe arabische Ziffern als deutsche Zahlwörter (12 → zwölf, 4 → vier)\n' +
+  'WICHTIG: Antworte AUSSCHLIESSLICH mit dem bereinigten Text. Kein Kommentar, keine Ergänzung, kein Satz dazu.';
 
 /**
  * Prüft ob der Text Markdown-Syntax oder LaTeX enthält und Preprocessing benötigt.
  * Reine Fließtexte (z. B. "Pong 4") werden direkt an TTS übergeben.
  */
 function needsPreprocessing(text) {
-  return /[#*_`~]|\$\$?|\\\(|\\\[|={2,}|-{3,}|!\[/.test(text);
+  // Markdown, LaTeX oder Ziffern (damit Zahlen auf Deutsch gesprochen werden)
+  return /[#*_`~]|\$\$?|\\\(|\\\[|={2,}|-{3,}|!\[|\d/.test(text);
 }
 
 const DEFAULT_VOICE = 'nova';
