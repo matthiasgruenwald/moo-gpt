@@ -180,7 +180,8 @@ export class ChatSession {
       }));
       return;
     }
-    saveMessage({ thread_db_id: this.threadDbId, role: 'user', content: msgObj.data.message });
+    const contentType = msgObj.data.content_type === 'audio' ? 'audio' : 'text';
+    saveMessage({ thread_db_id: this.threadDbId, role: 'user', content: msgObj.data.message, content_type: contentType });
     if (this.settings.activityId) {
       this._deps.dashboardRegistry.broadcast(this.settings.activityId, {
         type: 'newMessage', threadDbId: this.threadDbId,
@@ -188,6 +189,7 @@ export class ChatSession {
         userName:  this.settings.userName || null,
         role:      'user',
         content:   msgObj.data.message,
+        contentType,
         createdAt: new Date().toISOString(),
       });
     }
