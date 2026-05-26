@@ -40,13 +40,22 @@
 
   function getFields() {
     return {
-      title:         document.getElementById('cfg-title').value,
-      botIcon:       document.getElementById('cfg-bot-icon').value,
-      opener:        document.getElementById('cfg-opener').value,
-      uploadMode:    document.getElementById('cfg-upload-mode').value,
-      audioInput:    document.getElementById('cfg-audio-input').value,
-      hintsTemplate: document.getElementById('cfg-hints').value,
+      title:               document.getElementById('cfg-title').value,
+      botIcon:             document.getElementById('cfg-bot-icon').value,
+      opener:              document.getElementById('cfg-opener').value,
+      uploadMode:          document.getElementById('cfg-upload-mode').value,
+      audioInput:          document.getElementById('cfg-audio-input').value,
+      audioOutput:         document.getElementById('cfg-audio-output').value,
+      ttsVoice:            document.getElementById('cfg-tts-voice').value,
+      audioStudentOptions: document.getElementById('cfg-audio-student-options').value,
+      hintsTemplate:       document.getElementById('cfg-hints').value,
     };
+  }
+
+  function updateAudioOutputDependents() {
+    const isOn = document.getElementById('cfg-audio-output').value === 'on';
+    document.getElementById('cfg-tts-voice-field').style.display            = isOn ? '' : 'none';
+    document.getElementById('cfg-audio-student-options-field').style.display = isOn ? '' : 'none';
   }
 
   function getLoadedTemplate() {
@@ -126,11 +135,14 @@
     updateTemplateUI();
   });
 
-  ['cfg-title', 'cfg-bot-icon', 'cfg-opener', 'cfg-upload-mode', 'cfg-audio-input', 'cfg-hints'].forEach(id => {
+  ['cfg-title', 'cfg-bot-icon', 'cfg-opener', 'cfg-upload-mode', 'cfg-audio-input',
+   'cfg-audio-output', 'cfg-tts-voice', 'cfg-audio-student-options', 'cfg-hints'].forEach(id => {
     const el = document.getElementById(id);
     el.addEventListener('input',  updateDirtyState);
     el.addEventListener('change', updateDirtyState);
   });
+
+  document.getElementById('cfg-audio-output').addEventListener('change', updateAudioOutputDependents);
 
   document.getElementById('cfg-tpl-default-btn').addEventListener('click', async () => {
     if (!loadedTemplateId) return;
@@ -297,12 +309,16 @@
 
       document.getElementById('cfg-activity-name').textContent =
         data.activityName || `Aktivität ${activityId}`;
-      document.getElementById('cfg-title').value        = data.title       || '';
-      document.getElementById('cfg-bot-icon').value     = data.botIcon     || 'grw';
-      document.getElementById('cfg-opener').value       = data.opener      || '';
-      document.getElementById('cfg-upload-mode').value  = data.uploadMode  || 'off';
-      document.getElementById('cfg-audio-input').value  = data.audioInput  || 'off';
-      document.getElementById('cfg-hints').value        = data.erfahrungsprompt || '';
+      document.getElementById('cfg-title').value                   = data.title               || '';
+      document.getElementById('cfg-bot-icon').value                = data.botIcon             || 'grw';
+      document.getElementById('cfg-opener').value                  = data.opener              || '';
+      document.getElementById('cfg-upload-mode').value             = data.uploadMode          || 'off';
+      document.getElementById('cfg-audio-input').value             = data.audioInput          || 'off';
+      document.getElementById('cfg-audio-output').value            = data.audioOutput         || 'off';
+      document.getElementById('cfg-tts-voice').value               = data.ttsVoice            || 'nova';
+      document.getElementById('cfg-audio-student-options').value   = data.audioStudentOptions || 'off';
+      document.getElementById('cfg-hints').value                   = data.erfahrungsprompt    || '';
+      updateAudioOutputDependents();
 
       const modelSel = document.getElementById('cfg-model');
       for (const m of (data.availableModels || [])) {
@@ -317,13 +333,16 @@
       document.getElementById('cfg-suggest-questions').checked = preferSuggestQuestions !== 0;
 
       initial = {
-        title:      data.title            || '',
-        botIcon:    data.botIcon          || 'grw',
-        opener:     data.opener           || '',
-        uploadMode: data.uploadMode       || 'off',
-        audioInput: data.audioInput       || 'off',
-        hints:      data.erfahrungsprompt || '',
-        model:      data.myModel          || '',
+        title:               data.title               || '',
+        botIcon:             data.botIcon             || 'grw',
+        opener:              data.opener              || '',
+        uploadMode:          data.uploadMode          || 'off',
+        audioInput:          data.audioInput          || 'off',
+        audioOutput:         data.audioOutput         || 'off',
+        ttsVoice:            data.ttsVoice            || 'nova',
+        audioStudentOptions: data.audioStudentOptions || 'off',
+        hints:               data.erfahrungsprompt    || '',
+        model:               data.myModel             || '',
       };
 
       elLoading.style.display = 'none';
@@ -339,13 +358,16 @@
     const btn    = document.getElementById('cfg-save-btn');
     const status = document.getElementById('cfg-status');
 
-    const title      = document.getElementById('cfg-title').value;
-    const botIcon    = document.getElementById('cfg-bot-icon').value;
-    const opener     = document.getElementById('cfg-opener').value;
-    const uploadMode = document.getElementById('cfg-upload-mode').value;
-    const audioInput = document.getElementById('cfg-audio-input').value;
-    const hints      = document.getElementById('cfg-hints').value;
-    const model      = document.getElementById('cfg-model').value;
+    const title               = document.getElementById('cfg-title').value;
+    const botIcon             = document.getElementById('cfg-bot-icon').value;
+    const opener              = document.getElementById('cfg-opener').value;
+    const uploadMode          = document.getElementById('cfg-upload-mode').value;
+    const audioInput          = document.getElementById('cfg-audio-input').value;
+    const audioOutput         = document.getElementById('cfg-audio-output').value;
+    const ttsVoice            = document.getElementById('cfg-tts-voice').value;
+    const audioStudentOptions = document.getElementById('cfg-audio-student-options').value;
+    const hints               = document.getElementById('cfg-hints').value;
+    const model               = document.getElementById('cfg-model').value;
 
     btn.disabled       = true;
     status.className   = 'cfg-status';
@@ -354,21 +376,33 @@
     const errors = [];
 
     try {
-      if (title !== initial.title || botIcon !== initial.botIcon || opener !== initial.opener || uploadMode !== initial.uploadMode || audioInput !== initial.audioInput) {
+      if (
+        title               !== initial.title               ||
+        botIcon             !== initial.botIcon             ||
+        opener              !== initial.opener              ||
+        uploadMode          !== initial.uploadMode          ||
+        audioInput          !== initial.audioInput          ||
+        audioOutput         !== initial.audioOutput         ||
+        ttsVoice            !== initial.ttsVoice            ||
+        audioStudentOptions !== initial.audioStudentOptions
+      ) {
         const res = await fetch(
           `/api/activity-config/${encodeURIComponent(activityId)}?token=${encodeURIComponent(token)}`,
           {
             method:  'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ title, botIcon, opener, uploadMode, audioInput }),
+            body:    JSON.stringify({ title, botIcon, opener, uploadMode, audioInput, audioOutput, ttsVoice, audioStudentOptions }),
           }
         );
         if (res.ok) {
-          initial.title      = title;
-          initial.botIcon    = botIcon;
-          initial.opener     = opener;
-          initial.uploadMode = uploadMode;
-          initial.audioInput = audioInput;
+          initial.title               = title;
+          initial.botIcon             = botIcon;
+          initial.opener              = opener;
+          initial.uploadMode          = uploadMode;
+          initial.audioInput          = audioInput;
+          initial.audioOutput         = audioOutput;
+          initial.ttsVoice            = ttsVoice;
+          initial.audioStudentOptions = audioStudentOptions;
         } else {
           errors.push('Einstellungen konnten nicht gespeichert werden.');
         }
