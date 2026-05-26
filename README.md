@@ -38,6 +38,8 @@ KI-Chatbot-Widget für Moodle. Lehrkräfte betten einen KI-Assistenten direkt in
 - Prompt-Optimierung per Simulation: vollautomatisch mit einem Klick oder manuell – auch ohne echte Schüler-Chats
 - KI-Antworten im Dashboard inline bearbeitbar (versioniert); Schüler sehen die aktive Version
 - Live-Unterrichts-Überblick: thematische Zusammenfassung aller Chats auf Knopfdruck, Liste nicht aktiver Schüler
+- Audio-Eingabe: Spracheingabe per Mikrofon mit automatischer Transkription (OpenAI Whisper)
+- TTS-Ausgabe: KI-Antworten vorlesen lassen (OpenAI TTS, Stimme konfigurierbar); optional mit Auto-Play
 - Widget-Position umschaltbar (links/rechts), gespeichert für die aktuelle Browsersitzung
 
 ## Dokumentation

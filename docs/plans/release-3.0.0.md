@@ -65,6 +65,12 @@ Admin-Übersicht aller Kosten.
 - **Widget-Position umschaltbar** — links oder rechts, je nach Aufgabenlayout
   (gespeichert für die aktuelle Browsersitzung).
 
+### Audio
+
+- **Spracheingabe** — Mikrofon-Button im Widget mit automatischer Transkription via OpenAI Whisper.
+- **TTS-Ausgabe** — KI-Antworten vorlesen lassen (OpenAI TTS, Stimme konfigurierbar, optionaler Auto-Play, Schüler-Wiedergabesteuerung).
+- Beide Funktionen sind pro Aufgabe in den Aktivitätseinstellungen aktivierbar.
+
 ### Chat-Widget
 
 - Dateiupload (Bilder & PDF) mit Vorschau und Zoom

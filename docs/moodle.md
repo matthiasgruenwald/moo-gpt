@@ -16,19 +16,12 @@ Sobald der Administrator das Snippet installiert hat, kann jede Lehrkraft das Wi
 
 ![Snippet-Auswahl im TinyMCE-Editor](images/Snippet-in-Tiny-einfuegen.png)
 
-Für Quiz-/Testfragen das Snippet **„KI-Chat (Testfrage)"** verwenden.
-
 Die verfügbaren Snippets und deren Import sind in [`snippets/SNIPPET-SETUP.md`](../snippets/SNIPPET-SETUP.md) beschrieben (für Administratoren).
 
 ## Manuell einbinden
 
 > ⚠️ **Aktuell nicht empfohlen.** Die Konfiguration des Widgets erfolgt serverseitig über das Dashboard – eine vollständige manuelle Einbindung per HTML-Snippet ist derzeit nicht funktional. Für diesen Anwendungsfall bitte ein [Issue anlegen](https://github.com/matthiasgruenwald/moo-gpt/issues/new).
 
-## Manuell einbinden (Quiz-/Testfrage)
-
-Quiz-Fragen blockieren `<script>`-Tags – hier wird eine iframe-Variante verwendet. Aufgabentext und Hinweise werden als URL-Parameter übergeben. Siehe `snippets/tegpt.txt` für das fertige Snippet.
-
-> ⚠️ **Bekannte Lücke:** Das iframe hat keinen Zugriff auf das Parent-DOM und kann die Lehrkraft-Rolle nicht erkennen. Separates Issue geplant.
 
 ## Lehrer-Dashboard
 
@@ -123,6 +116,22 @@ Der Tab **Einstellungen** ist für Administratoren. Hier wird der globale System
 ## Rollenerkennung
 
 Das Widget erkennt automatisch, ob der aktuelle Nutzer Lehrkraft oder Schüler ist und zeigt die Oberfläche entsprechend an. Die Erkennung funktioniert zuverlässig im **Boost-Theme**. Bei anderen Themes oder nach Moodle-Updates kann es sein, dass die Erkennung nicht greift – in diesem Fall den Administrator bitten, die Lehrkraft-IDs in der Serverkonfiguration einzutragen (`TEACHER_USER_IDS`).
+
+## Audio: Spracheingabe & Vorlesen
+
+### Spracheingabe (Whisper)
+
+Wenn in der Aufgabenkonfiguration aktiviert, erscheint ein Mikrofon-Button im Widget. Schüler können damit sprechen; die Aufnahme wird automatisch per Whisper transkribiert und als Text gesendet. Kosten werden im Dashboard unter „Audio-Transkription" angezeigt.
+
+### Vorlesen (TTS)
+
+Wenn aktiviert, kann jede KI-Antwort mit einem Lautsprecher-Button vorgelesen werden. Stimme und Auto-Play-Verhalten sind pro Aufgabe konfigurierbar. Schüler können die Wiedergabe steuern, wenn die Lehrkraft die Schüler-Optionen freigeschaltet hat.
+
+### Features aktivieren und deaktivieren
+
+Spracheingabe, TTS, Dateiupload und weitere Widget-Funktionen lassen sich pro Aufgabe in den Aktivitätseinstellungen ein- oder ausschalten. Welche Optionen verfügbar sind, zeigt der Screenshot der Einstellungen.
+
+> 📸 *Screenshot: Audio-Einstellungen in der Aufgabenkonfiguration (folgt)*
 
 ## Bilderkennung
 

@@ -131,7 +131,6 @@ Im Verzeichnis `snippets/` liegen zwei fertige Snippet-Dateien:
 | Datei | Verwendung |
 |---|---|
 | `snippet1_aufgabe.html` | Für Moodle-Aufgaben |
-| `snippet2_testfrage.html` | Für Quiz-/Testfragen (iframe) |
 
 Import per Drag & Drop: Die `.html`-Datei direkt in das Snippet-Plugin ziehen. Vor dem Import die URL der eigenen moo-gpt-Instanz in der Datei anpassen (Suche nach `moo-gpt.beispiel.de`).
 

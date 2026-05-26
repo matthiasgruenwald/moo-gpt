@@ -75,7 +75,6 @@ npm start
 | # | Thema |
 |---|---|
 | #6 | Chat-Verwaltung: Neue Chats, Archivierung & sicheres Löschen |
-| #7 | Rollenerkennung für tegpt (iframe) |
 | #9 | Snippet für Lehrer-Übersicht über mehrere Aktivitäten |
 | #32 | Azure OpenAI / EU-Inferenz-Residency unterstützen |
 

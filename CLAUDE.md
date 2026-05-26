@@ -46,7 +46,7 @@ KI-Chatbot-Widget für Moodle (IGS Mittelstufe, v.a. Jg. 9). Floating-Chat-Widge
 | `routes/admin.js` | createAdminRouter: System-Prompt, History, Template, Logs, Neustart |
 | `routes/erfahrungsprompt.js` | Erfahrungsprompt CRUD + /optimize-prompt Endpoint |
 | `routes/criteria.js` | createCriteriaRouter: Kriterien, Erkenntnisse, Feedback-Bewertung |
-| `snippets/abgpt.txt` / `tegpt.txt` | TinyMCE-Snippets: abgpt = Aufgaben, tegpt = Quiz/Test |
+| `snippets/moo-gpt.txt` | TinyMCE-Snippet für Moodle-Aufgaben |
 
 ---
 
@@ -58,7 +58,7 @@ KI-Chatbot-Widget für Moodle (IGS Mittelstufe, v.a. Jg. 9). Floating-Chat-Widge
 | [`docs/server.md`](docs/server.md) | server.js-Konzepte: Origin, Token-System, Responses API, Endpunkte |
 | [`docs/bot.md`](docs/bot.md) | moo-bot.js: Lazy-Init, Upload, Rollenerkennung, Cache |
 | [`docs/dashboard.md`](docs/dashboard.md) | Layout, Session-Gruppen, Kostenanzeige, Token-Fehler |
-| [`docs/snippets.md`](docs/snippets.md) | abgpt/tegpt TinyMCE-Snippets, Moodle-Rechte |
+| [`docs/snippets.md`](docs/snippets.md) | moo-gpt TinyMCE-Snippet, Moodle-Rechte |
 | [`docs/system-prompt.md`](docs/system-prompt.md) | Aktueller System-Prompt, Bildverarbeitung |
 | [`docs/git-workflow.md`](docs/git-workflow.md) | Mac- und LXC-Blöcke, grep-Hinweis |
 | [`docs/github-issues.md`](docs/github-issues.md) | curl-Befehle für Issues anlegen/schließen/listen |

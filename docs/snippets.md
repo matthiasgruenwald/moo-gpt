@@ -1,17 +1,16 @@
-# TinyMCE-Snippets: abgpt & tegpt
+# TinyMCE-Snippet: moo-gpt
 
-Moodle-Snippets für das moo-gpt Chat-Widget. Werden per TinyMCE-Plugin in Moodle-Aktivitäten eingefügt.
+Moodle-Snippet für das moo-gpt Chat-Widget. Wird per TinyMCE-Plugin in Moodle-Aktivitäten eingefügt.
 
-## Verfügbare Snippets
+## Verfügbares Snippet
 
-| Snippet | Datei | Einsatz |
-|---------|-------|---------|
-| `abgpt` | `snippets/abgpt.txt` | Aufgaben-Chat mit optionalem Bild-/PDF-Upload |
-| `tegpt` | `snippets/tegpt.txt`  | Quiz/Test-Chat (Rollenerkennung für Schüler/Lehrer) |
+| Datei | Einsatz |
+|-------|---------|
+| `snippets/moo-gpt.txt` | Aufgaben-Chat (Bild-/PDF-Upload, Audio, TTS) |
 
 ---
 
-## Parameter (abgpt)
+## Parameter (moo-gpt)
 
 Alle Parameter werden direkt in der Moodle-Aktivität im TinyMCE-Editor bearbeitet (gestricheltes Einstellungsfeld, nur im Editor sichtbar).
 
@@ -95,7 +94,7 @@ Alle Parameter werden direkt in der Moodle-Aktivität im TinyMCE-Editor bearbeit
 
 ---
 
-## Beispiel: abgpt mit Mikrofon
+## Beispiel: moo-gpt mit Mikrofon
 
 ```
 Titel=Sprach-Assistent
