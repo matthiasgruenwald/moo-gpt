@@ -786,6 +786,12 @@ export class MOOBOT {
       }
     }
 
+    // Issue #101: Präferenzen erst JETZT laden — audioStudentOptions kommt via _applyConfig,
+    // der _loadTtsPreferences()-Aufruf im init() kam zu früh (audioStudentOptions war noch 'off').
+    if (!this.settings.isTeacher && this.settings.audioStudentOptions === 'on') {
+      this._loadTtsPreferences();
+    }
+
     console.log(`[Bot] Config angewendet: title="${title}", uploadMode=${uploadMode}, needsConfig=${needsConfig}`);
   }
 
