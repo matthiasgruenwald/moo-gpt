@@ -601,13 +601,16 @@ export class MOOBOT {
   // ── P5a: Config vom Server anwenden ──────────────────────────────────────
 
   _applyConfig(config) {
-    const { title, botIcon, opener, uploadMode, audioInput, needsConfig } = config;
+    const { title, botIcon, opener, uploadMode, audioInput, audioOutput, ttsVoice, audioStudentOptions, needsConfig } = config;
 
-    this.settings.title      = title      ?? null;
-    this.settings.botIcon    = botIcon    ?? 'grw';
-    this.settings.opener     = opener     ?? null;
-    this.settings.uploadMode = uploadMode ?? 'off';
-    this.settings.audioInput = audioInput ?? 'off';
+    this.settings.title               = title               ?? null;
+    this.settings.botIcon             = botIcon             ?? 'grw';
+    this.settings.opener              = opener              ?? null;
+    this.settings.uploadMode          = uploadMode          ?? 'off';
+    this.settings.audioInput          = audioInput          ?? 'off';
+    this.settings.audioOutput         = audioOutput         ?? this.settings.audioOutput         ?? 'off';
+    this.settings.audioStudentOptions = audioStudentOptions ?? this.settings.audioStudentOptions ?? 'off';
+    if (ttsVoice) this._ttsVoice = ttsVoice;
 
     const iconUrl = this._iconUrl(botIcon || 'grw');
     document.querySelectorAll('#chat-icon img, .chat-header-icon').forEach(img => { img.src = iconUrl; });

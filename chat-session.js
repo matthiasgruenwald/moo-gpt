@@ -36,11 +36,14 @@ async function resolveActivity(activityId, activityName, isTeacher, userId, hint
   }
 
   return {
-    title:      act?.title        ?? null,
-    botIcon:    act?.bot_icon     ?? 'grw',
-    opener:     act?.opener       ?? null,
-    uploadMode: act?.upload_mode  ?? 'off',
-    audioInput: act?.audio_input  ?? 'off',
+    title:               act?.title                ?? null,
+    botIcon:             act?.bot_icon             ?? 'grw',
+    opener:              act?.opener               ?? null,
+    uploadMode:          act?.upload_mode          ?? 'off',
+    audioInput:          act?.audio_input          ?? 'off',
+    audioOutput:         act?.audio_output         ?? 'off',
+    ttsVoice:            act?.tts_voice            ?? 'nova',
+    audioStudentOptions: act?.audio_student_options ?? 'off',
     needsConfig: act?.title == null,
   };
 }
