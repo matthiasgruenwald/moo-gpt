@@ -32,7 +32,7 @@ export function setTeacherIfUnset(activity_id, teacher_id, teacher_name) {
 export function setActivityConfig(activity_id, opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions) {
   getDb().prepare(`
     INSERT INTO activities (activity_id, opener, upload_mode, title, bot_icon, audio_input, audio_output, tts_voice, audio_student_options, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, 'off'), COALESCE(?, 'nova'), COALESCE(?, 'off'), CURRENT_TIMESTAMP)
     ON CONFLICT(activity_id) DO UPDATE SET
       opener               = COALESCE(excluded.opener, activities.opener),
       upload_mode          = COALESCE(excluded.upload_mode, activities.upload_mode),
