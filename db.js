@@ -237,6 +237,10 @@ export function initDb() {
   try { db.exec(`ALTER TABLE activities ADD COLUMN audio_input TEXT DEFAULT 'off'`); } catch (_) {}
   // P8: TTS-Kosten — Zeichenanzahl in token_log (Issue #96)
   try { db.exec(`ALTER TABLE token_log ADD COLUMN tts_characters INTEGER`); } catch (_) {}
+  // P9: TTS-Konfiguration pro Aktivität (Issue #97)
+  try { db.exec(`ALTER TABLE activities ADD COLUMN audio_output TEXT DEFAULT 'off'`); } catch (_) {}
+  try { db.exec(`ALTER TABLE activities ADD COLUMN tts_voice TEXT DEFAULT 'nova'`); } catch (_) {}
+  try { db.exec(`ALTER TABLE activities ADD COLUMN audio_student_options TEXT DEFAULT 'off'`); } catch (_) {}
 
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;
