@@ -69,11 +69,11 @@ Falls Preisdaten noch nicht geladen: Inline-Anzeige entfällt still, Detailliste
 
 ## Chat-Kosten
 
-Token-Kosten, die durch Schüler-Chats entstehen. Werden pro Nachricht in `token_log` mit `thread_id` und `activity_id` gespeichert und sind im Dashboard pro Thread sichtbar.
+KI-Kosten, die durch schülerinitiierte Aktionen entstehen: Schüler-Chats und Audio-Transkriptionen. Werden in `token_log` mit `thread_id` und `activity_id` gespeichert. Chat-Nachrichten haben `call_type = NULL`; Audio-Transkriptionen haben `call_type = 'transcription'` (damit aggregierbare Auswertung pro Aktivität möglich ist). Im Dashboard pro Thread sichtbar.
 
 ## Werkzeug-Kosten
 
-Token-Kosten, die durch Lehrer-Werkzeuge im Dashboard entstehen: Live-Unterrichts-Zusammenfassung, Prompt-Assistent, Kriterien-Generierung, Persona-Generierung, Simulation, Prompt-Optimierung. Immer aktivitätsbezogen — Calls ohne `activityId` werden nicht erfasst. Werden in `token_log` mit einer neuen Spalte `call_type` gespeichert (Chat-Einträge haben `call_type = NULL`). Bekannte Typen und ihre Anzeigenamen:
+KI-Kosten, die durch lehrerinitiierte Aktionen entstehen: Live-Unterrichts-Zusammenfassung, Prompt-Assistent, Kriterien-Generierung, Persona-Generierung, Simulation, Prompt-Optimierung. Immer aktivitätsbezogen — Calls ohne `activityId` werden nicht erfasst. Werden in `token_log` mit einer neuen Spalte `call_type` gespeichert. Bekannte Typen und ihre Anzeigenamen:
 
 | `call_type` | Anzeige |
 |---|---|
@@ -83,6 +83,7 @@ Token-Kosten, die durch Lehrer-Werkzeuge im Dashboard entstehen: Live-Unterricht
 | `optimize` | Prompt-Optimierung |
 | `persona` | Persona-Generierung |
 | `simulation` | Simulation |
+| `transcription` | Audio-Transkription (schülerinitiiert, Chat-Kosten) |
 
 Pro Simulations-Durchlauf ein Eintrag (alle Teil-Calls summiert). Calls ohne `activityId` werden nicht erfasst.
 
