@@ -140,12 +140,11 @@ export function initDb() {
     );
 
     CREATE TABLE IF NOT EXISTS student_memory (
-      id              INTEGER PRIMARY KEY AUTOINCREMENT,
-      student_id      TEXT NOT NULL,
-      activity_id     TEXT NOT NULL,
-      preference_text TEXT NOT NULL,
-      updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(student_id, activity_id)
+      student_id      TEXT PRIMARY KEY,
+      preference_text TEXT NOT NULL DEFAULT '',
+      preferred_voice TEXT NOT NULL DEFAULT 'nova',
+      tts_autoplay    INTEGER NOT NULL DEFAULT 0,
+      updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
 
@@ -205,6 +204,24 @@ export function initDb() {
     }
   }
   try { db.exec(`CREATE INDEX IF NOT EXISTS idx_personas_teacher_id ON personas (teacher_id)`); } catch (_) {}
+
+  // P7: student_memory globalisieren (ADR 0003) — alte activity_id-Spalte erkannt → Tabelle neu anlegen
+  {
+    const cols = db.pragma("table_info(student_memory)").map(c => c.name);
+    if (cols.includes("activity_id")) {
+      db.exec(`
+        DROP TABLE IF EXISTS student_memory;
+        CREATE TABLE student_memory (
+          student_id      TEXT PRIMARY KEY,
+          preference_text TEXT NOT NULL DEFAULT '',
+          preferred_voice TEXT NOT NULL DEFAULT 'nova',
+          tts_autoplay    INTEGER NOT NULL DEFAULT 0,
+          updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+      `);
+      console.log("[DB] Migration P7: student_memory auf globales Schema migriert (activity_id entfernt)");
+    }
+  }
 
   // Issue #55: Rückfragen-Präferenz pro Lehrkraft
   try { db.exec(`ALTER TABLE teacher_preferences ADD COLUMN prefer_suggest_questions INTEGER DEFAULT 1`); } catch (_) {}
