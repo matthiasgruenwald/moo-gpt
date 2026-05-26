@@ -13,9 +13,11 @@ export class MOOBOT {
     // P5a: nur host/protocol/port aus dem Snippet verwenden
     // Issue #89: audioInput kommt via Server-Config (_applyConfig), nicht aus dem Snippet
     this.settings = {
-      host:     settings.host,
-      protocol: settings.protocol,
-      port:     settings.port,
+      host:               settings.host,
+      protocol:           settings.protocol,
+      port:               settings.port,
+      audioOutput:        settings.audioOutput        || 'off',  // Issue #100: aus Snippet
+      audioStudentOptions: settings.audioStudentOptions || 'off', // Issue #101: aus Snippet
     };
     this.msgCount = 0;
     this.ws = null;
@@ -28,6 +30,14 @@ export class MOOBOT {
     this._dragListenerAdded      = false;
     this._positionSide           = sessionStorage.getItem('moogpt-side') === 'left' ? 'left' : 'right';
     this._locked                 = false;
+    this._currentAudio           = null;  // Issue #100: laufende TTS-Wiedergabe (HTMLAudioElement legacy)
+    this._currentAudioSource     = null;  // Issue #100: laufende AudioContext-Quelle
+    this._audioCtx               = null;  // Issue #100: AudioContext (pre-unlocked bei erstem Click)
+    this._ttsVoice               = settings.ttsVoice || 'nova';  // Issue #100
+    this._ttsSpeed               = 1.0;  // Issue #100: nicht persistent, Default 1,0
+    this._lastRawText            = '';   // Issue #100: Rohtext der letzten Bot-Antwort
+    this._ttsAutoPlay            = false; // Issue #101: Auto-Play, aus student-memory geladen
+    this._cachedPreferenceText   = '';   // Issue #101: preferenceText zwischenspeichern (kein Überschreiben beim Speichern)
     this.marked = marked;
     this.katex = katex;
     this.renderMathInElement = renderMathInElement;
@@ -45,6 +55,38 @@ export class MOOBOT {
       this.wsInitialized = true;
     } catch (error) {
       console.error("Error loading libraries:", error);
+    }
+  }
+
+  /**
+   * Issue #101: Lädt TTS-Präferenzen (preferred_voice, tts_autoplay) aus student-memory.
+   * Guard: audioStudentOptions != 'on' → kein Aufruf.
+   * Fallback bei Fehler: Defaults (nova, false) bleiben erhalten.
+   */
+  async _loadTtsPreferences() {
+    if (this.settings.audioStudentOptions !== 'on') return;
+    const userId = this.settings.userId;
+    if (!userId) return;
+    try {
+      const res = await fetch(
+        `${this._baseUrl()}/api/student-memory?userId=${encodeURIComponent(userId)}`
+      );
+      if (!res.ok) return; // Fehler → Defaults bleiben
+      const data = await res.json();
+      const entry = data.memory;
+      if (!entry) return;
+      // Preference-Text cachen, damit er beim Speichern erhalten bleibt
+      this._cachedPreferenceText = entry.preference_text ?? '';
+      if (entry.preferred_voice) {
+        this._ttsVoice = entry.preferred_voice;
+        this._updateVoicePopoverSelection();
+      }
+      if (typeof entry.tts_autoplay === 'number') {
+        this._ttsAutoPlay = entry.tts_autoplay === 1;
+        this._updateAutoPlayToggle();
+      }
+    } catch (e) {
+      console.warn('[TTS] Präferenzen laden fehlgeschlagen, nutze Defaults:', e);
     }
   }
 
@@ -80,16 +122,38 @@ export class MOOBOT {
     // Create chat header
     const chatHeader = document.createElement("div");
     chatHeader.className = "chat-header";
+    // Issue #101: Waveform-Icon nur wenn audioStudentOptions=on (und audioOutput=on)
+    const showWaveIcon = this.settings.audioStudentOptions === 'on' && this.settings.audioOutput === 'on';
+    const waveIconHtml = showWaveIcon
+      ? `<button class="mmb-wave-btn" id="mmb-wave-btn" title="Stimmwahl &amp; Auto-Play" aria-label="Sprachausgabe-Einstellungen">&#9641;&#9643;&#9608;</button>`
+      : '';
     chatHeader.innerHTML = `
         <div class="chat-header-icon-container">
             <img src="${icon}" alt="Chat Icon" class="chat-header-icon">
         </div>
+        ${waveIconHtml}
         <h1>MMBbS GPT</h1>
         <button class="header-side-toggle" id="side-toggle-btn" title="Widget links/rechts wechseln" aria-label="Position wechseln">&#8644;</button>
         <div class="header-icon" onclick="toggleChat()">
             <img src="${this._baseUrl()}/close-icon.png" alt="Close Icon">
         </div>`;
     chatContainer.appendChild(chatHeader);
+
+    // Issue #101: Waveform-Button → Voice-Popover öffnen/schließen
+    if (showWaveIcon) {
+      this._buildVoicePopover(chatHeader);
+      chatHeader.querySelector('#mmb-wave-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._toggleVoicePopover();
+      });
+      document.addEventListener('click', (e) => {
+        const popover = document.getElementById('mmb-voice-popover');
+        const waveBtn = document.getElementById('mmb-wave-btn');
+        if (popover && !popover.contains(e.target) && e.target !== waveBtn) {
+          this._closeVoicePopover();
+        }
+      });
+    }
 
     // Create chat window — P5a: Opener wird durch _applyConfig gesetzt
     const chatWindow = document.createElement("div");
@@ -299,6 +363,16 @@ export class MOOBOT {
     window.toggleChat = this.toggleChat.bind(this);
     window.sendMessage = this.sendMessage.bind(this);
     window.handleKeyDown = this.handleKeyDown.bind(this);
+
+    // Issue #100: AudioContext beim ersten User-Click entsperren (für TTS Auto-Play ohne Gesture)
+    const unlockAudio = () => {
+      if (!this._audioCtx) {
+        this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      this._audioCtx.resume().catch(() => {});
+      document.removeEventListener('click', unlockAudio, true);
+    };
+    document.addEventListener('click', unlockAudio, true);
 
     // P5a: Config-Overlay nach erfolgreichem Speichern schließen + Badge entfernen
     window.addEventListener('message', (e) => {
@@ -601,13 +675,35 @@ export class MOOBOT {
   // ── P5a: Config vom Server anwenden ──────────────────────────────────────
 
   _applyConfig(config) {
-    const { title, botIcon, opener, uploadMode, audioInput, needsConfig } = config;
+    const { title, botIcon, opener, uploadMode, audioInput, audioOutput, ttsVoice, audioStudentOptions, needsConfig } = config;
 
     this.settings.title      = title      ?? null;
     this.settings.botIcon    = botIcon    ?? 'grw';
     this.settings.opener     = opener     ?? null;
     this.settings.uploadMode = uploadMode ?? 'off';
     this.settings.audioInput = audioInput ?? 'off';
+    // TTS-Felder aus DB überschreiben Snippet-Defaults (analog zu audioInput)
+    this.settings.audioOutput         = audioOutput         ?? this.settings.audioOutput;
+    this.settings.audioStudentOptions = audioStudentOptions ?? this.settings.audioStudentOptions;
+    if (ttsVoice) this._ttsVoice = ttsVoice;
+    // Waveform-Icon nachrüsten falls DB audioStudentOptions=on (war im Constructor noch 'off')
+    const showWave = this.settings.audioStudentOptions === 'on' && this.settings.audioOutput === 'on';
+    const existingWaveBtn = document.getElementById('mmb-wave-btn');
+    if (showWave && !existingWaveBtn) {
+      const waveBtn = document.createElement('button');
+      waveBtn.className = 'mmb-wave-btn';
+      waveBtn.id = 'mmb-wave-btn';
+      waveBtn.title = 'Stimmwahl & Auto-Play';
+      waveBtn.setAttribute('aria-label', 'Sprachausgabe-Einstellungen');
+      waveBtn.innerHTML = '&#9641;&#9643;&#9608;';
+      waveBtn.addEventListener('click', () => this._toggleVoicePopover());
+      const chatHeader = document.querySelector('.chat-header');
+      const iconContainer = chatHeader?.querySelector('.chat-header-icon-container');
+      if (iconContainer) iconContainer.insertAdjacentElement('afterend', waveBtn);
+      if (chatHeader) this._buildVoicePopover(chatHeader);
+    } else if (!showWave && existingWaveBtn) {
+      existingWaveBtn.remove();
+    }
 
     const iconUrl = this._iconUrl(botIcon || 'grw');
     document.querySelectorAll('#chat-icon img, .chat-header-icon').forEach(img => { img.src = iconUrl; });
@@ -688,6 +784,13 @@ export class MOOBOT {
         ic.innerHTML = this._buildInputHTML('off');
         this._attachMicButton(ic);
       }
+    }
+
+    // Issue #101: Präferenzen erst JETZT laden — audioStudentOptions kommt via _applyConfig,
+    // der _loadTtsPreferences()-Aufruf im init() kam zu früh (audioStudentOptions war noch 'off').
+    // Auch für Lehrer laden: Lehrer können Popover nutzen und testen — ihre Prefs sollen erhalten bleiben.
+    if (this.settings.audioStudentOptions === 'on') {
+      this._loadTtsPreferences();
     }
 
     console.log(`[Bot] Config angewendet: title="${title}", uploadMode=${uploadMode}, needsConfig=${needsConfig}`);
@@ -871,6 +974,9 @@ export class MOOBOT {
       this.settings.isTeacher = isTeacher;
       console.log(`[Bot] isTeacher=${isTeacher} (editmode=${hasEditMode}, switched=${isSwitchedRole})`);
 
+      // Issue #101: TTS-Präferenzen laden sobald userId bekannt ist (nur Schüler)
+      if (!isTeacher) this._loadTtsPreferences();
+
       // Bilder aus der Aufgabenstellung extrahieren und als Base64 mitsenden
       const { images, failedCount } = await this.extractImagesFromTask();
       if (images.length > 0) {
@@ -961,6 +1067,10 @@ export class MOOBOT {
 
         let messageText = messageObj.messages;
 
+        // Issue #100: Rohtext für TTS akkumulieren (vor Mathe-Ersetzung)
+        if (this.msgCount === 0) this._lastRawText = '';
+        this._lastRawText = messageText;
+
         // Ersetzen von \[ durch $$
         messageText = messageText.replace(/\\\[/g, "$$");
         // Ersetzen von \] durch $$
@@ -1024,6 +1134,15 @@ export class MOOBOT {
           // Feedback-Buttons nur für Schüler
           if (!this.settings.isTeacher && lastMsg && !lastMsg.querySelector('.mmb-feedback')) {
             this._addFeedbackButtons(lastMsg);
+          }
+          // Issue #100: Lautsprecher-Icon nur wenn audioOutput=on
+          if (this.settings.audioOutput === 'on' && lastMsg && !lastMsg.querySelector('.mmb-speak-btn')) {
+            this._addSpeakButton(lastMsg, this._lastRawText);
+          }
+          // Issue #101: Auto-Play — kein automatischer Mikrofon-Start
+          if (this.settings.audioOutput === 'on' && this._ttsAutoPlay && this._lastRawText) {
+            const speakBtn = lastMsg?.querySelector('.mmb-speak-btn');
+            if (speakBtn) this._speakMessage(this._lastRawText, speakBtn);
           }
           this._enableInput();
         }
@@ -1821,6 +1940,214 @@ export class MOOBOT {
       });
     } catch (e) {
       console.error('[Feedback] Speichern fehlgeschlagen:', e);
+    }
+  }
+
+  // ── Issue #100: Lautsprecher-Icon + TTS-Wiedergabe ───────────────────────
+
+  /**
+   * Hängt einen Lautsprecher-Button an eine abgeschlossene Bot-Nachricht.
+   * Klick ruft _speakMessage auf. Guard: audioOutput=off → wird nie aufgerufen.
+   */
+  _addSpeakButton(msgEl, rawText) {
+    const btn = document.createElement('button');
+    btn.className = 'mmb-speak-btn';
+    btn.title = 'Vorlesen';
+    btn.textContent = '🔊';
+    btn.addEventListener('click', () => this._speakMessage(rawText, btn));
+    msgEl.appendChild(btn);
+  }
+
+  /**
+   * Ruft POST /api/speak auf, spielt den Audio-Blob ab.
+   * Stoppt laufende Wiedergabe bevor eine neue gestartet wird.
+   */
+  async _speakMessage(text, btn) {
+    // Laufende Wiedergabe stoppen
+    if (this._currentAudioSource) {
+      try { this._currentAudioSource.stop(); } catch (_) {}
+      this._currentAudioSource = null;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳';
+
+    try {
+      const res = await fetch(`${this._baseUrl()}/api/speak`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          voice: this._ttsVoice,
+          speed: this._ttsSpeed,
+          activityId: this.settings.activityId || '',
+          threadId:   '',
+          userId:     this.settings.userId || '',
+        }),
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      // AudioContext verwenden — kein User-Gesture nötig nach erstem Unlock
+      if (!this._audioCtx) {
+        this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      await this._audioCtx.resume();
+
+      const arrayBuffer = await res.arrayBuffer();
+      const audioBuffer = await this._audioCtx.decodeAudioData(arrayBuffer);
+      const source = this._audioCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.playbackRate.value = this._ttsSpeed;
+      source.connect(this._audioCtx.destination);
+      this._currentAudioSource = source;
+
+      await new Promise((resolve, reject) => {
+        source.onended = () => {
+          this._currentAudioSource = null;
+          btn.disabled = false;
+          btn.textContent = '🔊';
+          resolve();
+        };
+        source.onerror = reject;
+        source.start(0);
+      });
+      btn.textContent = '🔊';
+      btn.disabled = false;
+    } catch (err) {
+      console.error('[Speak] Fehler:', err?.name, err?.message, err);
+      btn.disabled = false;
+      btn.textContent = '🔊';
+      this._showChatError('⚠️ Sprachausgabe fehlgeschlagen. Bitte erneut versuchen.');
+    }
+  }
+
+  // ── Issue #101: Voice-Popover ─────────────────────────────────────────────
+
+  /**
+   * Baut den Voice-Popover und hängt ihn an den chatHeader.
+   * Wird nur aufgerufen wenn audioStudentOptions=on.
+   */
+  _buildVoicePopover(chatHeader) {
+    const voices = [
+      { id: 'nova',    label: 'Nova',    desc: 'weiblich, klar, lebendig' },
+      { id: 'alloy',   label: 'Alloy',   desc: 'neutral, androgyn' },
+      { id: 'echo',    label: 'Echo',    desc: 'männlich, klar, sachlich' },
+      { id: 'onyx',    label: 'Onyx',    desc: 'männlich, tief, ruhig' },
+      { id: 'shimmer', label: 'Shimmer', desc: 'weiblich, weich' },
+    ];
+
+    const popover = document.createElement('div');
+    popover.id = 'mmb-voice-popover';
+    popover.className = 'mmb-voice-popover';
+
+    const title = document.createElement('div');
+    title.className = 'mmb-voice-popover-title';
+    title.textContent = 'Stimme wählen';
+    popover.appendChild(title);
+
+    const list = document.createElement('ul');
+    list.className = 'mmb-voice-list';
+    for (const v of voices) {
+      const item = document.createElement('li');
+      item.className = 'mmb-voice-item' + (this._ttsVoice === v.id ? ' selected' : '');
+      item.dataset.voice = v.id;
+      item.innerHTML = `<span class="mmb-voice-name">${v.label}</span><span class="mmb-voice-desc">${v.desc}</span><span class="mmb-voice-check">&#10003;</span>`;
+      item.addEventListener('click', () => this._selectVoice(v.id));
+      list.appendChild(item);
+    }
+    popover.appendChild(list);
+
+    const autoplayRow = document.createElement('div');
+    autoplayRow.className = 'mmb-autoplay-row';
+    autoplayRow.innerHTML = `
+      <span class="mmb-autoplay-label">Auto-Play</span>
+      <label class="mmb-toggle">
+        <input type="checkbox" id="mmb-autoplay-toggle"${this._ttsAutoPlay ? ' checked' : ''}>
+        <span class="mmb-toggle-slider"></span>
+      </label>`;
+    popover.appendChild(autoplayRow);
+    autoplayRow.querySelector('#mmb-autoplay-toggle').addEventListener('change', (e) => {
+      this._setAutoPlay(e.target.checked);
+    });
+
+    chatHeader.style.position = 'relative';
+    chatHeader.appendChild(popover);
+  }
+
+  _toggleVoicePopover() {
+    const popover = document.getElementById('mmb-voice-popover');
+    const btn = document.getElementById('mmb-wave-btn');
+    if (!popover) return;
+    const isOpen = popover.classList.contains('open');
+    if (isOpen) {
+      popover.classList.remove('open');
+      btn?.classList.remove('active');
+    } else {
+      popover.classList.add('open');
+      btn?.classList.add('active');
+    }
+  }
+
+  _closeVoicePopover() {
+    const popover = document.getElementById('mmb-voice-popover');
+    const btn = document.getElementById('mmb-wave-btn');
+    popover?.classList.remove('open');
+    btn?.classList.remove('active');
+  }
+
+  /** Setzt die gewählte Stimme, markiert sie im Popover, persistiert via POST. */
+  _selectVoice(voiceId) {
+    this._ttsVoice = voiceId;
+    this._updateVoicePopoverSelection();
+    this._closeVoicePopover();
+    this._saveTtsPreferences();
+  }
+
+  /** Aktualisiert die visuelle Markierung der gewählten Stimme im Popover. */
+  _updateVoicePopoverSelection() {
+    document.querySelectorAll('.mmb-voice-item').forEach(el => {
+      el.classList.toggle('selected', el.dataset.voice === this._ttsVoice);
+    });
+  }
+
+  /** Setzt Auto-Play, aktualisiert Toggle-UI, persistiert via POST. */
+  _setAutoPlay(enabled) {
+    this._ttsAutoPlay = enabled;
+    this._updateAutoPlayToggle();
+    this._saveTtsPreferences();
+  }
+
+  /** Synchronisiert den Toggle-Zustand mit this._ttsAutoPlay. */
+  _updateAutoPlayToggle() {
+    const toggle = document.getElementById('mmb-autoplay-toggle');
+    if (toggle) toggle.checked = this._ttsAutoPlay;
+  }
+
+  /**
+   * Persistiert TTS-Präferenzen via POST /api/student-memory.
+   * Verwendet aktuellen In-Memory-Zustand (this._ttsVoice, this._ttsAutoPlay, this._cachedPreferenceText)
+   * für alle Felder, damit kein Wert versehentlich mit Default überschrieben wird.
+   * Callers müssen this._ttsVoice / this._ttsAutoPlay VOR dem Aufruf aktualisieren.
+   * Fallback bei Fehler: kein Absturz, Änderung gilt für die Session.
+   */
+  async _saveTtsPreferences() {
+    if (this.settings.audioStudentOptions !== 'on') return;
+    const userId = this.settings.userId;
+    if (!userId) return;
+    try {
+      await fetch(`${this._baseUrl()}/api/student-memory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          preferenceText: this._cachedPreferenceText ?? '',
+          preferred_voice: this._ttsVoice,
+          tts_autoplay: this._ttsAutoPlay ? 1 : 0,
+        }),
+      });
+    } catch (e) {
+      console.warn('[TTS] Präferenzen speichern fehlgeschlagen:', e);
     }
   }
 

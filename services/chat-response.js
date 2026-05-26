@@ -57,8 +57,8 @@ export function createStreamResponse({ dashboardRegistry, aiClient }, moduleDeps
     const chatMsg = { end: false, messages: '' };
 
     const effectiveModel = getEffectiveModel(ws.isTeacher, ws.userId);
-    const memoryEntry    = (!ws.isTeacher && settings.userId && settings.activityId)
-      ? getStudentMemory(settings.userId, settings.activityId)
+    const memoryEntry    = (!ws.isTeacher && settings.userId)
+      ? getStudentMemory(settings.userId)
       : null;
     const instructions   = buildInstructions({
       systemContent:    getCachedConfig().content,

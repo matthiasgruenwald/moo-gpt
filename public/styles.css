@@ -798,6 +798,24 @@ button:hover {
 }
 .mmb-fb-cancel:hover { background: rgba(255,255,255,0.1); }
 
+/* ── Issue #100: Lautsprecher-Button ───────────────────────────────────── */
+.mmb-speak-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 6px;
+    line-height: 1.4;
+    opacity: 0.75;
+    transition: opacity 0.15s, background 0.15s;
+    margin-top: 6px;
+    display: inline-block;
+}
+.mmb-speak-btn:hover { opacity: 1; background: rgba(255,255,255,0.12); }
+.mmb-speak-btn:disabled { cursor: default; opacity: 0.5; }
+
 /* ── Issue #53: Memory-Button + Memory-Overlay ──────────────────────────── */
 .memory-icon {
     position: fixed;
@@ -960,3 +978,131 @@ button:hover {
     display: none;
 }
 .mic-error.visible { display: block; }
+
+/* ── Issue #101: Waveform-Icon + Voice-Popover ───────────────────────────── */
+.mmb-wave-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.75);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    line-height: 1;
+    transition: color 0.15s, background 0.15s;
+    z-index: 12;          /* über Avatar-Container (z-index: 11) */
+    flex-shrink: 0;
+    margin-left: 55px;    /* Avatar: left 10px + width 50px → Button rechts davon */
+}
+.mmb-wave-btn:hover { color: white; background: rgba(255,255,255,0.12); }
+.mmb-wave-btn.active { color: white; }
+
+.mmb-voice-popover {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 8px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    padding: 12px;
+    z-index: 10002;
+    min-width: 220px;
+    color: #1a1a1a;
+}
+.mmb-voice-popover.open { display: block; }
+
+.mmb-voice-popover-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #555;
+    margin: 0 0 8px 0;
+}
+
+.mmb-voice-list {
+    list-style: none;
+    margin: 0 0 10px 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.mmb-voice-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background 0.12s;
+    font-size: 14px;
+    border: 2px solid transparent;
+}
+.mmb-voice-item:hover { background: #f0eaf8; }
+.mmb-voice-item.selected {
+    background: #ede4f7;
+    border-color: #6c3483;
+}
+
+.mmb-voice-name {
+    font-weight: 600;
+    min-width: 56px;
+}
+
+.mmb-voice-desc {
+    color: #666;
+    font-size: 12px;
+}
+
+.mmb-voice-check {
+    margin-left: auto;
+    color: #6c3483;
+    font-size: 16px;
+    display: none;
+}
+.mmb-voice-item.selected .mmb-voice-check { display: inline; }
+
+.mmb-autoplay-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-top: 1px solid #eee;
+    margin-top: 4px;
+    font-size: 13px;
+    color: #333;
+}
+
+.mmb-autoplay-label { font-weight: 600; }
+
+.mmb-toggle {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    flex-shrink: 0;
+}
+.mmb-toggle input { opacity: 0; width: 0; height: 0; }
+.mmb-toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: #ccc;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.mmb-toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    left: 3px;
+    top: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+}
+.mmb-toggle input:checked + .mmb-toggle-slider { background: #6c3483; }
+.mmb-toggle input:checked + .mmb-toggle-slider::before { transform: translateX(16px); }

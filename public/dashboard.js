@@ -403,7 +403,8 @@ function renderStudentList() {
       : '';
 
     // Issue #54: Memory-Status
-    const memoryText = studentMemoryMap.get(s.moodle_user_id) ?? null;
+    const memoryEntry = studentMemoryMap.get(s.moodle_user_id) ?? null;
+    const memoryText  = memoryEntry?.preference_text ?? null;
 
     item.innerHTML = `
       <div class="student-name">
@@ -429,11 +430,11 @@ function renderStudentList() {
 async function loadStudentMemories() {
   if (!activityId || !token) return;
   try {
-    const data = await apiFetch(`/api/student-memory/${encodeURIComponent(activityId)}`);
+    const data = await apiFetch(`/api/student-memory`);
     studentMemoryMap.clear();
     if (Array.isArray(data.memory)) {
       for (const entry of data.memory) {
-        studentMemoryMap.set(entry.student_id, entry.preference_text);
+        studentMemoryMap.set(entry.student_id, { preference_text: entry.preference_text, preferred_voice: entry.preferred_voice, tts_autoplay: entry.tts_autoplay });
       }
     }
   } catch (e) {
@@ -496,12 +497,13 @@ function attachMemoryPanel(item, studentId, initialText) {
     if (!text) { statusSpan.textContent = 'Bitte Text eingeben.'; return; }
     statusSpan.textContent = '…';
     try {
-      await apiFetch(`/api/student-memory/${encodeURIComponent(activityId)}`, {
+      await apiFetch(`/api/student-memory`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId, preferenceText: text }),
       });
-      studentMemoryMap.set(studentId, text);
+      const existing = studentMemoryMap.get(studentId) ?? {};
+      studentMemoryMap.set(studentId, { ...existing, preference_text: text });
       memBtn.classList.add('has-memory');
       memBtn.title = 'Memory bearbeiten';
       statusSpan.textContent = '✓ Gespeichert';
@@ -516,7 +518,7 @@ function attachMemoryPanel(item, studentId, initialText) {
     statusSpan.textContent = '…';
     try {
       await apiFetch(
-        `/api/student-memory/${encodeURIComponent(activityId)}?studentId=${encodeURIComponent(studentId)}`,
+        `/api/student-memory?studentId=${encodeURIComponent(studentId)}`,
         { method: 'DELETE' }
       );
       studentMemoryMap.delete(studentId);
@@ -1292,14 +1294,14 @@ const apiDelete = path          => apiFetch(path, { method: 'DELETE' });
 
 // ── Cost-Summary (Issue #69) ──────────────────────────────────────────────────
 
-/** Lädt und rendert die Aktivitäts-Kosten-Summary (Chat + Werkzeug + Audio). */
+/** Lädt und rendert die Aktivitäts-Kosten-Summary (Chat + Werkzeug + Audio + TTS). */
 async function fetchAndRenderCostSummary() {
   if (!costSummaryBar) return;
   try {
-    const { chatEur, werkzeugEur, totalEur, audioEur, audioSeconds } = await apiGet(
+    const { chatEur, werkzeugEur, totalEur, audioEur, audioSeconds, ttsEur, ttsChars } = await apiGet(
       `/api/activity/${encodeURIComponent(activityId)}/cost-summary`
     );
-    if (chatEur == null && werkzeugEur == null && audioEur == null) {
+    if (chatEur == null && werkzeugEur == null && audioEur == null && ttsEur == null) {
       costSummaryBar.classList.remove('visible');
       return;
     }
@@ -1309,6 +1311,11 @@ async function fetchAndRenderCostSummary() {
     if (audioSeconds > 0 || audioEur != null) {
       const secStr = audioSeconds ? `${Math.round(audioSeconds)} s` : '0 s';
       text += ` · 🎤 Audio ${secStr} / ${formatEur(audioEur)}`;
+    }
+    // Issue #103: TTS-Block in der Cost-Summary
+    if (ttsChars > 0 || ttsEur != null) {
+      const charsStr = ttsChars ? `${ttsChars.toLocaleString('de-DE')} Z.` : '0 Z.';
+      text += ` · 🔊 TTS ${charsStr} / ${formatEur(ttsEur)}`;
     }
     text += ` · Gesamt ${formatEur(totalEur)}`;
 

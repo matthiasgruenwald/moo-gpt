@@ -79,3 +79,53 @@ export function getActivityAudioSeconds(activityId) {
     WHERE activity_id = ? AND call_type = 'transcription' AND audio_seconds IS NOT NULL
   `).get(activityId);
 }
+
+// ── Issue #96: TTS-Datenschicht ───────────────────────────────────────────────
+
+/**
+ * Speichert GPT-mini-Preprocessing-Kosten für TTS in token_log.
+ *
+ * @param {number} threadId  - DB-ID des Threads
+ * @param {string} activityId
+ * @param {number} promptTokens     - Eingabe-Token des GPT-mini-Calls
+ * @param {number} completionTokens - Ausgabe-Token des GPT-mini-Calls
+ */
+export function saveTtsPrepUsage(threadId, activityId, promptTokens, completionTokens) {
+  getDb().prepare(`
+    INSERT INTO token_log (thread_id, activity_id, call_type, model, prompt_tokens, completion_tokens)
+    VALUES (?, ?, 'tts-prep', 'gpt-4o-mini', ?, ?)
+  `).run(
+    threadId   || null,
+    activityId || null,
+    promptTokens      ?? null,
+    completionTokens  ?? null
+  );
+}
+
+/**
+ * Speichert TTS-Synthesekosten in token_log.
+ *
+ * @param {number} threadId  - DB-ID des Threads
+ * @param {string} activityId
+ * @param {number} ttsCharacters - Anzahl der synthetisierten Zeichen
+ */
+export function saveTtsUsage(threadId, activityId, ttsCharacters) {
+  if (ttsCharacters == null) return;
+  getDb().prepare(`
+    INSERT INTO token_log (thread_id, activity_id, call_type, model, tts_characters)
+    VALUES (?, ?, 'tts', 'tts-1-hd', ?)
+  `).run(threadId || null, activityId || null, ttsCharacters);
+}
+
+/**
+ * Summiert TTS-Zeichen pro Aktivität (für Kostenberechnung).
+ * @param {string} activityId
+ * @returns {{ total_chars: number }}
+ */
+export function getActivityTtsChars(activityId) {
+  return getDb().prepare(`
+    SELECT COALESCE(SUM(tts_characters), 0) AS total_chars
+    FROM token_log
+    WHERE activity_id = ? AND call_type = 'tts' AND tts_characters IS NOT NULL
+  `).get(activityId);
+}

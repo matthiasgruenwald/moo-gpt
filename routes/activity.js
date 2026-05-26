@@ -173,6 +173,9 @@ export function createActivityRouter({ chatRegistry, dashboardRegistry, lockMana
       opener:                 act?.opener                    || '',
       uploadMode:             act?.upload_mode               || 'off',
       audioInput:             act?.audio_input               || 'off',
+      audioOutput:            act?.audio_output              || 'off',
+      ttsVoice:               act?.tts_voice                 || 'nova',
+      audioStudentOptions:    act?.audio_student_options     || 'off',
       erfahrungsprompt:       erf?.content                   || '',
       myModel:                pref?.preferred_model          || null,
       availableModels:        AVAILABLE_MODELS,
@@ -182,10 +185,10 @@ export function createActivityRouter({ chatRegistry, dashboardRegistry, lockMana
 
   router.put('/activity-config/:activityId', requireDashboardAuth, (req, res) => {
     const { activityId, userId } = req;
-    const { opener, uploadMode, title, botIcon, audioInput } = req.body;
+    const { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions } = req.body;
     const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput);
     if (validErr) return res.status(400).json({ error: validErr });
-    setActivityConfig(activityId, opener ?? null, uploadMode ?? null, title ?? null, botIcon ?? null, audioInput ?? null);
+    setActivityConfig(activityId, opener ?? null, uploadMode ?? null, title ?? null, botIcon ?? null, audioInput ?? null, audioOutput ?? null, ttsVoice ?? null, audioStudentOptions ?? null);
     console.log(`[Config] Aktivität ${activityId} aktualisiert von ${userId}`);
     res.json({ ok: true });
   });

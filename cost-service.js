@@ -8,8 +8,8 @@
  */
 
 import { getDb } from './db.js';
-import { sumCostRows, computeAudioCost } from './token-log.js';
-import { getActivityAudioSeconds } from './stores/token.js';
+import { sumCostRows, computeAudioCost, computeTtsCost } from './token-log.js';
+import { getActivityAudioSeconds, getActivityTtsChars } from './stores/token.js';
 
 // Deutsche Anzeige-Labels für call_type-Werte
 const CALL_TYPE_LABELS = {
@@ -64,13 +64,26 @@ function getWerkzeugCostRows(activityId) {
            COALESCE(SUM(prompt_tokens), 0)     AS prompt_tokens,
            COALESCE(SUM(completion_tokens), 0) AS completion_tokens
     FROM token_log
-    WHERE activity_id = ? AND call_type IS NOT NULL AND call_type != 'transcription'
+    WHERE activity_id = ? AND call_type IS NOT NULL
+      AND call_type NOT IN ('transcription', 'tts', 'tts-prep')
+    GROUP BY model
+  `).all(activityId);
+}
+
+// Issue #103: TTS-Prep-Kosten (Token-basiert, wie Werkzeug aber als Chat-Kosten)
+function getTtsPrepCostRows(activityId) {
+  return getDb().prepare(`
+    SELECT model,
+           COALESCE(SUM(prompt_tokens), 0)     AS prompt_tokens,
+           COALESCE(SUM(completion_tokens), 0) AS completion_tokens
+    FROM token_log
+    WHERE activity_id = ? AND call_type = 'tts-prep'
     GROUP BY model
   `).all(activityId);
 }
 
 /**
- * Gibt Chat-, Werkzeug- und Audio-Kosten für eine Aktivität in EUR zurück.
+ * Gibt Chat-, Werkzeug-, Audio- und TTS-Kosten für eine Aktivität in EUR zurück.
  * EUR-Werte sind null wenn Preisdaten noch nicht geladen sind.
  *
  * @param {string} activityId
@@ -79,7 +92,9 @@ function getWerkzeugCostRows(activityId) {
  *   werkzeugEur: number|null,
  *   totalEur: number|null,
  *   audioEur: number|null,
- *   audioSeconds: number
+ *   audioSeconds: number,
+ *   ttsEur: number|null,
+ *   ttsChars: number
  * }>}
  */
 export async function getCostSummary(activityId) {
@@ -87,20 +102,31 @@ export async function getCostSummary(activityId) {
   const audioRow     = getActivityAudioSeconds(activityId);
   const audioSeconds = audioRow?.total_seconds ?? 0;
 
-  const [chatCost, werkzeugCost, audioEur] = await Promise.all([
+  // TTS-Zeichen abrufen (synchron, kein Netz)
+  const ttsRow   = getActivityTtsChars(activityId);
+  const ttsChars = ttsRow?.total_chars ?? 0;
+
+  const [chatCost, werkzeugCost, audioEur, ttsSynthEur, ttsPrepCost] = await Promise.all([
     sumCostRows(getChatCostRows(activityId)),
     sumCostRows(getWerkzeugCostRows(activityId)),
     computeAudioCost(audioSeconds),
+    computeTtsCost(ttsChars),
+    sumCostRows(getTtsPrepCostRows(activityId)),
   ]);
 
   const chatEur     = chatCost?.totalEur     ?? null;
   const werkzeugEur = werkzeugCost?.totalEur ?? null;
 
+  // ttsEur: Synthese (Zeichen-basiert) + Preprocessing (Token-basiert)
+  const ttsPrepEur  = ttsPrepCost?.totalEur ?? null;
+  const ttsParts    = [ttsSynthEur, ttsPrepEur].filter(v => v != null);
+  const ttsEur      = ttsParts.length > 0 ? ttsParts.reduce((a, b) => a + b, 0) : null;
+
   // totalEur: Summe aller verfügbaren Kosten-Typen
-  const parts = [chatEur, werkzeugEur, audioEur].filter(v => v != null);
+  const parts = [chatEur, werkzeugEur, audioEur, ttsEur].filter(v => v != null);
   const totalEur = parts.length > 0 ? parts.reduce((a, b) => a + b, 0) : null;
 
-  return { chatEur, werkzeugEur, totalEur, audioEur, audioSeconds };
+  return { chatEur, werkzeugEur, totalEur, audioEur, audioSeconds, ttsEur, ttsChars };
 }
 
 /**

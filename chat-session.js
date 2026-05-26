@@ -41,6 +41,9 @@ async function resolveActivity(activityId, activityName, isTeacher, userId, hint
     opener:     act?.opener       ?? null,
     uploadMode: act?.upload_mode  ?? 'off',
     audioInput: act?.audio_input  ?? 'off',
+    audioOutput:         act?.audio_output          ?? 'off',
+    ttsVoice:            act?.tts_voice             ?? 'nova',
+    audioStudentOptions: act?.audio_student_options ?? 'off',
     needsConfig: act?.title == null,
   };
 }
