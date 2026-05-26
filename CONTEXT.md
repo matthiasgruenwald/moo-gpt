@@ -50,7 +50,7 @@ Zustand, in dem der Chat für alle Schüler einer Aktivität gesperrt ist. Wird 
 
 ## Schüler-Memory
 
-Schülerspezifische Präferenzen und Wünsche, die als unsichtbare Instruktion in den Systemprompt eingebunden werden. Entsteht aus Schüler-Feedback (Daumen-Button + Freitext im Widget) oder aus Lehrer-Eingabe im Dashboard. Wird per Schüler-ID gespeichert und bei jedem neuen Chat geladen. Schüler können ihren eigenen Memory-Text über einen Button im Widget einsehen und bearbeiten; Lehrkräfte können ihn im Dashboard anzeigen, bearbeiten und löschen. Ermöglicht Differenzierung ohne expliziten Aufwand für die Lehrkraft.
+Schülerspezifische Präferenzen und Wünsche, die als unsichtbare Instruktion in den Systemprompt eingebunden werden. Entsteht aus Schüler-Feedback (Daumen-Button + Freitext im Widget) oder aus Lehrer-Eingabe im Dashboard. **Global gespeichert** — gilt für alle Aktivitäten, nicht pro Aktivität. Wird per Schüler-ID in der Tabelle `student_memory` abgelegt (ohne `activity_id`). Enthält neben dem Freitext `preference_text` auch strukturierte Präferenzen: `preferred_voice` (Stimme für TTS) und `tts_autoplay` (Bot-Antworten automatisch vorlesen). Schüler können ihren eigenen Memory-Text und ihre Stimmwahl über Bedienelemente im Widget einsehen und ändern; Lehrkräfte können den Memory-Text im Dashboard anzeigen, bearbeiten und löschen. Ermöglicht Differenzierung ohne expliziten Aufwand für die Lehrkraft.
 
 ## Prompt-Assistent
 
@@ -69,7 +69,11 @@ Falls Preisdaten noch nicht geladen: Inline-Anzeige entfällt still, Detailliste
 
 ## Chat-Kosten
 
-KI-Kosten, die durch schülerinitiierte Aktionen entstehen: Schüler-Chats und Audio-Transkriptionen. Werden in `token_log` mit `thread_id` und `activity_id` gespeichert. Chat-Nachrichten haben `call_type = NULL`; Audio-Transkriptionen haben `call_type = 'transcription'` (damit aggregierbare Auswertung pro Aktivität möglich ist). Im Dashboard pro Thread sichtbar.
+KI-Kosten, die durch schülerinitiierte Aktionen entstehen: Schüler-Chats, Audio-Transkriptionen (Whisper) und TTS-Ausgaben. Werden in `token_log` mit `thread_id` und `activity_id` gespeichert. Chat-Nachrichten haben `call_type = NULL`; Audio-Transkriptionen `call_type = 'transcription'`; TTS-Ausgaben `call_type = 'tts'`. Im Dashboard pro Thread sichtbar.
+
+## TTS-Ausgabe
+
+Bot-Antworten werden per Klick auf ein Lautsprecher-Icon als Sprache abgespielt. Verarbeitung serverseitig: wird der Rohtext (Markdown + ggf. LaTeX) immer durch einen GPT-mini-Call bereinigt: Markdown-Syntax entfernen, LaTeX-Formeln in natürlich gesprochenes Deutsch übersetzen; anschließend OpenAI TTS (`tts-1-hd`). Snippet-Parameter: `audioOutput: on|off` (TTS an/aus, Default `off`), `ttsVoice` (Aktivitäts-Default-Stimme, Default `nova`), `audioStudentOptions: on|off` (gibt Schülern Stimmwahl + Auto-Play-Toggle frei, Default `off`). Auto-Play liest jede abgeschlossene Bot-Antwort automatisch vor — kein Gesprächsmodus, kein automatisches Mikrofon. Schüler können Stimme (`preferred_voice`) und Auto-Play (`tts_autoplay`) global in `student_memory` speichern (geräteübergreifend); beides nur sichtbar wenn `audioStudentOptions: on`. Verfügbare Stimmen (kein `fable`): `nova` (weiblich, klar, lebendig), `alloy` (neutral, androgyn), `echo` (männlich, klar, sachlich), `onyx` (männlich, tief, ruhig), `shimmer` (weiblich, weich). Der Voice-Selector erscheint im Chat-Header links neben dem Bot-Avatar (nur wenn `audioStudentOptions: on`) als Waveform-Icon (▁▃█); Klick öffnet ein Mini-Popover mit Name + Beschreibung pro Stimme + Auto-Play-Toggle. Der Schließen-Button rechts bleibt alleine. Geschwindigkeit (0,5–1,5) clientseitig, nicht persistent. Kosten: `call_type = 'tts-prep'` (GPT-mini-Tokens) + `call_type = 'tts'` (`tts_characters`). Beide schülerinitiiert → Chat-Kosten.
 
 ## Werkzeug-Kosten
 
@@ -84,6 +88,8 @@ KI-Kosten, die durch lehrerinitiierte Aktionen entstehen: Live-Unterrichts-Zusam
 | `persona` | Persona-Generierung |
 | `simulation` | Simulation |
 | `transcription` | Audio-Transkription (schülerinitiiert, Chat-Kosten) |
+| `tts-prep` | TTS-Vorverarbeitung via GPT-mini (schülerinitiiert, Chat-Kosten) |
+| `tts` | TTS-Ausgabe via tts-1-hd (schülerinitiiert, Chat-Kosten) |
 
 Pro Simulations-Durchlauf ein Eintrag (alle Teil-Calls summiert). Calls ohne `activityId` werden nicht erfasst.
 
