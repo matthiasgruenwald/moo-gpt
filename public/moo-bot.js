@@ -30,7 +30,9 @@ export class MOOBOT {
     this._dragListenerAdded      = false;
     this._positionSide           = sessionStorage.getItem('moogpt-side') === 'left' ? 'left' : 'right';
     this._locked                 = false;
-    this._currentAudio           = null;  // Issue #100: laufende TTS-Wiedergabe
+    this._currentAudio           = null;  // Issue #100: laufende TTS-Wiedergabe (HTMLAudioElement legacy)
+    this._currentAudioSource     = null;  // Issue #100: laufende AudioContext-Quelle
+    this._audioCtx               = null;  // Issue #100: AudioContext (pre-unlocked bei erstem Click)
     this._ttsVoice               = settings.ttsVoice || 'nova';  // Issue #100
     this._ttsSpeed               = 1.0;  // Issue #100: nicht persistent, Default 1,0
     this._lastRawText            = '';   // Issue #100: Rohtext der letzten Bot-Antwort
@@ -361,6 +363,16 @@ export class MOOBOT {
     window.toggleChat = this.toggleChat.bind(this);
     window.sendMessage = this.sendMessage.bind(this);
     window.handleKeyDown = this.handleKeyDown.bind(this);
+
+    // Issue #100: AudioContext beim ersten User-Click entsperren (für TTS Auto-Play ohne Gesture)
+    const unlockAudio = () => {
+      if (!this._audioCtx) {
+        this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      this._audioCtx.resume().catch(() => {});
+      document.removeEventListener('click', unlockAudio, true);
+    };
+    document.addEventListener('click', unlockAudio, true);
 
     // P5a: Config-Overlay nach erfolgreichem Speichern schließen + Badge entfernen
     window.addEventListener('message', (e) => {
@@ -1945,9 +1957,9 @@ export class MOOBOT {
    */
   async _speakMessage(text, btn) {
     // Laufende Wiedergabe stoppen
-    if (this._currentAudio) {
-      this._currentAudio.pause();
-      this._currentAudio = null;
+    if (this._currentAudioSource) {
+      try { this._currentAudioSource.stop(); } catch (_) {}
+      this._currentAudioSource = null;
     }
 
     btn.disabled = true;
@@ -1969,27 +1981,30 @@ export class MOOBOT {
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      this._currentAudio = audio;
+      // AudioContext verwenden — kein User-Gesture nötig nach erstem Unlock
+      if (!this._audioCtx) {
+        this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      await this._audioCtx.resume();
 
-      audio.playbackRate = this._ttsSpeed;
-      audio.onended = () => {
-        URL.revokeObjectURL(url);
-        this._currentAudio = null;
-        btn.disabled = false;
-        btn.textContent = '🔊';
-      };
-      audio.onerror = () => {
-        URL.revokeObjectURL(url);
-        this._currentAudio = null;
-        btn.disabled = false;
-        btn.textContent = '🔊';
-        this._showChatError('⚠️ Audio-Wiedergabe fehlgeschlagen.');
-      };
+      const arrayBuffer = await res.arrayBuffer();
+      const audioBuffer = await this._audioCtx.decodeAudioData(arrayBuffer);
+      const source = this._audioCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.playbackRate.value = this._ttsSpeed;
+      source.connect(this._audioCtx.destination);
+      this._currentAudioSource = source;
 
-      await audio.play();
+      await new Promise((resolve, reject) => {
+        source.onended = () => {
+          this._currentAudioSource = null;
+          btn.disabled = false;
+          btn.textContent = '🔊';
+          resolve();
+        };
+        source.onerror = reject;
+        source.start(0);
+      });
       btn.textContent = '🔊';
       btn.disabled = false;
     } catch (err) {
