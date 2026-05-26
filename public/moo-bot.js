@@ -688,6 +688,7 @@ export class MOOBOT {
       const chatHeader = document.querySelector('.chat-header');
       const iconContainer = chatHeader?.querySelector('.chat-header-icon-container');
       if (iconContainer) iconContainer.insertAdjacentElement('afterend', waveBtn);
+      if (chatHeader) this._buildVoicePopover(chatHeader);
     } else if (!showWave && existingWaveBtn) {
       existingWaveBtn.remove();
     }
