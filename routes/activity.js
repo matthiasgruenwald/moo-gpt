@@ -4,6 +4,7 @@ import { getActivity, setActivityConfig } from '../stores/activity.js';
 import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { getTeacherPreference, setTeacherSuggestPreference } from '../stores/teacher.js';
 import { AVAILABLE_MODELS, GEN_MODEL, MODEL_NAME } from '../env-config.js';
+import { getEffectiveModel } from '../model-resolver.js';
 import { validateWidgetConfig } from '../validators.js';
 import { getCachedConfig } from '../config-cache.js';
 import { recordWerkzeugUsage } from '../cost-service.js';
@@ -177,7 +178,8 @@ export function createActivityRouter({ chatRegistry, dashboardRegistry, lockMana
       ttsVoice:               act?.tts_voice                  || 'nova',
       audioStudentOptions:    act?.audio_student_options      || 'off',
       erfahrungsprompt:       erf?.content                    || '',
-      myModel:                pref?.preferred_model           || null,
+      model:                  act?.model                      ?? null,
+      effectiveModel:         getEffectiveModel(activityId),
       availableModels:        AVAILABLE_MODELS,
       preferSuggestQuestions: pref?.prefer_suggest_questions  ?? 1,
     });
@@ -185,10 +187,12 @@ export function createActivityRouter({ chatRegistry, dashboardRegistry, lockMana
 
   router.put('/activity-config/:activityId', requireDashboardAuth, (req, res) => {
     const { activityId, userId } = req;
-    const { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions } = req.body;
+    const { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions, model } = req.body;
     const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput);
     if (validErr) return res.status(400).json({ error: validErr });
-    setActivityConfig(activityId, opener ?? null, uploadMode ?? null, title ?? null, botIcon ?? null, audioInput ?? null, audioOutput ?? null, ttsVoice ?? null, audioStudentOptions ?? null);
+    const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
+    if (model && model !== '' && !validModel) return res.status(400).json({ error: 'Ungültiges Modell' });
+    setActivityConfig(activityId, opener ?? null, uploadMode ?? null, title ?? null, botIcon ?? null, audioInput ?? null, audioOutput ?? null, ttsVoice ?? null, audioStudentOptions ?? null, validModel);
     console.log(`[Config] Aktivität ${activityId} aktualisiert von ${userId}`);
     res.json({ ok: true });
   });

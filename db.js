@@ -247,6 +247,11 @@ export function initDb() {
   try { db.exec(`ALTER TABLE activities ADD COLUMN tts_voice TEXT DEFAULT 'nova'`); } catch (_) {}
   try { db.exec(`ALTER TABLE activities ADD COLUMN audio_student_options TEXT DEFAULT 'off'`); } catch (_) {}
 
+  // Issue #107: Modell pro Aktivität (ADR 0004)
+  try { db.exec(`ALTER TABLE activities ADD COLUMN model TEXT`); } catch (_) {}
+  try { db.exec(`ALTER TABLE teacher_templates ADD COLUMN model TEXT`); } catch (_) {}
+  try { db.exec(`ALTER TABLE system_template ADD COLUMN model TEXT`); } catch (_) {}
+
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;
 }

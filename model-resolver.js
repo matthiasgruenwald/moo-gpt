@@ -1,8 +1,8 @@
 /**
- * model-resolver.js — Issue #74
+ * model-resolver.js — Issue #107 (ADR 0004)
  *
  * Löst das effektive Modell für einen AI-Call auf.
- * Priorität: persönliche Lehrer-Präferenz > globaler Config-Cache-Wert > MODEL_NAME aus Env.
+ * Priorität: activities.model → prompts.model (globaler Config-Cache) → MODEL_NAME aus Env.
  *
  * Importiert env-config.js NICHT direkt, um Tests ohne MODEL_NAME-Env zu ermöglichen
  * (env-config.js ruft process.exit(1) wenn MODEL_NAME fehlt, was Tests brechen würde).
@@ -10,7 +10,7 @@
  * Tests: deps-Objekt übergeben.
  */
 
-import { getTeacherPreference as _getTeacherPreference } from './stores/teacher.js';
+import { getActivity as _getActivity } from './stores/activity.js';
 import { getCachedConfig as _getCachedConfig } from './config-cache.js';
 
 function _getEnvModelName() {
@@ -24,29 +24,28 @@ function _getEnvAvailableModels() {
 }
 
 const productionDeps = {
-  getTeacherPreference: _getTeacherPreference,
+  getActivity:    _getActivity,
   getCachedConfig: _getCachedConfig,
   get AVAILABLE_MODELS() { return _getEnvAvailableModels(); },
   get MODEL_NAME()       { return _getEnvModelName(); },
 };
 
 /**
- * Gibt das effektive Modell zurück: persönliche Präferenz > globaler DB-Wert > MODEL_NAME.
+ * Gibt das effektive Modell zurück: activities.model → globaler DB-Wert → MODEL_NAME.
  *
- * @param {boolean} isTeacher
- * @param {string|null} userId
+ * @param {string|null} activityId
  * @param {object} [deps] - Optionale Dependency-Injection für Tests
- * @param {Function} deps.getTeacherPreference
+ * @param {Function} deps.getActivity
  * @param {Function} deps.getCachedConfig
  * @param {string[]} deps.AVAILABLE_MODELS
  * @param {string} deps.MODEL_NAME
  */
-export function getEffectiveModel(isTeacher, userId, deps = productionDeps) {
-  const { getTeacherPreference, getCachedConfig, AVAILABLE_MODELS, MODEL_NAME } = deps;
-  if (isTeacher && userId) {
-    const pref = getTeacherPreference(userId);
-    if (pref?.preferred_model && AVAILABLE_MODELS.includes(pref.preferred_model)) {
-      return pref.preferred_model;
+export function getEffectiveModel(activityId, deps = productionDeps) {
+  const { getActivity, getCachedConfig, AVAILABLE_MODELS, MODEL_NAME } = deps;
+  if (activityId) {
+    const act = getActivity(activityId);
+    if (act?.model && AVAILABLE_MODELS.includes(act.model)) {
+      return act.model;
     }
   }
   return getCachedConfig().model || MODEL_NAME;

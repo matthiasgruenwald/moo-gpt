@@ -56,7 +56,7 @@ export function createStreamResponse({ dashboardRegistry, aiClient }, moduleDeps
   return async function streamResponse(ws, settings, threadDbId) {
     const chatMsg = { end: false, messages: '' };
 
-    const effectiveModel = getEffectiveModel(ws.isTeacher, ws.userId);
+    const effectiveModel = getEffectiveModel(settings.activityId);
     const memoryEntry    = (!ws.isTeacher && settings.userId)
       ? getStudentMemory(settings.userId)
       : null;
