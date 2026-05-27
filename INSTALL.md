@@ -133,7 +133,7 @@ Im Verzeichnis `snippets/` liegen zwei fertige Snippet-Dateien:
 
 Import per Drag & Drop: Die `.html`-Datei direkt in das Snippet-Plugin ziehen. Vor dem Import die URL der eigenen moo-gpt-Instanz in der Datei anpassen (Suche nach `moo-gpt.beispiel.de`).
 
-> 📸 *Screenshot: Snippet-Import via Drag & Drop im TinyMCE-Snippet-Plugin (folgt)*
+![Snippet-Import via Drag & Drop](docs/images/Admin-Snippet-einfügen.gif)
 
 ### Snippet in einer Aufgabe verwenden
 
