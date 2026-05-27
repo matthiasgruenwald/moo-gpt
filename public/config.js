@@ -48,6 +48,7 @@
       audioOutput:         document.getElementById('cfg-audio-output').value,
       ttsVoice:            document.getElementById('cfg-tts-voice').value,
       audioStudentOptions: document.getElementById('cfg-audio-student-options').value,
+      model:               document.getElementById('cfg-model').value,
       hintsTemplate:       document.getElementById('cfg-hints').value,
     };
   }
@@ -81,11 +82,16 @@
     if (!tpl) return false;
     const f = getFields();
     return (
-      f.title         !== (tpl.title          ?? '') ||
-      f.botIcon       !== (tpl.bot_icon       ?? 'grw') ||
-      f.opener        !== (tpl.opener         ?? '') ||
-      f.uploadMode    !== (tpl.upload_mode    ?? 'off') ||
-      f.hintsTemplate !== (tpl.hints_template ?? '')
+      f.title               !== (tpl.title                ?? '') ||
+      f.botIcon             !== (tpl.bot_icon             ?? 'grw') ||
+      f.opener              !== (tpl.opener               ?? '') ||
+      f.uploadMode          !== (tpl.upload_mode          ?? 'off') ||
+      f.audioInput          !== (tpl.audio_input          ?? 'off') ||
+      f.audioOutput         !== (tpl.audio_output         ?? 'off') ||
+      f.ttsVoice            !== (tpl.tts_voice            ?? 'nova') ||
+      f.audioStudentOptions !== (tpl.audio_student_options ?? 'off') ||
+      f.model               !== (tpl.model               ?? '') ||
+      f.hintsTemplate       !== (tpl.hints_template       ?? '')
     );
   }
 
@@ -120,17 +126,23 @@
     if (!id) { updateTemplateUI(); return; }
     const tpl = getLoadedTemplate();
     if (!tpl) return;
-    document.getElementById('cfg-title').value       = tpl.title          ?? '';
-    document.getElementById('cfg-bot-icon').value    = tpl.bot_icon       ?? 'grw';
-    document.getElementById('cfg-opener').value      = tpl.opener         ?? '';
-    document.getElementById('cfg-upload-mode').value = tpl.upload_mode    ?? 'off';
-    document.getElementById('cfg-hints').value       = tpl.hints_template ?? '';
+    document.getElementById('cfg-title').value                    = tpl.title                ?? '';
+    document.getElementById('cfg-bot-icon').value                 = tpl.bot_icon             ?? 'grw';
+    document.getElementById('cfg-opener').value                   = tpl.opener               ?? '';
+    document.getElementById('cfg-upload-mode').value              = tpl.upload_mode          ?? 'off';
+    document.getElementById('cfg-audio-input').value              = tpl.audio_input          ?? 'off';
+    document.getElementById('cfg-audio-output').value             = tpl.audio_output         ?? 'off';
+    document.getElementById('cfg-tts-voice').value                = tpl.tts_voice            ?? 'nova';
+    document.getElementById('cfg-audio-student-options').value    = tpl.audio_student_options ?? 'off';
+    document.getElementById('cfg-model').value                    = tpl.model                ?? '';
+    document.getElementById('cfg-hints').value                    = tpl.hints_template       ?? '';
     this.style.fontStyle = '';
+    updateAudioOutputDependents();
     updateTemplateUI();
   });
 
   ['cfg-title', 'cfg-bot-icon', 'cfg-opener', 'cfg-upload-mode', 'cfg-audio-input',
-   'cfg-audio-output', 'cfg-tts-voice', 'cfg-audio-student-options', 'cfg-hints'].forEach(id => {
+   'cfg-audio-output', 'cfg-tts-voice', 'cfg-audio-student-options', 'cfg-model', 'cfg-hints'].forEach(id => {
     const el = document.getElementById(id);
     el.addEventListener('input',  updateDirtyState);
     el.addEventListener('change', updateDirtyState);
@@ -208,6 +220,9 @@
       id: data.id, moodle_user_id: null, name: name.trim(),
       title: f.title || null, bot_icon: f.botIcon, opener: f.opener || null,
       upload_mode: f.uploadMode, hints_template: f.hintsTemplate || null,
+      audio_input: f.audioInput || 'off', audio_output: f.audioOutput || 'off',
+      tts_voice: f.ttsVoice || 'nova', audio_student_options: f.audioStudentOptions || 'off',
+      model: f.model || null,
       is_default: 0, created_at: new Date().toISOString(),
     });
     loadedTemplateId = data.id;
@@ -226,7 +241,9 @@
     );
     if (!res.ok) { showStatus('Fehler beim Speichern', 'err'); return; }
     templates = templates.map(t => t.id === id
-      ? { ...t, title: f.title, bot_icon: f.botIcon, opener: f.opener, upload_mode: f.uploadMode, hints_template: f.hintsTemplate }
+      ? { ...t, title: f.title, bot_icon: f.botIcon, opener: f.opener, upload_mode: f.uploadMode,
+          hints_template: f.hintsTemplate, audio_input: f.audioInput, audio_output: f.audioOutput,
+          tts_voice: f.ttsVoice, audio_student_options: f.audioStudentOptions, model: f.model || null }
       : t);
     updateTemplateUI();
     updateDirtyState();
@@ -320,7 +337,7 @@
         opt.textContent = m;
         modelSel.appendChild(opt);
       }
-      modelSel.value = data.myModel || '';
+      modelSel.value = data.model || '';
 
       initial = {
         title:               data.title               || '',
@@ -332,7 +349,7 @@
         ttsVoice:            data.ttsVoice            || 'nova',
         audioStudentOptions: data.audioStudentOptions || 'off',
         hints:               data.erfahrungsprompt    || '',
-        model:               data.myModel             || '',
+        model:               data.model               || '',
       };
 
       elLoading.style.display = 'none';
@@ -379,14 +396,15 @@
         audioInput          !== initial.audioInput          ||
         audioOutput         !== initial.audioOutput         ||
         ttsVoice            !== initial.ttsVoice            ||
-        audioStudentOptions !== initial.audioStudentOptions
+        audioStudentOptions !== initial.audioStudentOptions ||
+        model               !== initial.model
       ) {
         const res = await fetch(
           `/api/activity-config/${encodeURIComponent(activityId)}?token=${encodeURIComponent(token)}`,
           {
             method:  'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ title, botIcon, opener, uploadMode, audioInput, audioOutput, ttsVoice, audioStudentOptions }),
+            body:    JSON.stringify({ title, botIcon, opener, uploadMode, audioInput, audioOutput, ttsVoice, audioStudentOptions, model }),
           }
         );
         if (res.ok) {
@@ -398,6 +416,7 @@
           initial.audioOutput         = audioOutput;
           initial.ttsVoice            = ttsVoice;
           initial.audioStudentOptions = audioStudentOptions;
+          initial.model               = model;
         } else {
           errors.push('Einstellungen konnten nicht gespeichert werden.');
         }
@@ -416,22 +435,6 @@
           initial.hints = hints;
         } else {
           errors.push('Hinweise konnten nicht gespeichert werden.');
-        }
-      }
-
-      if (model !== initial.model) {
-        const res = await fetch(
-          `/api/teacher/preferences?token=${encodeURIComponent(token)}`,
-          {
-            method:  'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ model }),
-          }
-        );
-        if (res.ok) {
-          initial.model = model;
-        } else {
-          errors.push('Modell-Präferenz konnte nicht gespeichert werden.');
         }
       }
 

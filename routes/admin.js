@@ -72,20 +72,26 @@ export function createAdminRouter({ dashboardRegistry }) {
   router.get('/admin/system-template', requireTeacherAuth, (req, res) => {
     const tpl = getSystemTemplate();
     res.json({
-      title:         tpl?.title          ?? '',
-      botIcon:       tpl?.bot_icon       ?? 'grw',
-      opener:        tpl?.opener         ?? '',
-      uploadMode:    tpl?.upload_mode    ?? 'off',
-      hintsTemplate: tpl?.hints_template ?? '',
+      title:               tpl?.title                ?? '',
+      botIcon:             tpl?.bot_icon             ?? 'grw',
+      opener:              tpl?.opener               ?? '',
+      uploadMode:          tpl?.upload_mode          ?? 'off',
+      hintsTemplate:       tpl?.hints_template       ?? '',
+      audioInput:          tpl?.audio_input          ?? 'off',
+      audioOutput:         tpl?.audio_output         ?? 'off',
+      ttsVoice:            tpl?.tts_voice            ?? 'nova',
+      audioStudentOptions: tpl?.audio_student_options ?? 'off',
+      model:               tpl?.model               ?? null,
     });
   });
 
   router.put('/admin/system-template', requireAdminAuth, (req, res) => {
     const { userId } = req;
-    const { title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
-    const validErr = validateWidgetConfig(uploadMode, botIcon);
+    const { title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model } = req.body;
+    const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput);
     if (validErr) return res.status(400).json({ error: validErr });
-    setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTemplate });
+    const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
+    setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel });
     console.log(`[P5b] Systemvorlage gespeichert von ${userId}`);
     res.json({ ok: true });
   });
