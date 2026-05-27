@@ -1,4 +1,19 @@
 import { getDb } from '../db.js';
+import { computeThreadCost } from '../cost-service.js';
+
+/**
+ * Reichert Schüler-Objekte mit Thread-Kosten an.
+ * Kein Transitivimport von ai-instance.js (kein APIKEY-Guard).
+ *
+ * @param {Array<{ thread_db_id: number }>} students
+ * @returns {Promise<Array>}
+ */
+export async function enrichStudentsWithCost(students) {
+  return Promise.all(students.map(async s => ({
+    ...s,
+    threadCost: await computeThreadCost(s.thread_db_id),
+  })));
+}
 
 export function getStudents(activity_id) {
   return getDb().prepare(`

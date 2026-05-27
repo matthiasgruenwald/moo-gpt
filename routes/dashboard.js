@@ -2,19 +2,11 @@ import { Router } from 'express';
 import { requireDashboardAuth, getUserNameFromToken } from '../auth-middleware.js';
 import { getActivity, setTeacherIfUnset } from '../stores/activity.js';
 import { getMessages } from '../stores/chat.js';
-import { getStudents } from '../stores/dashboard.js';
-import { enrichMessagesWithCost, computeThreadCost, sumCostRows } from '../token-log.js';
+import { getStudents, enrichStudentsWithCost } from '../stores/dashboard.js';
+import { enrichMessagesWithCost } from '../token-log.js';
+import { recordWerkzeugUsage, computeThreadCost, sumCostRows } from '../cost-service.js';
 import { aiClient } from '../ai-instance.js';
 import { GEN_MODEL } from '../env-config.js';
-import { recordWerkzeugUsage } from '../cost-service.js';
-
-// Issue #41: Kosten pro Schüler aus per-Modell-Token-Daten berechnen
-export async function enrichStudentsWithCost(students) {
-  return Promise.all(students.map(async s => ({
-    ...s,
-    threadCost: await computeThreadCost(s.thread_db_id),
-  })));
-}
 
 const router = Router();
 
