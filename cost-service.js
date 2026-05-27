@@ -130,6 +130,65 @@ export async function getCostSummary(activityId) {
 }
 
 /**
+ * Aggregierte Schülerkosten für eine Aktivität.
+ *
+ * Gibt drei Kostenkategorien zurück:
+ * - chatEur / chatTokens      Schüler-Chat-Nachrichten (call_type IS NULL)
+ * - audioEur / audioSeconds   Audio-Transkriptionen (call_type = 'transcription')
+ * - ttsEur / ttsChars         TTS-Ausgaben (call_type IN ('tts-prep', 'tts'))
+ *
+ * EUR-Werte sind null wenn Preisdaten noch nicht geladen sind.
+ *
+ * @param {string} activityId
+ * @returns {Promise<{
+ *   chatEur: number|null,
+ *   chatTokens: number,
+ *   audioEur: number|null,
+ *   audioSeconds: number,
+ *   ttsEur: number|null,
+ *   ttsChars: number
+ * }>}
+ */
+export async function getStudentCostSummary(activityId) {
+  // Chat-Token (call_type IS NULL)
+  const chatRows = getDb().prepare(`
+    SELECT model,
+           COALESCE(SUM(prompt_tokens), 0)     AS prompt_tokens,
+           COALESCE(SUM(completion_tokens), 0) AS completion_tokens
+    FROM token_log
+    WHERE activity_id = ? AND call_type IS NULL
+    GROUP BY model
+  `).all(activityId);
+
+  const chatTokens = chatRows.reduce((sum, r) => sum + (r.prompt_tokens ?? 0) + (r.completion_tokens ?? 0), 0);
+
+  // Audio-Sekunden aus Store
+  const audioRow     = getActivityAudioSeconds(activityId);
+  const audioSeconds = audioRow?.total_seconds ?? 0;
+
+  // TTS-Zeichen aus Store
+  const ttsRow   = getActivityTtsChars(activityId);
+  const ttsChars = ttsRow?.total_chars ?? 0;
+
+  // TTS-Prep-Token (Token-basiert, schülerinitiiert)
+  const ttsPrepRows = getTtsPrepCostRows(activityId);
+
+  const [chatCost, audioEur, ttsSynthEur, ttsPrepCost] = await Promise.all([
+    sumCostRows(chatRows),
+    computeAudioCost(audioSeconds),
+    computeTtsCost(ttsChars),
+    sumCostRows(ttsPrepRows),
+  ]);
+
+  const chatEur    = chatCost?.totalEur    ?? null;
+  const ttsPrepEur = ttsPrepCost?.totalEur ?? null;
+  const ttsParts   = [ttsSynthEur, ttsPrepEur].filter(v => v != null);
+  const ttsEur     = ttsParts.length > 0 ? ttsParts.reduce((a, b) => a + b, 0) : null;
+
+  return { chatEur, chatTokens, audioEur, audioSeconds, ttsEur, ttsChars };
+}
+
+/**
  * Gibt alle Werkzeug-Aufrufe einer Aktivität zurück.
  *
  * @param {string} activityId

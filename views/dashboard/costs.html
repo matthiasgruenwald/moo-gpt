@@ -145,14 +145,27 @@
     .col-cost { text-align: right; font-variant-numeric: tabular-nums; }
     .col-tokens { text-align: right; font-variant-numeric: tabular-nums; color: #555; }
 
-    /* ── Leer-Hinweis ───────────────────────────────────────────────────── */
-    #empty-hint {
-      display: none;
-      font-size: 13px;
-      color: #888;
-      padding: 16px 0;
+    /* ── Scrollbarer Tabellen-Container ────────────────────────────────────── */
+    .table-scroll {
+      max-height: 480px;
+      overflow-y: auto;
     }
-    #empty-hint.visible { display: block; }
+
+    /* ── Aggregat-Zeilen (Schülerkosten) ────────────────────────────────────── */
+    .row-aggregate td {
+      background: #f0f4f8;
+      font-weight: 600;
+      color: #003366;
+    }
+    .row-aggregate td:first-child { color: #003366; }
+
+    /* ── Trenn-Zeile ────────────────────────────────────────────────────────── */
+    .row-separator td {
+      padding: 0;
+      height: 2px;
+      background: #dde3ea;
+      border-bottom: none;
+    }
 
     /* ── Lade-/Fehler-Hinweise ──────────────────────────────────────────── */
     .status-line {
@@ -262,25 +275,26 @@
     <div id="admin-list"></div>
   </div>
 
-  <!-- Werkzeug-Log -->
+  <!-- Kostenübersicht -->
   <div class="card">
-    <h2>Werkzeug-Aufrufe</h2>
-    <div id="log-loading" class="status-line">Lade Werkzeug-Log…</div>
+    <h2>Kostenübersicht</h2>
+    <div id="log-loading" class="status-line">Lade Kostenübersicht…</div>
     <div id="log-error" class="error-line" style="display:none"></div>
-    <div id="empty-hint">Noch keine Werkzeug-Aufrufe für diese Aktivität.</div>
-    <table id="log-table" style="display:none">
-      <thead>
-        <tr>
-          <th>Zeitstempel</th>
-          <th>Typ</th>
-          <th>Modell</th>
-          <th class="col-tokens">Eingabe-Token</th>
-          <th class="col-tokens">Ausgabe-Token</th>
-          <th class="col-cost">Kosten</th>
-        </tr>
-      </thead>
-      <tbody id="log-tbody"></tbody>
-    </table>
+    <div class="table-scroll">
+      <table id="log-table" style="display:none">
+        <thead>
+          <tr>
+            <th>Zeitstempel / Kategorie</th>
+            <th>Typ</th>
+            <th>Modell</th>
+            <th class="col-tokens">Eingabe-Token</th>
+            <th class="col-tokens">Ausgabe-Token</th>
+            <th class="col-cost">Kosten</th>
+          </tr>
+        </thead>
+        <tbody id="log-tbody"></tbody>
+      </table>
+    </div>
   </div>
 
 </div>
@@ -314,17 +328,15 @@
     return ct.toFixed(2).replace('.', ',') + ' Ct';
   }
 
-  // ── Werkzeug-Log laden ──────────────────────────────────────────────────
+  // ── Schülerkosten + Werkzeug-Log laden ─────────────────────────────────
   async function loadWerkzeugLog(aid) {
     const loadingEl = document.getElementById('log-loading');
     const errorEl   = document.getElementById('log-error');
-    const emptyEl   = document.getElementById('empty-hint');
     const tableEl   = document.getElementById('log-table');
     const tbody     = document.getElementById('log-tbody');
 
     loadingEl.style.display = 'block';
     errorEl.style.display   = 'none';
-    emptyEl.classList.remove('visible');
     tableEl.style.display   = 'none';
     tbody.innerHTML = '';
 
@@ -333,17 +345,65 @@
       const logUrl = isAdmin
         ? `/api/admin/werkzeug-log/${encodeURIComponent(aid)}?token=${encodeURIComponent(token)}`
         : `/api/activity/${encodeURIComponent(aid)}/werkzeug-log?token=${encodeURIComponent(token)}`;
-      const resp = await fetch(logUrl);
-      if (!resp.ok) {
-        const body = await resp.json().catch(() => ({}));
-        throw new Error(body.error || `Serverfehler (${resp.status})`);
+      const studentUrl = isAdmin
+        ? `/api/admin/student-cost-summary/${encodeURIComponent(aid)}?token=${encodeURIComponent(token)}`
+        : `/api/activity/${encodeURIComponent(aid)}/student-cost-summary?token=${encodeURIComponent(token)}`;
+
+      const [logResp, studentResp] = await Promise.all([
+        fetch(logUrl),
+        fetch(studentUrl),
+      ]);
+
+      if (!logResp.ok) {
+        const body = await logResp.json().catch(() => ({}));
+        throw new Error(body.error || `Serverfehler (${logResp.status})`);
       }
-      const rows = await resp.json();
+      const rows = await logResp.json();
+
+      // Schülerkosten-Daten laden (Fehler still ignorieren — Tabelle zeigt '–')
+      let studentCosts = null;
+      if (studentResp.ok) {
+        studentCosts = await studentResp.json().catch(() => null);
+      }
 
       loadingEl.style.display = 'none';
 
+      // Tabelle immer anzeigen (Schülerkosten sind immer relevant)
+      tableEl.style.display = 'table';
+
+      // ── 3 feste Schülerkosten-Zeilen ──────────────────────────────────────
+      const aggregateRows = [
+        { label: 'Chatkosten Schüler gesamt',   eur: studentCosts?.chatEur  },
+        { label: 'Audiokosten Schüler gesamt',  eur: studentCosts?.audioEur },
+        { label: 'TTS-Kosten Schüler gesamt',   eur: studentCosts?.ttsEur   },
+      ];
+
+      aggregateRows.forEach(({ label, eur }) => {
+        const tr = document.createElement('tr');
+        tr.className = 'row-aggregate';
+        tr.innerHTML = `
+          <td>${label}</td>
+          <td>–</td>
+          <td>–</td>
+          <td class="col-tokens">–</td>
+          <td class="col-tokens">–</td>
+          <td class="col-cost">${fmtCt(eur)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // ── Trennzeile ────────────────────────────────────────────────────────
+      const sep = document.createElement('tr');
+      sep.className = 'row-separator';
+      sep.innerHTML = '<td colspan="6"></td>';
+      tbody.appendChild(sep);
+
+      // ── Werkzeug-Aufrufe ──────────────────────────────────────────────────
       if (!Array.isArray(rows) || rows.length === 0) {
-        emptyEl.classList.add('visible');
+        // Leere Werkzeug-Spalte: kleinen Hinweis einfügen
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="6" style="color:#aaa;font-size:13px;padding:12px 10px">Noch keine Werkzeug-Aufrufe für diese Aktivität.</td>`;
+        tbody.appendChild(tr);
         return;
       }
 
@@ -359,8 +419,6 @@
         `;
         tbody.appendChild(tr);
       });
-
-      tableEl.style.display = 'table';
     } catch (err) {
       loadingEl.style.display = 'none';
       errorEl.textContent     = 'Fehler: ' + err.message;
