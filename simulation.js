@@ -1,6 +1,67 @@
 import { buildInstructions } from './prompt-builder.js';
+import { getTeacherPersonas, getGlobalPersonas } from './stores/persona.js';
+import { augmentCriteria } from './criteria.js';
+import { getCriteria, saveErkenntnisse, getErkenntnisse } from './stores/criteria.js';
+import { getFeedbackByActivity } from './stores/feedback.js';
+import { getActiveErfahrungsprompt } from './stores/prompt.js';
+import { generateOptimizeProposal } from './optimize.js';
+import { getCachedConfig } from './config-cache.js';
+import { recordWerkzeugUsage } from './cost-service.js';
 
 const SIMULATION_TIMEOUT_MS = 90_000;
+
+// ---------------------------------------------------------------------------
+// Persona-Auswahl (war persona-selector.js)
+// ---------------------------------------------------------------------------
+
+const ONE_CLICK_FALLBACK_NAMES = ['Der Musterschüler', 'Der Stille', 'Die Pragmatikerin', 'Der Zweifler'];
+
+function selectDiverse(pool, n) {
+  if (pool.length <= n) return [...pool];
+  const words   = p => new Set((p.description || p.name).toLowerCase().split(/\W+/).filter(Boolean));
+  const overlap = (a, b) => {
+    const wa = words(a), wb = words(b);
+    let common = 0;
+    wa.forEach(w => { if (wb.has(w)) common++; });
+    return common / Math.max(wa.size, wb.size, 1);
+  };
+  const selected = [pool[0]];
+  while (selected.length < n) {
+    let best = null, bestScore = Infinity;
+    for (const p of pool) {
+      if (selected.includes(p)) continue;
+      const score = Math.max(...selected.map(s => overlap(p, s)));
+      if (score < bestScore) { bestScore = score; best = p; }
+    }
+    if (!best) break;
+    selected.push(best);
+  }
+  return selected;
+}
+
+export function selectPersonasForOneClick(userId, count = 4) {
+  const own    = getTeacherPersonas(userId);
+  const global = getGlobalPersonas();
+
+  const chosen = selectDiverse(own, count);
+
+  if (chosen.length < count) {
+    const fallbacks = ONE_CLICK_FALLBACK_NAMES
+      .map(name => global.find(p => p.name === name))
+      .filter(Boolean)
+      .filter(p => !chosen.find(c => c.id === p.id));
+    for (const p of fallbacks) {
+      if (chosen.length >= count) break;
+      chosen.push(p);
+    }
+    for (const p of global) {
+      if (chosen.length >= count) break;
+      if (!chosen.find(c => c.id === p.id)) chosen.push(p);
+    }
+  }
+
+  return chosen.slice(0, count);
+}
 
 async function generateSimulatedUtterances(persona, count, model, aiClient) {
   const { text, usage } = await aiClient.jsonCall(
@@ -87,4 +148,83 @@ export async function runSimulation({ persona, config, erfahrungsprompt, criteri
   ).join('\n---\n');
 
   return { pairs, simResultsText, totalUsage };
+}
+
+// ---------------------------------------------------------------------------
+// One-Click-Orchestrierung
+// ---------------------------------------------------------------------------
+
+/**
+ * Orchestriert die komplette One-Click-Optimierung ohne HTTP-Kenntnisse.
+ * onProgress(type, data) — Route mapped das 1:1 auf sendEvent(type, data).
+ * genModel — Modell für Äußerungs- und Evaluierungscalls (default: gpt-4.1-nano).
+ * Wirft Error wenn alle Simulationen fehlschlagen oder keine Personas verfügbar.
+ */
+export async function runOneClickOptimization({ activityId, userId, aiClient, onProgress, genModel = 'gpt-4.1-nano' }) {
+  const existing    = getCriteria(activityId);
+  const erf         = getActiveErfahrungsprompt(activityId);
+  const newCriteria = await augmentCriteria({
+    config: getCachedConfig(),
+    erfahrungsprompt: erf?.content || null,
+    existingCriteria: existing,
+    aiClient,
+  });
+  for (const c of newCriteria) saveErkenntnisse(activityId, c, 'criteria');
+  onProgress('criteria', { added: newCriteria.length, total: existing.length + newCriteria.length });
+  console.log(`[OneClick] Kriterien: ${existing.length} vorhanden, ${newCriteria.length} ergänzt`);
+
+  const personas = selectPersonasForOneClick(userId);
+  if (!personas.length) throw new Error('Keine Personas verfügbar');
+  onProgress('personas', { selected: personas.map(p => p.name) });
+  console.log(`[OneClick] Personas: ${personas.map(p => p.name).join(', ')}`);
+
+  const currentCriteria = getCriteria(activityId);
+  const allPairs        = [];
+  const total           = personas.length * 4;
+  let   pairsEmitted    = 0;
+
+  onProgress('sim_start', { total });
+
+  await Promise.allSettled(personas.map(async (persona) => {
+    try {
+      const { totalUsage: simUsage } = await runSimulation({
+        persona,
+        config:           getCachedConfig(),
+        erfahrungsprompt: erf?.content || '',
+        criteria:         currentCriteria,
+        models:           { utteranceModel: genModel, evalModel: genModel },
+        aiClient,
+        onPair: (pair, index) => {
+          allPairs.push({ personaName: persona.name, pair });
+          pairsEmitted++;
+          onProgress('sim_pair', { personaName: persona.name, index, pair, emitted: pairsEmitted, total });
+        },
+      });
+      recordWerkzeugUsage(activityId, 'simulation', genModel, simUsage);
+    } catch (e) {
+      console.warn(`[OneClick] Simulation fehlgeschlagen für ${persona.name}:`, e.message);
+    }
+  }));
+
+  if (allPairs.length === 0) throw new Error('Alle Simulationen fehlgeschlagen – bitte erneut versuchen.');
+  console.log(`[OneClick] ${allPairs.length} Paare simuliert, generiere Vorschlag`);
+
+  const simResultsText = allPairs.map(r =>
+    `[${r.personaName}] ${r.pair.utterance}\n` +
+    `KI-Antwort: ${r.pair.aiResponse.slice(0, 400)}\n` +
+    `Bewertung: ${r.pair.evaluation.overall} (Score ${r.pair.evaluation.score}/5) – ${r.pair.evaluation.summary || ''}`
+  ).join('\n---\n');
+
+  const erkenntnisse = getErkenntnisse(activityId);
+  const feedbacks    = getFeedbackByActivity(activityId);
+  const proposal     = await generateOptimizeProposal({
+    erfahrungsprompt: erf?.content || null,
+    erkenntnisse,
+    feedbacks,
+    simResultsText,
+    config: getCachedConfig(),
+    aiClient,
+  });
+  onProgress('optimize_done', proposal);
+  console.log(`[OneClick] Fertig für ${activityId}`);
 }
