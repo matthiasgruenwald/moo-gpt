@@ -817,127 +817,106 @@ button:hover {
 .mmb-speak-btn:disabled { cursor: default; opacity: 0.5; }
 
 /* ── Issue #53: Memory-Button + Memory-Overlay ──────────────────────────── */
-.memory-icon {
-    position: fixed;
-    bottom: 122px;
-    right: 10px;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    background-color: #6c3483;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+/* Issue #110: 🧠-Memory-Button im Chat-Header */
+.mmb-mem-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.75);
     cursor: pointer;
-    z-index: 10000;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-    font-size: 22px;
+    font-size: 18px;
+    padding: 2px 6px;
+    border-radius: 4px;
     line-height: 1;
-    transition: background-color 0.2s;
-    user-select: none;
+    transition: color 0.15s, background 0.15s;
+    z-index: 12;
+    flex-shrink: 0;
+    margin-left: 55px;   /* Avatar: left 10px + width 50px → Button rechts davon */
 }
-.memory-icon:hover { background-color: #512e74; }
+.mmb-mem-btn:hover { color: white; background: rgba(255,255,255,0.12); }
+.mmb-mem-btn.active { color: white; }
 
-.memory-icon.left-side {
-    right: auto;
-    left: 10px;
-}
+/* Wenn Memory-Button vorhanden, braucht Wave-Button keinen eigenen Avatar-Abstand */
+.mmb-mem-btn + .mmb-wave-btn { margin-left: 0; }
 
-.memory-overlay {
+/* Issue #110: Memory-Popover (analoger Stil zum Voice-Popover) */
+.mmb-memory-popover {
     display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.55);
-    z-index: 100001;
-    align-items: center;
-    justify-content: center;
-}
-
-.memory-overlay-dialog {
-    background: white;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 8px;
+    background: #fff;
     border-radius: 10px;
-    padding: 28px 32px 24px;
-    width: min(420px, 90vw);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.memory-overlay-title {
-    margin: 0;
-    font-size: 17px;
-    font-weight: 700;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    padding: 12px;
+    z-index: 10002;
+    min-width: 240px;
     color: #1a1a1a;
 }
+.mmb-memory-popover.open { display: block; }
 
-.memory-overlay-desc {
-    margin: 0;
-    font-size: 13px;
+.mmb-memory-popover-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     color: #555;
-    line-height: 1.5;
+    margin: 0 0 6px 0;
 }
 
-.memory-overlay-textarea {
+.mmb-memory-popover-desc {
+    font-size: 12px;
+    color: #666;
+    margin: 0 0 8px 0;
+    line-height: 1.4;
+}
+
+.mmb-memory-textarea {
     width: 100%;
     box-sizing: border-box;
-    padding: 10px 12px;
+    padding: 8px 10px;
     border: 1px solid #ccc;
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: 7px;
+    font-size: 13px;
     color: #1a1a1a;
     resize: vertical;
     font-family: Arial, sans-serif;
     line-height: 1.5;
-    margin-right: 0;
-    flex: none;
+    display: block;
+    margin-bottom: 8px;
 }
-.memory-overlay-textarea:focus {
+.mmb-memory-textarea:focus {
     outline: 2px solid #6c3483;
     border-color: #6c3483;
 }
 
-.memory-overlay-actions {
+.mmb-memory-actions {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     justify-content: flex-end;
-    margin-top: 4px;
 }
 
-.memory-overlay-cancel {
-    background: #f0f0f0;
-    color: #333;
-    border: none;
-    border-radius: 20px;
-    padding: 9px 20px;
-    font-size: 14px;
-    cursor: pointer;
-    margin-right: auto;
-}
-.memory-overlay-cancel:hover { background: #ddd; }
-
-.memory-overlay-delete {
+.mmb-memory-delete {
     background: #c0392b;
     color: white;
     border: none;
     border-radius: 20px;
-    padding: 9px 20px;
-    font-size: 14px;
+    padding: 7px 14px;
+    font-size: 13px;
     cursor: pointer;
 }
-.memory-overlay-delete:hover { background: #922b21; }
+.mmb-memory-delete:hover { background: #922b21; }
 
-.memory-overlay-save {
+.mmb-memory-save {
     background: #6c3483;
     color: white;
     border: none;
     border-radius: 20px;
-    padding: 9px 20px;
-    font-size: 14px;
+    padding: 7px 14px;
+    font-size: 13px;
     cursor: pointer;
     font-weight: 600;
 }
-.memory-overlay-save:hover { background: #512e74; }
+.mmb-memory-save:hover { background: #512e74; }
 
 /* Issue #88: Mikrofon-Icon für Spracheingaben */
 .audio-badge {
