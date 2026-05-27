@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireDashboardAuth } from '../auth-middleware.js';
-import { getActivity, setActivityConfig } from '../stores/activity.js';
+import { getActivity } from '../stores/activity.js';
+import { setWidgetConfig } from '../stores/widget-config.js';
 import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { getTeacherPreference, setTeacherSuggestPreference } from '../stores/teacher.js';
 import { AVAILABLE_MODELS, GEN_MODEL, MODEL_NAME } from '../env-config.js';
@@ -192,7 +193,7 @@ export function createActivityRouter({ chatRegistry, dashboardRegistry, lockMana
     if (validErr) return res.status(400).json({ error: validErr });
     const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
     if (model && model !== '' && !validModel) return res.status(400).json({ error: 'Ungültiges Modell' });
-    setActivityConfig(activityId, opener ?? null, uploadMode ?? null, title ?? null, botIcon ?? null, audioInput ?? null, audioOutput ?? null, ttsVoice ?? null, audioStudentOptions ?? null, validModel);
+    setWidgetConfig(activityId, { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel });
     console.log(`[Config] Aktivität ${activityId} aktualisiert von ${userId}`);
     res.json({ ok: true });
   });
