@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireDashboardAuth, isOriginAllowed } from '../auth-middleware.js';
+import { requireTeacherAuth, isOriginAllowed } from '../auth-middleware.js';
 import {
   getStudentMemory,
   getAllMemory,
@@ -22,7 +22,7 @@ router.get('/student-memory', (req, res) => {
 
   // Dashboard-Auth → alle Einträge
   if (token) {
-    requireDashboardAuth(req, res, () => {
+    requireTeacherAuth(req, res, () => {
       res.json({ memory: getAllMemory() });
     });
     return;
@@ -47,7 +47,7 @@ router.post('/student-memory', (req, res) => {
 
   if (token) {
     // Dashboard-Auth: kann beliebigen Schüler setzen
-    requireDashboardAuth(req, res, () => {
+    requireTeacherAuth(req, res, () => {
       const { studentId, preferenceText, preferred_voice, tts_autoplay } = req.body;
       if (!studentId || preferenceText === undefined) {
         return res.status(400).json({ error: 'studentId und preferenceText erforderlich' });
@@ -78,7 +78,7 @@ router.delete('/student-memory', (req, res) => {
   const { token, userId, studentId } = req.query;
 
   if (token) {
-    requireDashboardAuth(req, res, () => {
+    requireTeacherAuth(req, res, () => {
       if (!studentId) return res.status(400).json({ error: 'studentId erforderlich' });
       deleteStudentMemory(studentId);
       res.json({ ok: true });
