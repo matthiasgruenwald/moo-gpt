@@ -124,6 +124,11 @@ export class MOOBOT {
     chatHeader.className = "chat-header";
     // Issue #101: Waveform-Icon nur wenn audioStudentOptions=on (und audioOutput=on)
     const showWaveIcon = this.settings.audioStudentOptions === 'on' && this.settings.audioOutput === 'on';
+    // Issue #110: 🧠-Memory-Button im Header (nur für Schüler)
+    const showMemBtn = !isTeacher;
+    const memBtnHtml = showMemBtn
+      ? `<button class="mmb-mem-btn" id="mmb-mem-btn" title="Mein Memory" aria-label="Memory anzeigen">&#129504;</button>`
+      : '';
     const waveIconHtml = showWaveIcon
       ? `<button class="mmb-wave-btn" id="mmb-wave-btn" title="Stimmwahl &amp; Auto-Play" aria-label="Sprachausgabe-Einstellungen">&#9641;&#9643;&#9608;</button>`
       : '';
@@ -131,6 +136,7 @@ export class MOOBOT {
         <div class="chat-header-icon-container">
             <img src="${icon}" alt="Chat Icon" class="chat-header-icon">
         </div>
+        ${memBtnHtml}
         ${waveIconHtml}
         <h1>MMBbS GPT</h1>
         <button class="header-side-toggle" id="side-toggle-btn" title="Widget links/rechts wechseln" aria-label="Position wechseln">&#8644;</button>
@@ -138,6 +144,22 @@ export class MOOBOT {
             <img src="${this._baseUrl()}/close-icon.png" alt="Close Icon">
         </div>`;
     chatContainer.appendChild(chatHeader);
+
+    // Issue #110: Memory-Button → Memory-Popover öffnen/schließen
+    if (showMemBtn) {
+      this._buildMemoryPopover(chatHeader);
+      chatHeader.querySelector('#mmb-mem-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._toggleMemoryPopover();
+      });
+      document.addEventListener('click', (e) => {
+        const popover = document.getElementById('mmb-memory-popover');
+        const memBtn = document.getElementById('mmb-mem-btn');
+        if (popover && !popover.contains(e.target) && e.target !== memBtn) {
+          this._closeMemoryPopover();
+        }
+      });
+    }
 
     // Issue #101: Waveform-Button → Voice-Popover öffnen/schließen
     if (showWaveIcon) {
@@ -313,37 +335,7 @@ export class MOOBOT {
       };
     }
 
-    // Issue #53: Memory-Button für Schüler
-    if (!isTeacher) {
-      const memBtn = document.createElement('div');
-      memBtn.id = 'memory-icon';
-      memBtn.className = 'memory-icon';
-      memBtn.title = 'Mein Memory anzeigen';
-      memBtn.innerHTML = '&#129504;'; // 🧠
-      memBtn.onclick = () => this.openMemoryOverlay();
-      document.body.appendChild(memBtn);
-
-      // Issue #53: Memory-Overlay
-      const memOverlay = document.createElement('div');
-      memOverlay.id = 'memory-overlay';
-      memOverlay.className = 'memory-overlay';
-      memOverlay.innerHTML = `
-        <div class="memory-overlay-dialog">
-          <h2 class="memory-overlay-title">&#129504; Mein Memory</h2>
-          <p class="memory-overlay-desc">Hier kannst du Notizen f&uuml;r die KI hinterlegen. Sie werden bei jeder Antwort ber&uuml;cksichtigt.</p>
-          <textarea class="memory-overlay-textarea" id="memory-overlay-textarea" placeholder="z.B. Ich bevorzuge kurze Erkl&auml;rungen&hellip;" rows="6"></textarea>
-          <div class="memory-overlay-actions">
-            <button class="memory-overlay-cancel" id="memory-overlay-cancel">Schlie&szlig;en</button>
-            <button class="memory-overlay-delete" id="memory-overlay-delete">L&ouml;schen</button>
-            <button class="memory-overlay-save" id="memory-overlay-save">Speichern</button>
-          </div>
-        </div>`;
-      document.body.appendChild(memOverlay);
-      memOverlay.querySelector('#memory-overlay-cancel').onclick = () => this.closeMemoryOverlay();
-      memOverlay.querySelector('#memory-overlay-save').onclick   = () => this._saveMemory();
-      memOverlay.querySelector('#memory-overlay-delete').onclick = () => this._deleteMemory();
-      memOverlay.onclick = (e) => { if (e.target === memOverlay) this.closeMemoryOverlay(); };
-    }
+    // Issue #110: Memory-Floating-Icon und -Overlay entfernt; 🧠-Button jetzt im Header (s.o.)
 
     document.body.appendChild(chatIcon);
     document.body.appendChild(chatContainer);
@@ -355,7 +347,6 @@ export class MOOBOT {
       document.getElementById('dashboard-icon')?.classList.add('left-side');
       document.getElementById('config-icon')?.classList.add('left-side');
       document.getElementById('stop-icon')?.classList.add('left-side');
-      document.getElementById('memory-icon')?.classList.add('left-side');
     }
     chatHeader.querySelector('#side-toggle-btn').addEventListener('click', () => this._toggleSide());
 
@@ -697,8 +688,10 @@ export class MOOBOT {
       waveBtn.innerHTML = '&#9641;&#9643;&#9608;';
       waveBtn.addEventListener('click', () => this._toggleVoicePopover());
       const chatHeader = document.querySelector('.chat-header');
-      const iconContainer = chatHeader?.querySelector('.chat-header-icon-container');
-      if (iconContainer) iconContainer.insertAdjacentElement('afterend', waveBtn);
+      // Issue #110: Wave-Button nach Memory-Button einfügen (falls vorhanden), sonst nach Avatar
+      const memBtnExisting = document.getElementById('mmb-mem-btn');
+      const insertAfter = memBtnExisting ?? chatHeader?.querySelector('.chat-header-icon-container');
+      if (insertAfter) insertAfter.insertAdjacentElement('afterend', waveBtn);
       if (chatHeader) this._buildVoicePopover(chatHeader);
     } else if (!showWave && existingWaveBtn) {
       existingWaveBtn.remove();
@@ -2149,18 +2142,82 @@ export class MOOBOT {
     }
   }
 
-  // ── Issue #53: Memory-Overlay ─────────────────────────────────────────────
+  // ── Issue #110: Memory-Popover ───────────────────────────────────────────
 
-  async openMemoryOverlay() {
-    const overlay = document.getElementById('memory-overlay');
-    if (!overlay) return;
+  /**
+   * Baut den Memory-Popover und hängt ihn an den chatHeader.
+   * Wird nur für Schüler aufgerufen (!isTeacher).
+   */
+  _buildMemoryPopover(chatHeader) {
+    const popover = document.createElement('div');
+    popover.id = 'mmb-memory-popover';
+    popover.className = 'mmb-memory-popover';
+
+    const title = document.createElement('div');
+    title.className = 'mmb-memory-popover-title';
+    title.textContent = 'Mein Memory';
+    popover.appendChild(title);
+
+    const desc = document.createElement('p');
+    desc.className = 'mmb-memory-popover-desc';
+    desc.textContent = 'Notizen für die KI — werden bei jeder Antwort berücksichtigt.';
+    popover.appendChild(desc);
+
+    const textarea = document.createElement('textarea');
+    textarea.id = 'mmb-memory-textarea';
+    textarea.className = 'mmb-memory-textarea';
+    textarea.placeholder = 'z.B. Ich bevorzuge kurze Erklärungen…';
+    textarea.rows = 5;
+    popover.appendChild(textarea);
+
+    const actions = document.createElement('div');
+    actions.className = 'mmb-memory-actions';
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'mmb-memory-delete';
+    delBtn.textContent = 'Löschen';
+    delBtn.addEventListener('click', () => this._deleteMemory());
+    actions.appendChild(delBtn);
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'mmb-memory-save';
+    saveBtn.textContent = 'Speichern';
+    saveBtn.addEventListener('click', () => this._saveMemory());
+    actions.appendChild(saveBtn);
+
+    popover.appendChild(actions);
+    chatHeader.appendChild(popover);
+  }
+
+  _toggleMemoryPopover() {
+    const popover = document.getElementById('mmb-memory-popover');
+    const btn = document.getElementById('mmb-mem-btn');
+    if (!popover) return;
+    const isOpen = popover.classList.contains('open');
+    if (isOpen) {
+      popover.classList.remove('open');
+      btn?.classList.remove('active');
+    } else {
+      popover.classList.add('open');
+      btn?.classList.add('active');
+      this._loadMemoryIntoPopover();
+    }
+  }
+
+  _closeMemoryPopover() {
+    const popover = document.getElementById('mmb-memory-popover');
+    const btn = document.getElementById('mmb-mem-btn');
+    popover?.classList.remove('open');
+    btn?.classList.remove('active');
+  }
+
+  async _loadMemoryIntoPopover() {
     const userId = this.settings.userId;
     if (!userId) {
       console.warn('[Memory] userId fehlt');
       return;
     }
-    overlay.style.display = 'flex';
-    const textarea = document.getElementById('memory-overlay-textarea');
+    const textarea = document.getElementById('mmb-memory-textarea');
     if (textarea) textarea.value = '';
     try {
       const resp = await fetch(
@@ -2176,14 +2233,9 @@ export class MOOBOT {
     if (textarea) textarea.focus();
   }
 
-  closeMemoryOverlay() {
-    const overlay = document.getElementById('memory-overlay');
-    if (overlay) overlay.style.display = 'none';
-  }
-
   async _saveMemory() {
     const userId = this.settings.userId;
-    const textarea = document.getElementById('memory-overlay-textarea');
+    const textarea = document.getElementById('mmb-memory-textarea');
     const preferenceText = textarea?.value?.trim() ?? '';
     if (!userId) {
       console.warn('[Memory] userId fehlt');
@@ -2203,7 +2255,8 @@ export class MOOBOT {
         }
       );
       if (resp.ok) {
-        this.closeMemoryOverlay();
+        this._cachedPreferenceText = preferenceText;
+        this._closeMemoryPopover();
       } else {
         console.error('[Memory] Speichern fehlgeschlagen:', resp.status);
       }
@@ -2224,9 +2277,10 @@ export class MOOBOT {
         { method: 'DELETE' }
       );
       if (resp.ok) {
-        const textarea = document.getElementById('memory-overlay-textarea');
+        this._cachedPreferenceText = '';
+        const textarea = document.getElementById('mmb-memory-textarea');
         if (textarea) textarea.value = '';
-        this.closeMemoryOverlay();
+        this._closeMemoryPopover();
       } else {
         console.error('[Memory] Löschen fehlgeschlagen:', resp.status);
       }
@@ -2247,9 +2301,8 @@ export class MOOBOT {
     const dashboardIcon  = document.getElementById('dashboard-icon');
     const configIcon     = document.getElementById('config-icon');
     const stopIcon       = document.getElementById('stop-icon');
-    const memoryIcon     = document.getElementById('memory-icon');
 
-    [chatContainer, chatIcon, dashboardIcon, configIcon, stopIcon, memoryIcon].forEach(el => {
+    [chatContainer, chatIcon, dashboardIcon, configIcon, stopIcon].forEach(el => {
       if (!el) return;
       if (newSide === 'left') {
         el.classList.add('left-side');
