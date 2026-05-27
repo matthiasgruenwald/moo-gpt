@@ -8,7 +8,8 @@
  */
 
 import { getDb } from './db.js';
-import { sumCostRows, computeAudioCost, computeTtsCost } from './token-log.js';
+import { sumCostRows } from './token-log.js';
+import { computeAudioCost, computeTtsCost } from './pricing.js';
 import { getActivityAudioSeconds, getActivityTtsChars } from './stores/token.js';
 
 // Deutsche Anzeige-Labels für call_type-Werte
