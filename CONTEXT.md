@@ -10,7 +10,9 @@ Eine Moodle-Aktivität (Textseite oder Aufgabe), in die ein Chat-Widget eingebet
 
 ## Widget-Konfiguration
 
-Die konfigurierbaren Felder, die das Verhalten und Erscheinungsbild des Chat-Bots für eine Aktivität festlegen: `botTitle`, `botIcon`, `uploadMode`, `opener`, `hints`, `task`, `taskImage`. Wird auf drei Ebenen definiert — Systemvorlage → Lehrer-Vorlage → Aktivitätskonfiguration — wobei jede Ebene die darüber überschreibt.
+Die konfigurierbaren Felder, die das Verhalten und Erscheinungsbild des Chat-Bots für eine Aktivität festlegen: `botTitle`, `botIcon`, `uploadMode`, `opener`, `audioInput`, `audioOutput`, `ttsVoice`, `audioStudentOptions`, `model`, `hints`. Wird auf drei Ebenen definiert — Systemvorlage → Lehrer-Vorlage → Aktivitätskonfiguration — wobei jede Ebene die darüber überschreibt. Das GPT-Modell wird **pro Aktivität** gespeichert (Spalte `model` in `activities`), nicht mehr als Lehrer-weite Präferenz. Priorität: Aktivitäts-Modell → System-Prompt-Modell (Admin) → `MODEL_NAME`-Env. Die `teacher_preferences.preferred_model`-Spalte entfällt.
+
+**Config-Overlay-Öffnungsverhalten:** Ist das Chat-Fenster beim Klick auf den Einstellungen-Button geöffnet, öffnet sich das Config-Overlay **direkt im `left-side`-Modus** (links angedockt). Ist das Chat-Fenster geschlossen, öffnet es sich im Standard-Modus (rechts). Der ⇔-Button im Overlay-Header erlaubt jederzeit das Umschalten.
 
 ## Systemvorlage
 
@@ -52,6 +54,8 @@ Zustand, in dem der Chat für alle Schüler einer Aktivität gesperrt ist. Wird 
 
 Schülerspezifische Präferenzen und Wünsche, die als unsichtbare Instruktion in den Systemprompt eingebunden werden. Entsteht aus Schüler-Feedback (Daumen-Button + Freitext im Widget) oder aus Lehrer-Eingabe im Dashboard. **Global gespeichert** — gilt für alle Aktivitäten, nicht pro Aktivität. Wird per Schüler-ID in der Tabelle `student_memory` abgelegt (ohne `activity_id`). Enthält neben dem Freitext `preference_text` auch strukturierte Präferenzen: `preferred_voice` (Stimme für TTS) und `tts_autoplay` (Bot-Antworten automatisch vorlesen). Schüler können ihren eigenen Memory-Text und ihre Stimmwahl über Bedienelemente im Widget einsehen und ändern; Lehrkräfte können den Memory-Text im Dashboard anzeigen, bearbeiten und löschen. Ermöglicht Differenzierung ohne expliziten Aufwand für die Lehrkraft.
 
+**Widget-UI (Schüler):** Kein schwebendes Floating-Icon, sondern ein 🧠-Button direkt im Chat-Header neben dem Bot-Avatar. Klick öffnet ein **Popover** (gleicher Stil wie das TTS-Stimmwahl-Popover), das die Textarea für `preference_text` sowie Speichern/Löschen enthält. Der 🧠-Button liegt immer am nächsten am Avatar; der ▁▃█-TTS-Button folgt rechts davon. Beide Buttons sind dynamisch: fehlt eines der Features, rückt der verbleibende Button direkt an den Avatar.
+
 ## Prompt-Assistent
 
 Workflow zur Erstellung eines Aufgabenprompts vor dem Unterricht. KI analysiert die Aufgabe, stellt bei aktiver Option Rückfragen (grill-me-Muster), und generiert daraus einen fertigen Aufgabenprompt-Vorschlag. Option „Rückfragen erwünscht" ist standardmäßig aktiv, wird aber nutzerspezifisch gespeichert. Ersetzt die Simulation als primären Weg zu einem guten Prompt vor dem Unterricht.
@@ -71,9 +75,16 @@ Falls Preisdaten noch nicht geladen: Inline-Anzeige entfällt still, Detailliste
 
 KI-Kosten, die durch schülerinitiierte Aktionen entstehen: Schüler-Chats, Audio-Transkriptionen (Whisper) und TTS-Ausgaben. Werden in `token_log` mit `thread_id` und `activity_id` gespeichert. Chat-Nachrichten haben `call_type = NULL`; Audio-Transkriptionen `call_type = 'transcription'`; TTS-Ausgaben `call_type = 'tts'`. Im Dashboard pro Thread sichtbar.
 
+**Darstellung auf `/dashboard/costs`:** Die Kostenübersicht zeigt eine einzelne Tabelle mit zwei Abschnitten. Ganz oben immer **3 feste aggregierte Zeilen** für Schülerkosten der gesamten Aktivität:
+1. *Chatkosten Schüler gesamt* — Summe aller `call_type = NULL`-Einträge
+2. *Audiokosten Schüler gesamt* — Summe aller `call_type = 'transcription'`-Einträge
+3. *TTS-Kosten Schüler gesamt* — Summe aller `call_type IN ('tts-prep', 'tts')`-Einträge
+
+Darunter (mit Trennzeile) die chronologischen Einzeleinträge der **Werkzeug-Aufrufe** (Lehrerkosten). Der Tabellen-Container erhält `max-height` + `overflow-y: auto` damit alle Zeilen scrollbar erreichbar sind. Die Sektion heißt nicht mehr nur „Werkzeug-Aufrufe" sondern „Kostenübersicht" o.ä.
+
 ## TTS-Ausgabe
 
-Bot-Antworten werden per Klick auf ein Lautsprecher-Icon als Sprache abgespielt. Verarbeitung serverseitig: wird der Rohtext (Markdown + ggf. LaTeX) immer durch einen GPT-mini-Call bereinigt: Markdown-Syntax entfernen, LaTeX-Formeln in natürlich gesprochenes Deutsch übersetzen; anschließend OpenAI TTS (`tts-1-hd`). Snippet-Parameter: `audioOutput: on|off` (TTS an/aus, Default `off`), `ttsVoice` (Aktivitäts-Default-Stimme, Default `nova`), `audioStudentOptions: on|off` (gibt Schülern Stimmwahl + Auto-Play-Toggle frei, Default `off`). Auto-Play liest jede abgeschlossene Bot-Antwort automatisch vor — kein Gesprächsmodus, kein automatisches Mikrofon. Schüler können Stimme (`preferred_voice`) und Auto-Play (`tts_autoplay`) global in `student_memory` speichern (geräteübergreifend); beides nur sichtbar wenn `audioStudentOptions: on`. Verfügbare Stimmen (kein `fable`): `nova` (weiblich, klar, lebendig), `alloy` (neutral, androgyn), `echo` (männlich, klar, sachlich), `onyx` (männlich, tief, ruhig), `shimmer` (weiblich, weich). Der Voice-Selector erscheint im Chat-Header links neben dem Bot-Avatar (nur wenn `audioStudentOptions: on`) als Waveform-Icon (▁▃█); Klick öffnet ein Mini-Popover mit Name + Beschreibung pro Stimme + Auto-Play-Toggle. Der Schließen-Button rechts bleibt alleine. Geschwindigkeit (0,5–1,5) clientseitig, nicht persistent. Kosten: `call_type = 'tts-prep'` (GPT-mini-Tokens) + `call_type = 'tts'` (`tts_characters`). Beide schülerinitiiert → Chat-Kosten.
+Bot-Antworten werden per Klick auf ein Lautsprecher-Icon als Sprache abgespielt. Verarbeitung serverseitig: wird der Rohtext (Markdown + ggf. LaTeX) immer durch einen GPT-mini-Call bereinigt: Markdown-Syntax entfernen, LaTeX-Formeln in natürlich gesprochenes Deutsch übersetzen; anschließend OpenAI TTS (`tts-1-hd`). Snippet-Parameter: `audioOutput: on|off` (TTS an/aus, Default `off`), `ttsVoice` (Aktivitäts-Default-Stimme, Default `nova`), `audioStudentOptions: on|off` (gibt Schülern Stimmwahl + Auto-Play-Toggle frei, Default `off`). Auto-Play liest jede abgeschlossene Bot-Antwort automatisch vor — kein Gesprächsmodus, kein automatisches Mikrofon. Schüler können Stimme (`preferred_voice`) und Auto-Play (`tts_autoplay`) global in `student_memory` speichern (geräteübergreifend); beides nur sichtbar wenn `audioStudentOptions: on`. Verfügbare Stimmen (kein `fable`): `nova` (weiblich, klar, lebendig), `alloy` (neutral, androgyn), `echo` (männlich, klar, sachlich), `onyx` (männlich, tief, ruhig), `shimmer` (weiblich, weich). Der ▁▃█-TTS-Button erscheint im Chat-Header rechts neben dem 🧠-Memory-Button (bzw. direkt am Avatar wenn Memory deaktiviert); Klick öffnet ein Mini-Popover mit Name + Beschreibung pro Stimme + Auto-Play-Toggle. **TTS gilt auch für alte Nachrichten aus der DB** — beim Laden der Chat-History wird an jede Bot-Nachricht ein 🔊-Button gehängt (wenn `audioOutput=on`). Geschwindigkeit (0,5–1,5) clientseitig, nicht persistent. Kosten: `call_type = 'tts-prep'` (GPT-mini-Tokens) + `call_type = 'tts'` (`tts_characters`). Beide schülerinitiiert → Chat-Kosten.
 
 ## Werkzeug-Kosten
 
@@ -92,6 +103,12 @@ KI-Kosten, die durch lehrerinitiierte Aktionen entstehen: Live-Unterrichts-Zusam
 | `tts` | TTS-Ausgabe via tts-1-hd (schülerinitiiert, Chat-Kosten) |
 
 Pro Simulations-Durchlauf ein Eintrag (alle Teil-Calls summiert). Calls ohne `activityId` werden nicht erfasst.
+
+## Moodle-Snippet
+
+Das einzige aktive Snippet ist `snippets/moogpt.txt` (`key: "moogpt"`). Es enthält nur den `<script type="module">`-Block, der `MOOBOT` instanziiert — keine Einstellungen im HTML. Die alten Snippets `abgpt.txt` und `tegpt.txt` sind **deprecated** und werden nicht mehr verwendet (`tegpt` funktioniert ohnehin nicht mehr). Konfiguration erfolgt ausschließlich über `config.html` (Zahnrad-Button).
+
+Das Snippet enthält einen **Editor-Hinweis-Block** — ein farbig hervorgehobenes `<div>`, das nur im Moodle-Editor sichtbar ist (per `display:none` via Script beim Seitenaufruf ausgeblendet). Inhalt: „Moo-GPT eingebaut. Zum Entfernen: HTML-Ansicht → Script-Tag löschen." Zweck: verhindert versehentliches Doppel-Einfügen. Zwei Instanzen von `MOOBOT` auf einer Seite erzeugen doppelte DOM-IDs und doppelte WebSocket-Verbindungen — unvorhersehbares Verhalten.
 
 ## Live-Unterrichts-Überblick
 
