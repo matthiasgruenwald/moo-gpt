@@ -307,6 +307,10 @@
   }
 
   async function useAndSave(promptText) {
+    // Compare-Panel vor dem Speichern schließen, damit Overlay-Breite und
+    // Suggest-Panel-Position zurückgesetzt werden bevor closeConfig greift.
+    document.getElementById('cfg-compare-panel').style.display = 'none';
+    window.parent.postMessage({ type: 'moogpt:collapseOverlay' }, '*');
     document.getElementById('cfg-hints').value = promptText;
     await saveConfig();
   }

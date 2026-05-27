@@ -373,18 +373,30 @@ export class MOOBOT {
       }
       // Issue #40: Overlay auf Vollbreite erweitern wenn Vergleichs-Panel geöffnet wird
       if (e.data?.type === 'moogpt:expandOverlay') {
-        const overlay = document.getElementById('config-overlay');
+        const overlay     = document.getElementById('config-overlay');
+        const suggestPanel = document.getElementById('suggest-panel');
         if (overlay) {
           overlay.style.width    = '95vw';
           overlay.style.maxWidth = '95vw';
         }
+        // Suggest-Panel hinter dem erweiterten Overlay sichtbar halten
+        if (suggestPanel?.style.display !== 'none') {
+          const isLeft = suggestPanel.classList.contains('left-side');
+          if (isLeft) suggestPanel.style.left  = '95vw';
+          else         suggestPanel.style.right = '95vw';
+        }
       }
       // Issue #40: Overlay auf ursprüngliche Breite zurücksetzen (CSS-Klasse übernimmt)
       if (e.data?.type === 'moogpt:collapseOverlay') {
-        const overlay = document.getElementById('config-overlay');
+        const overlay     = document.getElementById('config-overlay');
+        const suggestPanel = document.getElementById('suggest-panel');
         if (overlay) {
           overlay.style.width    = '';
           overlay.style.maxWidth = '';
+        }
+        if (suggestPanel) {
+          suggestPanel.style.right = '';
+          suggestPanel.style.left  = '';
         }
       }
       // Issue #47: Suggest-Panel steuern
@@ -570,9 +582,17 @@ export class MOOBOT {
 
   closeConfig() {
     const overlay = document.getElementById('config-overlay');
-    if (overlay) overlay.style.display = 'none';
+    if (overlay) {
+      overlay.style.display  = 'none';
+      overlay.style.width    = '';
+      overlay.style.maxWidth = '';
+    }
     const suggestPanel = document.getElementById('suggest-panel');
-    if (suggestPanel) suggestPanel.style.display = 'none';
+    if (suggestPanel) {
+      suggestPanel.style.display = 'none';
+      suggestPanel.style.right   = '';
+      suggestPanel.style.left    = '';
+    }
   }
 
   // ── Issue #43: Lock-Modal ─────────────────────────────────────────────────

@@ -7,8 +7,7 @@ import { AVAILABLE_MODELS, GEN_MODEL, MODEL_NAME } from '../env-config.js';
 import { getEffectiveModel } from '../model-resolver.js';
 import { validateWidgetConfig } from '../validators.js';
 import { getCachedConfig } from '../config-cache.js';
-import { recordWerkzeugUsage } from '../cost-service.js';
-import { sumCostRows } from '../token-log.js';
+import { recordWerkzeugUsage, sumCostRows } from '../cost-service.js';
 
 function buildPromptCheckSystem(hasImages) {
   const sections = 'Rolle | Ziel | Antwortstil | Didaktisches Verhalten | Verbote | Beispiele (Schüler: … / Gut: … / Schlecht: …)';
@@ -67,7 +66,8 @@ export function buildPromptCheckHandler({ aiClient: client }) {
     };
 
     try {
-      const { text: result } = await client.jsonCall(systemPrompt, userMessage, model, opts);
+      const { text: result, usage } = await client.jsonCall(systemPrompt, userMessage, model, opts);
+      recordWerkzeugUsage(req.activityId, 'prompt-assist', model, usage);
       res.json(result);
     } catch (err) {
       console.log(`[PromptCheck] Fehler: ${err.message}`);
