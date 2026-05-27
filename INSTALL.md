@@ -122,7 +122,6 @@ Dieser Abschnitt richtet sich an Moodle-Administratoren. Die Einbindung des Chat
 
 moo-gpt wird über das TinyMCE-Plugin **Snippet für TinyMCE** (`tiny_snippet`) in Moodle eingebunden. Das Plugin muss einmalig von einem Moodle-Administrator installiert werden.
 
-> 📸 *Screenshot: Plugin-Installation in der Moodle-Plugin-Verwaltung (folgt)*
 
 ### Snippet importieren
 

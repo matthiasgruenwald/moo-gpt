@@ -48,7 +48,6 @@ Das Dashboard gliedert sich in drei Bereiche: **Chats**, **Überblick** und **Ei
 
 Über den **Stop-Button** (rotes Symbol über dem Chat-Button, nur für Lehrkräfte sichtbar) lässt sich der Chat für alle Schüler einer Aktivität sperren – ohne das Dashboard zu öffnen. Optional kann eine Dauer in Minuten angegeben werden; nach Ablauf wird der Chat automatisch freigegeben.
 
-> 📸 *Screenshot: Stop-Button und Dauer-Modal (folgt)*
 
 ## Live-Unterrichts-Überblick
 
@@ -71,13 +70,11 @@ Auf der Konfig-Seite gibt es zwei Wege, den Erfahrungsprompt per KI zu erstellen
 
 Der Vorschlag erscheint als Vorschau und wird erst nach bewusstem „Übernehmen" gespeichert.
 
-> 📸 *Screenshot: Prompt-Assistent Dialog (folgt)*
 
 ## Prompt prüfen & verbessern
 
 Der Button **„🔍 Prompt prüfen & verbessern"** (ebenfalls auf der Konfig-Seite) analysiert den vorhandenen Erfahrungsprompt auf Schwachstellen und schlägt eine verbesserte Version vor. Die Unterschiede werden als Word-Level-Diff hervorgehoben (Gelöschtes rot, Neues grün). Den Vorschlag kann man mit einem Klick übernehmen oder verwerfen.
 
-> 📸 *Screenshot: Prompt-Check Panel mit Diff (folgt)*
 
 ## Prompt optimieren
 
@@ -100,7 +97,6 @@ Schüler können unter jeder KI-Antwort ein Feedback hinterlassen und optional e
 - **Schüler:** Das Memory-Icon im Widget-Header (nur sichtbar wenn Memory vorhanden) zeigt den gespeicherten Text – bearbeitbar und löschbar.
 - **Lehrkraft:** Memory pro Schüler im Dashboard (**Chats**-Seite) sichtbar und verwaltbar – auch ohne vorherige Schüler-Aktion (z. B. um Hinweise für einzelne Schüler direkt einzutragen).
 
-> 📸 *Screenshot: Feedback-Buttons und Memory-Overlay im Widget (folgt)*
 
 ## Einstellungen (Admin)
 
@@ -131,7 +127,6 @@ Wenn aktiviert, kann jede KI-Antwort mit einem Lautsprecher-Button vorgelesen we
 
 Spracheingabe, TTS, Dateiupload und weitere Widget-Funktionen lassen sich pro Aufgabe in den Aktivitätseinstellungen ein- oder ausschalten. Welche Optionen verfügbar sind, zeigt der Screenshot der Einstellungen.
 
-> 📸 *Screenshot: Audio-Einstellungen in der Aufgabenkonfiguration (folgt)*
 
 ## Bilderkennung
 
