@@ -795,6 +795,16 @@ export class MOOBOT {
     if (!iframe || !overlay) return;
     const srcChanged = iframe.src !== url;
     if (srcChanged) iframe.src = url;
+    // Issue #112: open on left side when chat is already visible
+    const chatVisible = document.getElementById('chat-container')?.style.display === 'flex';
+    const suggestPanel = document.getElementById('suggest-panel');
+    if (chatVisible) {
+      overlay.classList.add('left-side');
+      suggestPanel?.classList.add('left-side');
+    } else {
+      overlay.classList.remove('left-side');
+      suggestPanel?.classList.remove('left-side');
+    }
     overlay.style.display = 'flex';
     this._sendTaskContextToConfig(iframe, srcChanged);
   }
