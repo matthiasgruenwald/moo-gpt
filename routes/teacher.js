@@ -33,11 +33,12 @@ router.get('/teacher/templates', requireTeacherAuth, (req, res) => {
 
 router.post('/teacher/templates', requireTeacherAuth, (req, res) => {
   const { userId } = req;
-  const { name, title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
+  const { name, title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
-  const validErr = validateWidgetConfig(uploadMode, botIcon);
+  const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput);
   if (validErr) return res.status(400).json({ error: validErr });
-  const id = createTeacherTemplate(userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate });
+  const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
+  const id = createTeacherTemplate(userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel });
   res.json({ ok: true, id });
 });
 
@@ -45,11 +46,12 @@ router.put('/teacher/templates/:id', requireTeacherAuth, (req, res) => {
   const { userId } = req;
   const id = parseInt(req.params.id, 10);
   if (!id) return res.status(400).json({ error: 'Ungültige ID' });
-  const { name, title, botIcon, opener, uploadMode, hintsTemplate } = req.body;
+  const { name, title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
-  const validErr = validateWidgetConfig(uploadMode, botIcon);
+  const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput);
   if (validErr) return res.status(400).json({ error: validErr });
-  updateTeacherTemplate(id, userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate });
+  const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
+  updateTeacherTemplate(id, userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel });
   res.json({ ok: true });
 });
 

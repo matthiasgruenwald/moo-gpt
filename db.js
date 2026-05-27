@@ -252,6 +252,16 @@ export function initDb() {
   try { db.exec(`ALTER TABLE teacher_templates ADD COLUMN model TEXT`); } catch (_) {}
   try { db.exec(`ALTER TABLE system_template ADD COLUMN model TEXT`); } catch (_) {}
 
+  // Issue #111: Audio-Felder in teacher_templates und system_template
+  try { db.exec(`ALTER TABLE teacher_templates ADD COLUMN audio_input TEXT DEFAULT 'off'`); } catch (_) {}
+  try { db.exec(`ALTER TABLE teacher_templates ADD COLUMN audio_output TEXT DEFAULT 'off'`); } catch (_) {}
+  try { db.exec(`ALTER TABLE teacher_templates ADD COLUMN tts_voice TEXT DEFAULT 'nova'`); } catch (_) {}
+  try { db.exec(`ALTER TABLE teacher_templates ADD COLUMN audio_student_options TEXT DEFAULT 'off'`); } catch (_) {}
+  try { db.exec(`ALTER TABLE system_template ADD COLUMN audio_input TEXT DEFAULT 'off'`); } catch (_) {}
+  try { db.exec(`ALTER TABLE system_template ADD COLUMN audio_output TEXT DEFAULT 'off'`); } catch (_) {}
+  try { db.exec(`ALTER TABLE system_template ADD COLUMN tts_voice TEXT DEFAULT 'nova'`); } catch (_) {}
+  try { db.exec(`ALTER TABLE system_template ADD COLUMN audio_student_options TEXT DEFAULT 'off'`); } catch (_) {}
+
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;
 }
