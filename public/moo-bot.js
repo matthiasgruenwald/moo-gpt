@@ -1925,14 +1925,13 @@ export class MOOBOT {
 
   /** Sendet eine Schüler-Präferenz an den Server. */
   async _saveFeedback(preferenceText) {
-    const activityId = this.settings.activityId;
-    const userId     = this.settings.userId;
-    if (!activityId || !userId) {
-      console.warn('[Feedback] activityId oder userId fehlt – Memory nicht gespeichert');
+    const userId = this.settings.userId;
+    if (!userId) {
+      console.warn('[Feedback] userId fehlt – Memory nicht gespeichert');
       return;
     }
     try {
-      await fetch(`${this._baseUrl()}/api/student-memory/${encodeURIComponent(activityId)}`, {
+      await fetch(`${this._baseUrl()}/api/student-memory`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ userId, preferenceText }),
@@ -2155,12 +2154,9 @@ export class MOOBOT {
   async openMemoryOverlay() {
     const overlay = document.getElementById('memory-overlay');
     if (!overlay) return;
-    const activityId = this.settings.activityId
-      || new URLSearchParams(window.location.search).get('id')
-      || '';
     const userId = this.settings.userId;
-    if (!activityId || !userId) {
-      console.warn('[Memory] activityId oder userId fehlt');
+    if (!userId) {
+      console.warn('[Memory] userId fehlt');
       return;
     }
     overlay.style.display = 'flex';
@@ -2168,11 +2164,11 @@ export class MOOBOT {
     if (textarea) textarea.value = '';
     try {
       const resp = await fetch(
-        `${this._baseUrl()}/api/student-memory/${encodeURIComponent(activityId)}?userId=${encodeURIComponent(userId)}`
+        `${this._baseUrl()}/api/student-memory?userId=${encodeURIComponent(userId)}`
       );
       if (resp.ok) {
         const data = await resp.json();
-        if (textarea) textarea.value = data.memory ?? '';
+        if (textarea) textarea.value = data.memory?.preference_text ?? '';
       }
     } catch (e) {
       console.error('[Memory] Laden fehlgeschlagen:', e);
@@ -2186,14 +2182,11 @@ export class MOOBOT {
   }
 
   async _saveMemory() {
-    const activityId = this.settings.activityId
-      || new URLSearchParams(window.location.search).get('id')
-      || '';
     const userId = this.settings.userId;
     const textarea = document.getElementById('memory-overlay-textarea');
     const preferenceText = textarea?.value?.trim() ?? '';
-    if (!activityId || !userId) {
-      console.warn('[Memory] activityId oder userId fehlt');
+    if (!userId) {
+      console.warn('[Memory] userId fehlt');
       return;
     }
     if (!preferenceText) {
@@ -2202,7 +2195,7 @@ export class MOOBOT {
     }
     try {
       const resp = await fetch(
-        `${this._baseUrl()}/api/student-memory/${encodeURIComponent(activityId)}`,
+        `${this._baseUrl()}/api/student-memory`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2220,17 +2213,14 @@ export class MOOBOT {
   }
 
   async _deleteMemory() {
-    const activityId = this.settings.activityId
-      || new URLSearchParams(window.location.search).get('id')
-      || '';
     const userId = this.settings.userId;
-    if (!activityId || !userId) {
-      console.warn('[Memory] activityId oder userId fehlt');
+    if (!userId) {
+      console.warn('[Memory] userId fehlt');
       return;
     }
     try {
       const resp = await fetch(
-        `${this._baseUrl()}/api/student-memory/${encodeURIComponent(activityId)}?userId=${encodeURIComponent(userId)}`,
+        `${this._baseUrl()}/api/student-memory?userId=${encodeURIComponent(userId)}`,
         { method: 'DELETE' }
       );
       if (resp.ok) {
