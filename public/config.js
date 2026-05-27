@@ -137,7 +137,10 @@
     document.getElementById('cfg-model').value                    = tpl.model                ?? '';
     document.getElementById('cfg-hints').value                    = tpl.hints_template       ?? '';
     this.style.fontStyle = '';
-    updateAudioOutputDependents();
+    updateAudioOutputDependents();   // ruft intern updateAudioSummary()
+    updateOpenerSummary();
+    updateAppearanceSummary();
+    updateAdvancedSummary();
     updateTemplateUI();
   });
 
