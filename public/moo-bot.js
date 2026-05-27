@@ -1260,6 +1260,8 @@ export class MOOBOT {
           const htmlContent = this.marked.parse(msg.content);
           div.innerHTML = `${htmlContent}<span class="msg-time">${time}</span>`;
           if (!this.settings.isTeacher) this._addFeedbackButtons(div);
+          // Issue #113: 🔊-Button für History-Nachrichten (kein Auto-Play)
+          if (!this.settings.isTeacher && this.settings.audioOutput === 'on') this._addSpeakButton(div, msg.content);
         }
         chatWindow.appendChild(div);
       }
