@@ -8,7 +8,7 @@
 
 import { Router } from 'express';
 import { requireDashboardAuth, requireAdminAuth } from '../auth-middleware.js';
-import { getCostSummary, getWerkzeugLog, getAdminCostsByTeacher } from '../cost-service.js';
+import { getCostSummary, getStudentCostSummary, getWerkzeugLog, getAdminCostsByTeacher } from '../cost-service.js';
 
 export function createCostsRouter() {
   const router = Router();
@@ -19,6 +19,27 @@ export function createCostsRouter() {
       res.json(summary);
     } catch (err) {
       console.log(`[Costs] cost-summary Fehler: ${err.message}`);
+      res.status(500).json({ error: 'Interner Fehler' });
+    }
+  });
+
+  router.get('/activity/:activityId/student-cost-summary', requireDashboardAuth, async (req, res) => {
+    try {
+      const summary = await getStudentCostSummary(req.activityId);
+      res.json(summary);
+    } catch (err) {
+      console.log(`[Costs] student-cost-summary Fehler: ${err.message}`);
+      res.status(500).json({ error: 'Interner Fehler' });
+    }
+  });
+
+  // Admin-Endpunkt für student-cost-summary ohne activityId-Bindung
+  router.get('/admin/student-cost-summary/:activityId', requireAdminAuth, async (req, res) => {
+    try {
+      const summary = await getStudentCostSummary(req.params.activityId);
+      res.json(summary);
+    } catch (err) {
+      console.log(`[Costs] admin/student-cost-summary Fehler: ${err.message}`);
       res.status(500).json({ error: 'Interner Fehler' });
     }
   });
