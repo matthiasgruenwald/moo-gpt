@@ -7,10 +7,10 @@ import {
   createPersona, deletePersona, promotePersonaToGlobal, getAllTeacherPersonasGrouped,
   getStudentMessages,
 } from '../stores/persona.js';
-import { aiClient } from '../ai-instance.js';
 import { GEN_MODEL } from '../env-config.js';
 import { recordWerkzeugUsage } from '../cost-service.js';
 
+export function createPersonasRouter({ aiClient }) {
 const router = Router();
 
 router.get('/personas', requireTeacherAuth, (req, res) => {
@@ -84,4 +84,5 @@ router.put('/admin/personas/:id/promote', requireAdminAuth, (req, res) => {
   res.json({ ok: true, global: getGlobalPersonas() });
 });
 
-export default router;
+  return router;
+}
