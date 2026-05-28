@@ -32,7 +32,7 @@ function restoreFetch() {
 async function loadModule() {
   // Nutze dynamischen Import mit Cache-Busting via query-String
   // (Node.js cached ESM-Module – wir testen die Funktionen direkt)
-  const mod = await import(`../token-log.js?t=${Date.now()}`);
+  const mod = await import(`../pricing.js?t=${Date.now()}`);
   return mod;
 }
 
@@ -45,7 +45,7 @@ describe('computeAudioCost', () => {
   test('gibt null zurück wenn audioSeconds null ist', async () => {
     // Direkte Logik-Prüfung: ohne EUR-Kurs ist alles null
     // Wir laden das Modul und prüfen den Rückgabewert
-    const { computeAudioCost } = await import('../token-log.js');
+    const { computeAudioCost } = await import('../pricing.js');
 
     // Null-Input → null (unabhängig vom EUR-Kurs)
     const result = await computeAudioCost(null);
@@ -53,13 +53,13 @@ describe('computeAudioCost', () => {
   });
 
   test('gibt null zurück wenn audioSeconds 0 ist', async () => {
-    const { computeAudioCost } = await import('../token-log.js');
+    const { computeAudioCost } = await import('../pricing.js');
     const result = await computeAudioCost(0);
     assert.equal(result, null);
   });
 
   test('gibt null zurück wenn audioSeconds negativ ist', async () => {
-    const { computeAudioCost } = await import('../token-log.js');
+    const { computeAudioCost } = await import('../pricing.js');
     const result = await computeAudioCost(-5);
     assert.equal(result, null);
   });
@@ -93,7 +93,7 @@ describe('sumCostRows – Audio-Zweig', () => {
     // Da wir kein EUR-Rate haben in Tests, testen wir das indirekt:
     // Eine Audio-Row mit audio_seconds sollte null ergeben (kein EUR-Kurs in Tests),
     // aber KEINEN Fehler wegen fehlendem model werfen.
-    const { sumCostRows } = await import('../token-log.js');
+    const { sumCostRows } = await import('../cost-service.js');
 
     // Audio-Row (kein model, keine Token, aber audio_seconds gesetzt)
     const rows = [{ audio_seconds: 10, model: null, prompt_tokens: null, completion_tokens: null }];
@@ -103,7 +103,7 @@ describe('sumCostRows – Audio-Zweig', () => {
   });
 
   test('Token-Row (audio_seconds null) wird weiterhin über computeRunCostForModel berechnet', async () => {
-    const { sumCostRows } = await import('../token-log.js');
+    const { sumCostRows } = await import('../cost-service.js');
 
     // Token-Row ohne Preisdaten → auch null
     const rows = [{ audio_seconds: null, model: 'gpt-5', prompt_tokens: 100, completion_tokens: 50 }];
@@ -113,7 +113,7 @@ describe('sumCostRows – Audio-Zweig', () => {
   });
 
   test('leere Rows → null', async () => {
-    const { sumCostRows } = await import('../token-log.js');
+    const { sumCostRows } = await import('../cost-service.js');
     assert.equal(await sumCostRows([]), null);
     assert.equal(await sumCostRows(null), null);
   });

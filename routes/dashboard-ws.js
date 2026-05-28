@@ -19,23 +19,10 @@ import {
   getUserNameFromToken,
 } from '../auth-middleware.js';
 import { getActivity, setTeacherIfUnset } from '../stores/activity.js';
-import { getStudents } from '../stores/dashboard.js';
-import {
-  computeActivityCost,
-  enrichMessagesWithCost,
-  computeThreadCost,
-} from '../token-log.js';
+import { getStudents, enrichStudentsWithCost } from '../stores/dashboard.js';
+import { enrichMessagesWithCost } from '../token-log.js';
+import { computeActivityCost, computeThreadCost } from '../cost-service.js';
 import { getMessages } from '../stores/chat.js';
-
-// Inline-Kopie von routes/dashboard.js#enrichStudentsWithCost — vermeidet
-// einen Transitivimport von ai-instance.js (über routes/dashboard.js) der
-// beim Testen ohne APIKEY-Env den Prozess beendet.
-async function enrichStudentsWithCost(students) {
-  return Promise.all(students.map(async s => ({
-    ...s,
-    threadCost: await computeThreadCost(s.thread_db_id),
-  })));
-}
 
 /**
  * Erstellt den reinen (ws, req)-Handler.

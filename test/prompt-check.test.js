@@ -31,7 +31,7 @@ function makeReqRes(body = {}, params = {}) {
 }
 
 // Importiere die zu testende Funktion — sie erwartet { aiClient } als Teil der Deps
-import { buildPromptCheckHandler } from '../routes/activity.js';
+import { buildPromptCheckHandler } from '../routes/prompt-assist.js';
 
 describe('POST /activity/:activityId/prompt-check', () => {
   test('valider Input → korrekte JSON-Response mit suggestion (kein weaknesses)', async () => {

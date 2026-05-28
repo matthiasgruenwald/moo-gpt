@@ -10,7 +10,7 @@ import { test, describe, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { initDb, getDb } from '../db.js';
 import { recordWerkzeugUsage } from '../cost-service.js';
-import { buildSuggestPromptHandler } from '../routes/activity.js';
+import { buildSuggestPromptHandler } from '../routes/prompt-assist.js';
 
 before(() => {
   initDb();
