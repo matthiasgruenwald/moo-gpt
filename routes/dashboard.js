@@ -7,6 +7,8 @@ import { enrichMessagesWithCost } from '../token-log.js';
 import { recordWerkzeugUsage, computeThreadCost, sumCostRows } from '../cost-service.js';
 import { aiClient } from '../ai-instance.js';
 import { GEN_MODEL } from '../env-config.js';
+import { getDb } from '../db.js';
+import { generateLiveSummary } from '../services/live-summary.js';
 
 const router = Router();
 
@@ -60,7 +62,7 @@ router.post('/activity/:activityId/overview-summary', requireDashboardAuth, asyn
       });
     }
 
-    // Schüler mit/ohne echte Nachrichten aufteilen
+    // Schüler mit/ohne echte Nachrichten aufteilen (für Response-Felder)
     const studentsWithChats = students.filter(s => s.message_count > 0);
     const studentsMissing   = students
       .filter(s => s.message_count === 0)
@@ -77,28 +79,14 @@ router.post('/activity/:activityId/overview-summary', requireDashboardAuth, asyn
       });
     }
 
-    // Alle Nachrichten aller Schüler laden und zu einem Prompt zusammenbauen
-    const chatBlocks = studentsWithChats.map(s => {
-      const msgs = getMessages(s.thread_db_id);
-      const name = s.moodle_user_name || s.moodle_user_id || 'Schüler';
-      const lines = msgs
-        .filter(m => m.role === 'user' || m.role === 'assistant')
-        .map(m => `${m.role === 'user' ? name : 'KI'}: ${(m.content || '').slice(0, 800)}`)
-        .join('\n');
-      return `--- ${name} ---\n${lines}`;
-    }).join('\n\n');
+    const { summary, usage } = await generateLiveSummary({
+      activityId,
+      aiClient,
+      model: GEN_MODEL,
+      db: getDb(),
+    });
 
-    const systemPrompt =
-      'Du bist ein pädagogischer Assistent für Lehrkräfte. ' +
-      'Fasse die Chatverläufe einer Klasse in maximal 4 Stichpunkten zusammen. ' +
-      'Jeder Stichpunkt: eine Zeile, kein Fülltext. Format: "• ..." ' +
-      'Fokus: Was beschäftigt die Schüler? Wo haken sie? Antworte auf Deutsch.';
-
-    const userMessage =
-      `Hier sind die Chatverläufe der Schulklasse (${studentsWithChats.length} Schüler):\n\n${chatBlocks}`;
-
-    const { text: summary, usage } = await aiClient.textCall(systemPrompt, userMessage, GEN_MODEL, { timeout: 60_000 });
-
+    // ADR 0005: recordWerkzeugUsage verbleibt in der Route
     recordWerkzeugUsage(activityId, 'live-summary', GEN_MODEL, usage);
 
     const runCost = await sumCostRows([{
