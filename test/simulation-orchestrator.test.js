@@ -13,7 +13,7 @@ import { test, describe, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { initDb } from '../db.js';
 import { createPersona } from '../stores/persona.js';
-import { updateCachedConfig } from '../config-cache.js';
+import { updateCachedConfig } from '../stores/prompt.js';
 import { selectPersonasForOneClick, runOneClickOptimization } from '../simulation.js';
 
 before(() => {

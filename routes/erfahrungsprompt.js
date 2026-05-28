@@ -3,14 +3,14 @@ import { requireDashboardAuth } from '../auth-middleware.js';
 import {
   getActiveErfahrungsprompt, saveErfahrungsprompt,
   getErfahrungspromptHistory, deleteErfahrungspromptHistoryEntry,
+  getCachedConfig,
 } from '../stores/prompt.js';
 import { getErkenntnisse } from '../stores/criteria.js';
 import { getFeedbackByActivity } from '../stores/feedback.js';
 import { generateOptimizeProposal } from '../optimize.js';
-import { aiClient } from '../ai-instance.js';
-import { getCachedConfig } from '../config-cache.js';
 import { recordWerkzeugUsage } from '../cost-service.js';
 
+export function createErfahrungspromptRouter({ aiClient }) {
 const router = Router();
 
 router.get('/erfahrungsprompt/:activityId', requireDashboardAuth, (req, res) => {
@@ -70,4 +70,5 @@ router.post('/optimize-prompt', requireDashboardAuth, async (req, res) => {
   }
 });
 
-export default router;
+  return router;
+}

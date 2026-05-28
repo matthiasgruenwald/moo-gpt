@@ -4,7 +4,7 @@ import { requireAdminAuth, requireTeacherAuth } from '../auth-middleware.js';
 import { isAdmin, addAdmin, removeAdmin, getAdmins } from '../stores/admin.js';
 import { saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry } from '../stores/prompt.js';
 import { getSystemTemplate, setSystemTemplate } from '../stores/teacher.js';
-import { getCachedConfig, updateCachedConfig } from '../config-cache.js';
+import { getCachedConfig, updateCachedConfig } from '../stores/prompt.js';
 import { AVAILABLE_MODELS, GEN_MODELS } from '../env-config.js';
 import { validateWidgetConfig } from '../validators.js';
 

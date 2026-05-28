@@ -14,7 +14,7 @@ import {
   getActiveSystemPrompt as _getActiveSystemPrompt,
   saveSystemPrompt as _saveSystemPrompt,
 } from './stores/prompt.js';
-import { getCachedConfig as _getCachedConfig, updateCachedConfig as _updateCachedConfig } from './config-cache.js';
+import { getCachedConfig as _getCachedConfig, updateCachedConfig as _updateCachedConfig } from './stores/prompt.js';
 
 // env-config.js wird NICHT importiert, um process.exit(1) bei fehlendem MODEL_NAME
 // in Tests zu vermeiden. Stattdessen: process.env direkt lesen.

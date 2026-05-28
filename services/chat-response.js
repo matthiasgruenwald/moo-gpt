@@ -12,7 +12,7 @@ import { buildInput as _buildInput } from '../message-formatter.js';
 import { getEffectiveModel as _getEffectiveModel } from '../model-resolver.js';
 import { buildInstructions as _buildInstructions } from '../prompt-builder.js';
 import { getStudentMemory as _getStudentMemory } from '../stores/student-memory.js';
-import { getCachedConfig as _getCachedConfig } from '../config-cache.js';
+import { getCachedConfig as _getCachedConfig } from '../stores/prompt.js';
 import { getActiveErfahrungsprompt as _getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { getMessagesAll as _getMessagesAll, saveMessage as _saveMessage } from '../stores/chat.js';
 import { recordUsage as _recordUsage } from '../token-log.js';

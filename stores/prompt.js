@@ -1,5 +1,18 @@
 import { getDb } from '../db.js';
 
+// ── In-Memory Config Cache ────────────────────────────────────────────────────
+// (absorbed from config-cache.js, Issue #133)
+
+let _config = { content: '', model: '' };
+
+export const getCachedConfig = () => Object.freeze({ ..._config });
+
+export function updateCachedConfig(content, model) {
+  _config = { content, model };
+}
+
+// ── DB Prompt Functions ───────────────────────────────────────────────────────
+
 export function getActiveSystemPrompt() {
   return getDb().prepare(`
     SELECT content, model, version, created_by, created_at
