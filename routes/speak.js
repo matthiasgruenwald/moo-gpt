@@ -38,9 +38,11 @@ const DEFAULT_SPEED = 1.0;
 /**
  * Erstellt den Speak-Router.
  *
- * @param {{ oai: OpenAI, fetchFn?: typeof fetch }} deps — OpenAI-Client + optionaler fetch-Override (für Tests)
+ * @param {{ aiClient: AIClient, fetchFn?: typeof fetch }} deps
+ *   aiClient  — für GPT-mini-Preprocessing (Retry + Timeout über AIClient)
+ *   fetchFn   — für TTS-Synthese via direktem fetch (SDK 6.x BinaryResponse hängt in Express)
  */
-export function createSpeakRouter({ oai, fetchFn = globalThis.fetch }) {
+export function createSpeakRouter({ aiClient, fetchFn = globalThis.fetch }) {
   const router = Router();
 
   router.post('/speak', async (req, res) => {
@@ -72,21 +74,19 @@ export function createSpeakRouter({ oai, fetchFn = globalThis.fetch }) {
       console.log('[Speak] Kein Markdown/LaTeX — Preprocessing übersprungen');
     } else try {
       console.log('[Speak] GPT-mini-Preprocessing startet…');
-      const prepResponse = await oai.responses.create({
-        model:        'gpt-4o-mini',
-        instructions: PREPROCESS_INSTRUCTIONS,
-        input:        [{ role: 'user', content: rawText }],
-        stream:       false,
-      });
-      const prepText = prepResponse.output_text?.trim();
-      if (prepText) cleanedText = prepText;
+      const { text: prepText, usage } = await aiClient.textCall(
+        PREPROCESS_INSTRUCTIONS,
+        rawText,
+        'gpt-4o-mini',
+        { timeout: 20_000 },
+      );
+      if (prepText?.trim()) cleanedText = prepText.trim();
 
-      const usage = prepResponse.usage;
       saveTtsPrepUsage(
         threadId,
         activityId,
-        usage?.prompt_tokens     ?? null,
-        usage?.completion_tokens ?? null,
+        usage?.input_tokens  ?? null,
+        usage?.output_tokens ?? null,
       );
     } catch (prepErr) {
       // Graceful degradation: Preprocessing fehlgeschlagen → unbereinigten Text verwenden

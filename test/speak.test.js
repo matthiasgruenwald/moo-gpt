@@ -15,12 +15,12 @@ import { createSpeakRouter } from '../routes/speak.js';
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
-function buildApp({ oai, fetchFn = buildFetchMock(), allowedOrigin = null }) {
+function buildApp({ aiClient, fetchFn = buildFetchMock(), allowedOrigin = null }) {
   const app = express();
   app.use(express.json());
   if (allowedOrigin) process.env.ALLOWED_ORIGIN = allowedOrigin;
   else delete process.env.ALLOWED_ORIGIN;
-  const router = createSpeakRouter({ oai, fetchFn });
+  const router = createSpeakRouter({ aiClient, fetchFn });
   app.use('/api', router);
   return app;
 }
@@ -69,24 +69,23 @@ async function postSpeak(app, { origin = null, body = {} } = {}) {
   });
 }
 
-// ── Gemockter OpenAI-Client + fetch ──────────────────────────────────────────
+// ── Gemockter AIClient + fetch ───────────────────────────────────────────────
 
 /**
- * Erstellt einen Mock-oai mit konfigurierbarem Preprocessing-Verhalten.
+ * Erstellt einen Mock-aiClient mit konfigurierbarem Preprocessing-Verhalten.
+ * Simuliert AIClient.textCall(instructions, userMessage, model, opts) → { text, usage }.
  */
-function buildOaiMock({
-  prepResponse = null,   // null → Standardantwort
-  prepError    = null,   // Error → wirft Fehler beim Preprocessing
+function buildAiClientMock({
+  prepText  = 'Bereinigter Text ohne Markdown.',
+  prepError = null,   // Error → wirft Fehler beim Preprocessing
 } = {}) {
   return {
-    responses: {
-      create: async () => {
-        if (prepError) throw prepError;
-        return prepResponse ?? {
-          output_text: 'Bereinigter Text ohne Markdown.',
-          usage: { prompt_tokens: 50, completion_tokens: 20, total_tokens: 70 },
-        };
-      },
+    textCall: async () => {
+      if (prepError) throw prepError;
+      return {
+        text:  prepText,
+        usage: { input_tokens: 50, output_tokens: 20 },
+      };
     },
   };
 }
@@ -122,8 +121,8 @@ before(() => {
 describe('POST /api/speak', () => {
 
   test('Erfolg: gibt Audio-Blob zurück (audio/mpeg)', async () => {
-    const oai = buildOaiMock();
-    const app = buildApp({ oai });
+    const aiClient = buildAiClientMock();
+    const app = buildApp({ aiClient });
 
     const { status, headers } = await postSpeak(app, {
       body: { text: 'Hallo, das ist ein Test.', speed: 1.0, activityId: 'act-1', threadId: '42', userId: 'u1' },
@@ -137,8 +136,8 @@ describe('POST /api/speak', () => {
   });
 
   test('Origin-Fehler: 403 wenn Origin nicht erlaubt', async () => {
-    const oai = buildOaiMock();
-    const app = buildApp({ oai, allowedOrigin: 'https://example.com' });
+    const aiClient = buildAiClientMock();
+    const app = buildApp({ aiClient, allowedOrigin: 'https://example.com' });
 
     const { status } = await postSpeak(app, {
       origin: 'https://evil.com',
@@ -149,8 +148,8 @@ describe('POST /api/speak', () => {
   });
 
   test('Validierung: 400 wenn text fehlt', async () => {
-    const oai = buildOaiMock();
-    const app = buildApp({ oai });
+    const aiClient = buildAiClientMock();
+    const app = buildApp({ aiClient });
 
     const { status, body } = await postSpeak(app, {
       body: { speed: 1.0, activityId: 'act-1', threadId: '1', userId: 'u1' },
@@ -161,8 +160,8 @@ describe('POST /api/speak', () => {
   });
 
   test('Validierung: 400 wenn text leer ist', async () => {
-    const oai = buildOaiMock();
-    const app = buildApp({ oai });
+    const aiClient = buildAiClientMock();
+    const app = buildApp({ aiClient });
 
     const { status, body } = await postSpeak(app, {
       body: { text: '  ', speed: 1.0, activityId: 'act-1', threadId: '1', userId: 'u1' },
@@ -173,8 +172,8 @@ describe('POST /api/speak', () => {
   });
 
   test('Validierung: 400 wenn speed zu klein (< 0.5)', async () => {
-    const oai = buildOaiMock();
-    const app = buildApp({ oai });
+    const aiClient = buildAiClientMock();
+    const app = buildApp({ aiClient });
 
     const { status, body } = await postSpeak(app, {
       body: { text: 'Test', speed: 0.4, activityId: 'act-1', threadId: '1', userId: 'u1' },
@@ -185,8 +184,8 @@ describe('POST /api/speak', () => {
   });
 
   test('Validierung: 400 wenn speed zu groß (> 1.5)', async () => {
-    const oai = buildOaiMock();
-    const app = buildApp({ oai });
+    const aiClient = buildAiClientMock();
+    const app = buildApp({ aiClient });
 
     const { status, body } = await postSpeak(app, {
       body: { text: 'Test', speed: 1.6, activityId: 'act-1', threadId: '1', userId: 'u1' },
@@ -197,8 +196,8 @@ describe('POST /api/speak', () => {
   });
 
   test('TTS-Fehler: HTTP 500 ohne Stack-Trace', async () => {
-    const oai = buildOaiMock();
-    const app = buildApp({ oai, fetchFn: buildFetchMock({ ttsStatus: 500 }) });
+    const aiClient = buildAiClientMock();
+    const app = buildApp({ aiClient, fetchFn: buildFetchMock({ ttsStatus: 500 }) });
 
     const { status, body } = await postSpeak(app, {
       body: { text: 'Test', speed: 1.0, activityId: 'act-1', threadId: '1', userId: 'u1' },
@@ -210,8 +209,8 @@ describe('POST /api/speak', () => {
   });
 
   test('Graceful degradation: Preprocessing-Fehler → Audio-Response mit unverändertem Text', async () => {
-    const oai = buildOaiMock({ prepError: new Error('GPT-mini down') });
-    const app = buildApp({ oai });
+    const aiClient = buildAiClientMock({ prepError: new Error('GPT-mini down') });
+    const app = buildApp({ aiClient });
 
     // Preprocessing schlägt fehl, aber TTS läuft durch
     const { status, headers } = await postSpeak(app, {
@@ -226,8 +225,8 @@ describe('POST /api/speak', () => {
   });
 
   test('speed fehlt → Fallback 1.0 (kein Fehler)', async () => {
-    const oai = buildOaiMock();
-    const app = buildApp({ oai });
+    const aiClient = buildAiClientMock();
+    const app = buildApp({ aiClient });
 
     const { status } = await postSpeak(app, {
       body: { text: 'Test ohne speed', activityId: 'act-1', threadId: '1', userId: 'u1' },
@@ -237,8 +236,8 @@ describe('POST /api/speak', () => {
   });
 
   test('voice fehlt → Fallback nova', async () => {
-    const oai = buildOaiMock();
-    const app = buildApp({ oai });
+    const aiClient = buildAiClientMock();
+    const app = buildApp({ aiClient });
 
     const { status } = await postSpeak(app, {
       body: { text: 'Test ohne voice', speed: 1.0, activityId: 'act-1', threadId: '1', userId: 'u1' },
@@ -249,10 +248,10 @@ describe('POST /api/speak', () => {
 
   test('Preprocessing übersprungen bei reinem Buchstabentext (keine Ziffern/Markdown)', async () => {
     let prepCalled = false;
-    const oai = {
-      responses: { create: async () => { prepCalled = true; return { output_text: 'ignored', usage: {} }; } },
+    const aiClient = {
+      textCall: async () => { prepCalled = true; return { text: 'ignored', usage: {} }; },
     };
-    const app = buildApp({ oai });
+    const app = buildApp({ aiClient });
 
     await postSpeak(app, {
       body: { text: 'Hallo Welt, alles gut?', speed: 1.0, activityId: 'act-1', threadId: '1', userId: 'u1' },
@@ -263,15 +262,13 @@ describe('POST /api/speak', () => {
 
   test('Preprocessing aufgerufen bei Markdown-Text', async () => {
     let prepCalled = false;
-    const oai = {
-      responses: {
-        create: async () => {
-          prepCalled = true;
-          return { output_text: 'Hallo Welt', usage: { prompt_tokens: 10, completion_tokens: 5 } };
-        },
+    const aiClient = {
+      textCall: async () => {
+        prepCalled = true;
+        return { text: 'Hallo Welt', usage: { input_tokens: 10, output_tokens: 5 } };
       },
     };
-    const app = buildApp({ oai });
+    const app = buildApp({ aiClient });
 
     const { status } = await postSpeak(app, {
       body: { text: 'Hallo **Welt**', speed: 1.0, activityId: 'act-1', threadId: '1', userId: 'u1' },
@@ -285,15 +282,14 @@ describe('POST /api/speak', () => {
     // Zahlen werden in der Sprache des Textes ausgeschrieben — GPT-mini entscheidet,
     // nicht hart auf Deutsch gezwungen (damit Englischunterricht nicht gebrochen wird).
     let capturedInstructions = null;
-    const oai = {
-      responses: {
-        create: async ({ instructions }) => {
-          capturedInstructions = instructions;
-          return { output_text: 'Pong zwölf', usage: { prompt_tokens: 10, completion_tokens: 5 } };
-        },
+    const aiClient = {
+      // textCall(instructions, userMessage, model, opts) → { text, usage }
+      textCall: async (instructions) => {
+        capturedInstructions = instructions;
+        return { text: 'Pong zwölf', usage: { input_tokens: 10, output_tokens: 5 } };
       },
     };
-    const app = buildApp({ oai });
+    const app = buildApp({ aiClient });
 
     await postSpeak(app, {
       body: { text: 'Pong 12', speed: 1.0, activityId: 'act-1', threadId: '1', userId: 'u1' },
