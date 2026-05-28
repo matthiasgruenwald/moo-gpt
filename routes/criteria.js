@@ -7,11 +7,11 @@ import {
 import { saveFeedback, getFeedbackByActivity } from '../stores/feedback.js';
 import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { suggestCriteriaList } from '../criteria.js';
-import { aiClient } from '../ai-instance.js';
 import { getCachedConfig } from '../config-cache.js';
 import { recordWerkzeugUsage } from '../cost-service.js';
 import { GEN_MODEL } from '../env-config.js';
 
+export function createCriteriaRouter({ aiClient }) {
 const router = Router();
 
 router.get('/criteria/:activityId', requireDashboardAuth, (req, res) => {
@@ -103,4 +103,5 @@ router.get('/feedback/:activityId', requireDashboardAuth, (req, res) => {
   }
 });
 
-export default router;
+  return router;
+}
