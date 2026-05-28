@@ -14,7 +14,7 @@
 
 import { Router } from 'express';
 import { requireDashboardAuth } from '../auth-middleware.js';
-import { getCachedConfig } from '../config-cache.js';
+import { getCachedConfig } from '../stores/prompt.js';
 import { recordWerkzeugUsage, sumCostRows } from '../cost-service.js';
 import { AVAILABLE_MODELS, MODEL_NAME } from '../env-config.js';
 

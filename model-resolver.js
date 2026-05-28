@@ -11,7 +11,7 @@
  */
 
 import { getActivity as _getActivity } from './stores/activity.js';
-import { getCachedConfig as _getCachedConfig } from './config-cache.js';
+import { getCachedConfig as _getCachedConfig } from './stores/prompt.js';
 
 function _getEnvModelName() {
   return process.env.MODEL_NAME ?? '';

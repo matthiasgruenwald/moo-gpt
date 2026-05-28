@@ -5,7 +5,7 @@ import { getCriteria, saveErkenntnisse, getErkenntnisse } from './stores/criteri
 import { getFeedbackByActivity } from './stores/feedback.js';
 import { getActiveErfahrungsprompt } from './stores/prompt.js';
 import { generateOptimizeProposal } from './optimize.js';
-import { getCachedConfig } from './config-cache.js';
+import { getCachedConfig } from './stores/prompt.js';
 import { recordWerkzeugUsage } from './cost-service.js';
 
 const SIMULATION_TIMEOUT_MS = 90_000;

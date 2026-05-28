@@ -7,7 +7,7 @@ import { runSimulation, runOneClickOptimization } from '../simulation.js';
 import { generateOptimizeProposal } from '../optimize.js';
 import { getFeedbackByActivity } from '../stores/feedback.js';
 import { aiClient } from '../ai-instance.js';
-import { getCachedConfig } from '../config-cache.js';
+import { getCachedConfig } from '../stores/prompt.js';
 import { GEN_MODEL } from '../env-config.js';
 import { recordWerkzeugUsage } from '../cost-service.js';
 

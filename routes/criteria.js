@@ -7,7 +7,7 @@ import {
 import { saveFeedback, getFeedbackByActivity } from '../stores/feedback.js';
 import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { suggestCriteriaList } from '../criteria.js';
-import { getCachedConfig } from '../config-cache.js';
+import { getCachedConfig } from '../stores/prompt.js';
 import { recordWerkzeugUsage } from '../cost-service.js';
 import { GEN_MODEL } from '../env-config.js';
 
