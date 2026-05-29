@@ -2047,8 +2047,11 @@ function renderSimSuggestion(ev, container) {
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ content: ta.value }),
       });
-      statusEl.textContent = '✓ Gespeichert.';
+      document.getElementById('erf-current').value = ta.value;
       optimizeLoaded = false;
+      await loadErfahrungspromptHistory();
+      optimizeLoaded = true;
+      statusEl.textContent = '✓ Gespeichert.';
     } catch (e) { statusEl.style.color = '#c0392b'; statusEl.textContent = '⚠ ' + e.message; }
   });
 
