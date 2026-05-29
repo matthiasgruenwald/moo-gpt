@@ -1,6 +1,6 @@
 # moo-gpt
 
-KI-Chatbot-Widget für Moodle. Lehrkräfte betten einen KI-Assistenten direkt in Aufgaben und Quiz-Fragen ein – ohne separaten Login für Schülerinnen und Schüler.
+KI-Chatbot-Widget für Moodle. Lehrkräfte betten einen KI-Assistenten direkt in Aufgaben ein – ohne separaten Login für Schülerinnen und Schüler.
 
 ![moo-gpt Chat-Widget in einer Moodle-Aufgabe](docs/images/Schülerchat.png)
 
@@ -25,22 +25,31 @@ KI-Chatbot-Widget für Moodle. Lehrkräfte betten einen KI-Assistenten direkt in
 
 ## Features
 
-- Chat-Widget direkt in Aufgaben und Quiz-Fragen einbettbar
+### Chat-Widget
+
+- Chat-Widget direkt in Aufgaben einbettbar
 - Aufgabentext und Bilder werden automatisch an die KI übergeben
 - Thread-Persistenz: Schüler setzen den Chat nach Seitenreload nahtlos fort
-- Lehrer-Dashboard mit Chatverlauf, Live-Updates und Token-Kosten
-- Rollenerkennung (Lehrer/Schüler) per Moodle-DOM, serverseitiger Override möglich
-- Plenumsmodus: Chat für alle Schüler einer Aufgabe sperren – direkt aus dem Widget (Stop-Button), manuell oder mit Timer
-- Schüler-Memory: Feedback-Buttons im Widget, KI passt Antworten an individuelle Präferenzen an; Lehrkraft verwaltet Memory im Dashboard
-- Schülerantworten im Dashboard bewertbar; Bewertungen fließen in KI-gestützte Prompt-Verbesserungsvorschläge ein
-- Prompt-Assistent: Erfahrungsprompt per KI-Dialog erstellen (5 Rückfragen) oder direkt generieren
-- Prompt-Check: Prompt auf Schwachstellen analysieren und verbesserten Vorschlag mit Word-Level-Diff übernehmen
-- Prompt-Optimierung per Simulation: vollautomatisch mit einem Klick oder manuell – auch ohne echte Schüler-Chats
-- KI-Antworten im Dashboard inline bearbeitbar (versioniert); Schüler sehen die aktive Version
-- Live-Unterrichts-Überblick: thematische Zusammenfassung aller Chats auf Knopfdruck, Liste nicht aktiver Schüler
 - Audio-Eingabe: Spracheingabe per Mikrofon mit automatischer Transkription (OpenAI Whisper)
 - TTS-Ausgabe: KI-Antworten vorlesen lassen (OpenAI TTS, Stimme konfigurierbar); optional mit Auto-Play
 - Widget-Position umschaltbar (links/rechts), gespeichert für die aktuelle Browsersitzung
+
+### Dashboard & Unterrichtssteuerung
+
+- Lehrer-Dashboard mit Chatverlauf, Live-Updates und Token-Kosten
+- Live-Unterrichts-Überblick: thematische Zusammenfassung aller Chats auf Knopfdruck, Liste nicht aktiver Schüler
+- KI-Antworten im Dashboard inline bearbeitbar (versioniert); Schüler sehen die aktive Version
+- Rollenerkennung (Lehrer/Schüler) per Moodle-DOM, serverseitiger Override möglich
+- Plenumsmodus: Chat für alle Schüler einer Aufgabe sperren – direkt aus dem Widget (Stop-Button), manuell oder mit Timer
+- Schüler-Memory: Feedback-Buttons im Widget, KI passt Antworten an individuelle Präferenzen an; Lehrkraft verwaltet Memory im Dashboard
+- Schülerantworten im Dashboard bewertbar; Bewertungen fließen in KI-gestützte Prompt-Verbesserungsvorschläge ein *(wird voraussichtlich nicht weiterentwickelt – Prompt-Assistent und Prompt-Check decken diesen Bedarf effektiver ab)*
+
+### Prompt & Modell
+
+- Modellwahl pro Aktivität (OpenAI-Modelle konfigurierbar)
+- Prompt-Assistent: Erfahrungsprompt per KI-Dialog erstellen (mit Rückfragen) oder direkt generieren
+- Prompt-Check: Prompt auf Schwachstellen analysieren und verbesserten Vorschlag übernehmen
+- Prompt-Optimierung per Simulation: vollautomatisch mit einem Klick oder manuell – auch ohne echte Schüler-Chats *(wird voraussichtlich nicht weiterentwickelt – Prompt-Assistent und Prompt-Check decken diesen Bedarf effektiver ab)*
 
 ## Dokumentation
 
