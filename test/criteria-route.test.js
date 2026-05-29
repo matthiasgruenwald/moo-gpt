@@ -4,7 +4,7 @@
  * Testet den Factory-Pattern-Router mit Mock-aiClient und In-Memory-DB.
  * Kein OPENAI_API_KEY nötig.
  *
- * Run: DB_PATH=:memory: node --test test/criteria-route.test.js
+ * Run: DB_PATH=:memory: MODEL_NAME=gpt-test node --test test/criteria-route.test.js
  */
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -153,6 +153,126 @@ describe('criteria-route', () => {
       const data = await res.json();
       assert.equal(res.status, 200);
       assert.ok(Array.isArray(data.feedback), 'feedback muss Array sein');
+    });
+  });
+
+  describe('POST /criteria/:activityId', () => {
+    test('speichert Kriterium und gibt aktualisierte Listen zurück', async () => {
+      const res = await fetch(`${baseUrl}/criteria/act-test?token=${validToken}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: 'Testkriterium 1' }),
+      });
+      const data = await res.json();
+      assert.equal(res.status, 200);
+      assert.equal(data.ok, true);
+      assert.ok(Array.isArray(data.criteria), 'criteria muss Array sein');
+      assert.ok(Array.isArray(data.deletedCriteria), 'deletedCriteria muss Array sein');
+      assert.ok(data.criteria.some(c => c.content === 'Testkriterium 1'), 'gespeichertes Kriterium muss in criteria erscheinen');
+    });
+
+    test('400 bei fehlendem content', async () => {
+      const res = await fetch(`${baseUrl}/criteria/act-test?token=${validToken}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      assert.equal(res.status, 400);
+      const data = await res.json();
+      assert.ok(data.error, 'Fehlerantwort muss error-Feld enthalten');
+    });
+  });
+
+  describe('DELETE /criteria/:id', () => {
+    test('Soft-Delete: Kriterium erscheint danach in deletedCriteria', async () => {
+      // Erst ein Kriterium anlegen, um dessen ID zu kennen
+      const postRes = await fetch(`${baseUrl}/criteria/act-test?token=${validToken}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: 'Zu löschendes Kriterium' }),
+      });
+      const postData = await postRes.json();
+      const created = postData.criteria.find(c => c.content === 'Zu löschendes Kriterium');
+      assert.ok(created, 'Kriterium muss nach POST in criteria vorhanden sein');
+
+      const delRes = await fetch(
+        `${baseUrl}/criteria/${created.id}?activityId=act-test&token=${validToken}`,
+        { method: 'DELETE' },
+      );
+      const delData = await delRes.json();
+      assert.equal(delRes.status, 200);
+      assert.equal(delData.ok, true);
+      assert.ok(Array.isArray(delData.criteria), 'criteria muss Array sein');
+      assert.ok(Array.isArray(delData.deletedCriteria), 'deletedCriteria muss Array sein');
+      assert.ok(!delData.criteria.some(c => c.id === created.id), 'gelöschtes Kriterium darf nicht mehr in criteria stehen');
+      assert.ok(delData.deletedCriteria.some(c => c.id === created.id), 'gelöschtes Kriterium muss in deletedCriteria erscheinen');
+    });
+  });
+
+  describe('PATCH /criteria/:id/restore', () => {
+    test('Wiederherstellen: Kriterium erscheint danach wieder in criteria', async () => {
+      // Kriterium anlegen und dann löschen
+      const postRes = await fetch(`${baseUrl}/criteria/act-test?token=${validToken}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: 'Wiederherzustellendes Kriterium' }),
+      });
+      const postData = await postRes.json();
+      const created = postData.criteria.find(c => c.content === 'Wiederherzustellendes Kriterium');
+      assert.ok(created, 'Kriterium muss nach POST vorhanden sein');
+
+      await fetch(
+        `${baseUrl}/criteria/${created.id}?activityId=act-test&token=${validToken}`,
+        { method: 'DELETE' },
+      );
+
+      const restoreRes = await fetch(
+        `${baseUrl}/criteria/${created.id}/restore?activityId=act-test&token=${validToken}`,
+        { method: 'PATCH' },
+      );
+      const restoreData = await restoreRes.json();
+      assert.equal(restoreRes.status, 200);
+      assert.equal(restoreData.ok, true);
+      assert.ok(restoreData.criteria.some(c => c.id === created.id), 'wiederhergestelltes Kriterium muss in criteria erscheinen');
+      assert.ok(!restoreData.deletedCriteria.some(c => c.id === created.id), 'wiederhergestelltes Kriterium darf nicht mehr in deletedCriteria stehen');
+    });
+  });
+
+  describe('POST /erkenntnisse', () => {
+    test('speichert mehrere Erkenntnisse und gibt ok:true zurück', async () => {
+      const items = [
+        { problem: 'Problem A', ursache: 'Ursache A', aenderung: 'Änderung A' },
+        { problem: 'Problem B', ursache: '', aenderung: 'Änderung B' },
+      ];
+      const res = await fetch(`${baseUrl}/erkenntnisse?activityId=act-test&token=${validToken}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items }),
+      });
+      const data = await res.json();
+      assert.equal(res.status, 200);
+      assert.equal(data.ok, true);
+      assert.equal(data.saved, items.length);
+    });
+
+    test('400 bei fehlendem items-Array', async () => {
+      const res = await fetch(`${baseUrl}/erkenntnisse?activityId=act-test&token=${validToken}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: 'kein-array' }),
+      });
+      assert.equal(res.status, 400);
+      const data = await res.json();
+      assert.ok(data.error, 'Fehlerantwort muss error-Feld enthalten');
+    });
+
+    test('400 wenn items fehlt komplett', async () => {
+      const res = await fetch(`${baseUrl}/erkenntnisse?activityId=act-test&token=${validToken}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      assert.equal(res.status, 400);
     });
   });
 
