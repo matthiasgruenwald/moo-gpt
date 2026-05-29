@@ -68,15 +68,15 @@ npm start
 
 Das Projekt enthält `.claude/settings.json` mit vordefinierten Tool-Berechtigungen (git, gh, node --test, …), sodass Claude Code ohne manuelle Permission-Prompts auskommt. `settings.local.json` ist gitigniert – dort können maschinenspezifische Ergänzungen eingetragen werden.
 
-**Empfohlene Skills** (einmalig global installieren via [ECC-Harness](https://github.com/eastcott/ecc)):
+**Empfohlene Skills** (global in Claude Code installieren):
 
 | Skill | Verwendung |
 |---|---|
 | `karpathy-guidelines` | Code-Review-Leitlinien |
 | `grill-with-docs` | Architektur-Entscheidungen gegen CONTEXT.md testen |
 | `improve-codebase-architecture` | Refactoring-Kandidaten finden |
-| `tdd-workflow` | Test-first Entwicklung |
 | `handoff` | Session-Übergabe zwischen Claude-Instanzen |
+| `graphify` | Interaktiver Dependency-Graph aus dem Code |
 
 ## Konventionen
 
