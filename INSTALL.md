@@ -88,8 +88,6 @@ docker run -d -p 3000:3000 \
   moo-gpt
 ```
 
-> Ein `Dockerfile` ist noch nicht im Repository enthalten. Pull Requests willkommen.
-
 ## Reverse Proxy / HTTPS
 
 moo-gpt erwartet HTTPS und WebSocket-Upgrade. Der Server lauscht auf Port `3000`, WebSocket-Pfad `/api/chat`.
@@ -125,13 +123,11 @@ moo-gpt wird über das TinyMCE-Plugin **Snippet für TinyMCE** (`tiny_snippet`) 
 
 ### Snippet importieren
 
-Im Verzeichnis `snippets/` liegen zwei fertige Snippet-Dateien:
+Im Verzeichnis `snippets/` liegt die fertige Snippet-Datei `moo-gpt.txt`.
 
-| Datei | Verwendung |
-|---|---|
-| `snippet1_aufgabe.html` | Für Moodle-Aufgaben |
+Import per Drag & Drop: Die Datei direkt in das Snippet-Plugin ziehen. Vor dem Import `gpt.gruenwald.fun` durch die URL der eigenen moo-gpt-Instanz ersetzen (zwei Stellen in der Datei).
 
-Import per Drag & Drop: Die `.html`-Datei direkt in das Snippet-Plugin ziehen. Vor dem Import die URL der eigenen moo-gpt-Instanz in der Datei anpassen (Suche nach `moo-gpt.beispiel.de`).
+Vollständige Einrichtungsanleitung: [`snippets/SNIPPET-SETUP.md`](snippets/SNIPPET-SETUP.md)
 
 ![Snippet-Import via Drag & Drop](docs/images/Admin-Snippet-einfügen.gif)
 
