@@ -526,18 +526,21 @@ flowchart TD
     DashChats["Dashboard – Chats"]
     DashOverview["Dashboard – Überblick"]
     DashSettings["Dashboard – Einstellungen"]
+    DashCosts["Dashboard – Kosten"]
     Server["Express-Server"]
     DB["SQLite"]
-    OpenAI["OpenAI (Responses API)"]
+    OpenAI["OpenAI (Responses API, Whisper, TTS)"]
 
     Moodle -->|iframe-Snippet| Widget
     Widget <-->|WebSocket /api/chat| Server
+    Widget -->|Audio /api/transcribe + /api/speak| Server
     DashChats <-->|WebSocket /api/dashboard-ws| Server
     DashChats <-->|HTTP REST| Server
     DashOverview -->|HTTP REST| Server
     DashSettings <-->|HTTP REST| Server
+    DashCosts -->|HTTP REST| Server
     Server <--> DB
-    Server <-->|Responses API stream| OpenAI
+    Server <-->|Responses API + Whisper + TTS| OpenAI
       </pre>
     </div>
 

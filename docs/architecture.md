@@ -9,15 +9,13 @@ flowchart TD
     Dashboard["Lehrer-Dashboard"]
     Server["Express-Server"]
     DB["SQLite"]
-    OpenAI["OpenAI API"]
+    OpenAI["OpenAI API\n(Responses, Whisper, TTS)"]
 
     Moodle -->|Snippet| Widget
-    Widget -->|WebSocket| Server
-    Server -->|Antwort-Stream| Widget
+    Widget <-->|WebSocket + Audio-HTTP| Server
     Dashboard <-->|HTTP REST| Server
-    Server -->|Datenbank| DB
-    Server -->|openai SDK| OpenAI
-    OpenAI -->|Chunks| Server
+    Server <--> DB
+    Server <-->|Responses API + Whisper + TTS| OpenAI
 ```
 
 ## Chat-Nachrichtenfluss
