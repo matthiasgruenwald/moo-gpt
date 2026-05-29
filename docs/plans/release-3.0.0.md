@@ -100,16 +100,22 @@ This release completes a full internal restructuring alongside the new teacher f
 `criteria`, `simulation`, `personas`, `erfahrungsprompt`, `teacher`, `message-edits`,
 `student-memory`, `dashboard-pages`.
 
-**Store decomposition (10 steps)**  
+**Store decomposition (11 steps)**  
 `db.js` reduced to schema/migrations only; all domain logic moved to `stores/`:
 `admin`, `activity`, `token`, `prompt`, `teacher`, `feedback`, `criteria`, `persona`,
-`chat`, `dashboard`.
+`chat`, `dashboard`, `widget-config`.
 
 **Server refactoring (7 steps, #73–#79)**  
 Remaining logic extracted from `server.js`: `message-formatter.js` (buildInput),
 `model-resolver.js` (getEffectiveModel), `routes/dashboard-ws.js`,
 `services/chat-response.js` (streamResponse as DI factory), `rate-limiter.js`,
 `app-init.js` (startup init), final `server.js` cleanup (~100 lines of infra removed).
+
+**Test coverage via DI-seam**  
+Routes and services refactored with dependency injection to enable unit testing:
+`routes/criteria.js`, `routes/erfahrungsprompt.js`, `routes/personas.js`,
+`routes/admin.js`, `lock-manager.js`, `services/live-summary.js`,
+`simulation.js` (orchestration). All covered by `test/*.test.js`.
 
 **ADR 0003 — student_memory global**  
 Student memory stored globally (not per activity); one preference record per student
@@ -128,10 +134,11 @@ All threads migrated from the deprecated Assistants API (EOL August 2026) to
 
 ### New modules
 
-`lock-manager.js`, `validators.js`, `persona-selector.js`, `message-edits.js`,
+`lock-manager.js`, `validators.js`, `message-edits.js`,
 `student-memory.js`, `cost-service.js`, `routes/dashboard-pages.js`,
 `message-formatter.js`, `model-resolver.js`, `services/chat-response.js`,
-`rate-limiter.js`, `app-init.js`, `routes/dashboard-ws.js`
+`rate-limiter.js`, `app-init.js`, `routes/dashboard-ws.js`,
+`pricing.js`, `stores/widget-config.js`, `services/live-summary.js`
 
 ### New API endpoints
 
@@ -157,6 +164,7 @@ All threads migrated from the deprecated Assistants API (EOL August 2026) to
 ### Breaking changes
 
 - `db.js` no longer exports domain functions — import from `stores/*.js`
+- `config-cache.js` deleted — absorbed into `stores/prompt.js`; import from there
 - Dashboard entry point: `/dashboard.html` redirects to `/dashboard/chats`
 - `textCall` / `jsonCall` in `ai-client.js` now return `{ text, usage }` instead of
   plain string — callers must destructure
