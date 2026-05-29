@@ -494,6 +494,7 @@
           body: JSON.stringify({
             currentPrompt: document.getElementById('cfg-hints').value,
             messages: suggestHistory,
+            taskImages: taskContext.images,
           }),
         }
       );

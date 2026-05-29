@@ -118,7 +118,8 @@ export function buildPromptCheckHandler({ aiClient: client }) {
 
 export function buildSuggestPromptHandler({ aiClient: client }) {
   return async function suggestPromptHandler(req, res) {
-    const { currentPrompt, messages = [], direct = false } = req.body;
+    const { currentPrompt, messages = [], direct = false, taskImages = [] } = req.body;
+    const validImages = taskImages.filter(img => img !== null && typeof img === 'string');
 
     let systemPrompt;
     let history;
@@ -131,14 +132,20 @@ export function buildSuggestPromptHandler({ aiClient: client }) {
       history = [{ role: 'user', content: `${contextNote}Erstelle jetzt den vollständigen Aufgabenprompt.` }];
     } else {
       systemPrompt = SUGGEST_PROMPT_SYSTEM;
-      if (messages.length > 0) {
-        history = messages;
-      } else {
-        const contextNote = currentPrompt?.trim()
-          ? `Vorhandener Prompt der Lehrkraft:\n${currentPrompt.trim()}\n\n`
-          : '';
-        history = [{ role: 'user', content: `${contextNote}Bitte stell mir Frage 1 von 5.` }];
-      }
+      const contextNote = currentPrompt?.trim()
+        ? `Vorhandener Prompt der Lehrkraft:\n${currentPrompt.trim()}\n\n`
+        : '';
+      const initialText = `${contextNote}Bitte stell mir Frage 1 von 5.`;
+      const initialMsg = validImages.length > 0
+        ? { role: 'user', content: [
+            { type: 'input_text', text: initialText },
+            ...validImages.map(img => ({ type: 'input_image', image_url: img })),
+          ]}
+        : { role: 'user', content: initialText };
+      // Kontext wird in JEDEM Turn vorrangestellt (nicht nur beim ersten)
+      history = messages.length > 0
+        ? [initialMsg, ...messages]
+        : [initialMsg];
     }
 
     try {
