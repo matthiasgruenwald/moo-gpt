@@ -60,6 +60,10 @@ Schülerspezifische Präferenzen und Wünsche, die als unsichtbare Instruktion i
 
 Workflow zur Erstellung eines Aufgabenprompts vor dem Unterricht. KI analysiert die Aufgabe, stellt bei aktiver Option Rückfragen (grill-me-Muster), und generiert daraus einen fertigen Aufgabenprompt-Vorschlag. Option „Rückfragen erwünscht" ist standardmäßig aktiv, wird aber nutzerspezifisch gespeichert. Ersetzt die Simulation als primären Weg zu einem guten Prompt vor dem Unterricht.
 
+**Aufgabenkontext-Übertragung:** `moo-bot.js` extrahiert beim Öffnen des Config-Overlays die Aufgabenbeschreibung (`.activity-description`) aus dem Moodle-DOM und lädt alle `<img>`-Tags als Base64. Beides wird per `postMessage` (`moogpt:taskContext`) an das Config-Iframe übertragen. `config.js` hält diesen Kontext in `taskContext = { task, images }`.
+
+**Rückfragen-Gesprächsverlauf:** Bei jedem Turn sendet das Frontend `currentPrompt + messages + taskImages` an `/suggest-prompt`. Das Backend stellt dem gesamten Verlauf immer die vollständige Aufgabenkontext-Nachricht voran (Text + Bilder) — analog zu ChatGPT, das bei jeder Anfrage den kompletten Verlauf inkl. früher übertragener Bilder mitschickt. Ohne dieses Voranstellen würde das Modell ab Turn 2 weder die Aufgabenstellung noch die Bilder kennen.
+
 ## Werkzeug-Aufruf
 
 Ein einzelner messbarer AI-Call, ausgelöst durch ein Lehrer-Werkzeug. Hat einen `call_type`, einen Zeitstempel, ein Modell, Token-Zahlen (Eingabe/Ausgabe) und berechenbare Kosten in €. Erscheint in der Detailliste auf `/dashboard/costs`. Pro Simulations-Durchlauf zählt ein Werkzeug-Aufruf (alle Teil-Calls zusammengefasst).
