@@ -68,7 +68,11 @@ npm start
 
 Das Projekt enthält `.claude/settings.json` mit vordefinierten Tool-Berechtigungen (git, gh, node --test, …), sodass Claude Code ohne manuelle Permission-Prompts auskommt. `settings.local.json` ist gitigniert – dort können maschinenspezifische Ergänzungen eingetragen werden.
 
-**Empfohlene Skills** (global in Claude Code installieren):
+**Empfohlene Skills** – einmalig installieren oder aktualisieren mit:
+
+```bash
+npx skills@latest add mattpocock/skills
+```
 
 | Skill | Verwendung |
 |---|---|
