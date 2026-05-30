@@ -24,6 +24,8 @@ Git-Workflow-Details: [`docs/git-workflow.md`](docs/git-workflow.md)
 
 **STOPP vor `gh release create`:** CHANGELOG.md mit Matthias zusammen manuell prüfen — git-cliff-Ausgabe kontrollieren, Version bestätigen, erst dann Release erstellen.
 
+**Nach jedem `git push`:** `/tmp/unreleased-commits.txt` lesen und kurz zusammenfassen — alle Commits seit letztem Tag, gruppiert nach Typ (feat/fix/chore/docs). Falls die Datei fehlt, `git log v$(git -C /opt/moo-gpt describe --tags --abbrev=0)..HEAD --oneline` direkt ausgeben.
+
 ---
 
 ## Nicht-offensichtliche Dateien
