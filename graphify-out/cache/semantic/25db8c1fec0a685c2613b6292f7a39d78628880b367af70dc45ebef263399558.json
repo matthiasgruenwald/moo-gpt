@@ -1,0 +1,1 @@
+{"nodes": [{"id": "route_simulation", "label": "routes/simulation.js (POST /simulate, POST /one-click-optimize)", "file_type": "code", "source_file": "routes/simulation.js", "source_location": null, "source_url": null, "captured_at": null, "author": null}], "edges": [], "hyperedges": []}

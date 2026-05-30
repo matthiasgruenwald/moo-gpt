@@ -1,0 +1,522 @@
+{
+  "/opt/moo-gpt/prompt-builder.js": {
+    "mtime": 1779020329.3582034,
+    "hash": "4e2406372376e0fe68be1282c7c2d1aa"
+  },
+  "/opt/moo-gpt/client-registry.js": {
+    "mtime": 1779020329.3532033,
+    "hash": "2b81930065dfb8b093e47d76f609a448"
+  },
+  "/opt/moo-gpt/config-cache.js": {
+    "mtime": 1779267800.8375719,
+    "hash": "326dfab08e147d7494b4ea96203b79ea"
+  },
+  "/opt/moo-gpt/validators.js": {
+    "mtime": 1779267800.8395717,
+    "hash": "28eb11472cebeb91ee2e9e34a5112d60"
+  },
+  "/opt/moo-gpt/db.js": {
+    "mtime": 1779185564.157808,
+    "hash": "411bc06cb31720b67879c2b6f89bec99"
+  },
+  "/opt/moo-gpt/patch_mmbbs_images.py": {
+    "mtime": 1777106202.9341266,
+    "hash": "dacea1dfa761fc9abbe947aa806732d9"
+  },
+  "/opt/moo-gpt/criteria.js": {
+    "mtime": 1779219548.8708646,
+    "hash": "429efe5728f71ccf305995d139923831"
+  },
+  "/opt/moo-gpt/chat-session.js": {
+    "mtime": 1779287463.8080876,
+    "hash": "d8d35507c732ef021eb141957cc8c22d"
+  },
+  "/opt/moo-gpt/persona-selector.js": {
+    "mtime": 1779267800.8385718,
+    "hash": "8ee7afed3663e34babeda3a197160e5c"
+  },
+  "/opt/moo-gpt/simulation.js": {
+    "mtime": 1779209296.0177782,
+    "hash": "17e6bc53a3eb666e17d5fc779bcb817f"
+  },
+  "/opt/moo-gpt/env-config.js": {
+    "mtime": 1779028290.140718,
+    "hash": "afeaeefaa9e9598e6a5df8f6c86cefbe"
+  },
+  "/opt/moo-gpt/ai-client.js": {
+    "mtime": 1779020329.3522034,
+    "hash": "e0bfb1c0f22af9bbd99f4c23a4bb9901"
+  },
+  "/opt/moo-gpt/ai-instance.js": {
+    "mtime": 1779028287.067695,
+    "hash": "88cbb9a516391f6b9a42bf953a8df15e"
+  },
+  "/opt/moo-gpt/server.js": {
+    "mtime": 1779266768.0916836,
+    "hash": "4ab82214c3f421431de8dc1aec6c3d42"
+  },
+  "/opt/moo-gpt/lock-manager.js": {
+    "mtime": 1779266750.6625504,
+    "hash": "20e46497eb7af497f6f4be10165974d3"
+  },
+  "/opt/moo-gpt/auth-middleware.js": {
+    "mtime": 1779088259.1847854,
+    "hash": "1f03e332c4032b05b972c7866c881b1f"
+  },
+  "/opt/moo-gpt/optimize.js": {
+    "mtime": 1779267800.8385718,
+    "hash": "740b4c2b642a6df08614484ac157170f"
+  },
+  "/opt/moo-gpt/routes/criteria.js": {
+    "mtime": 1779219555.5539153,
+    "hash": "74ea081fb74565b2f05798a65bba6fdd"
+  },
+  "/opt/moo-gpt/routes/dashboard.js": {
+    "mtime": 1779185523.4725008,
+    "hash": "fddf511429c0c06c0a002e32ab0f820c"
+  },
+  "/opt/moo-gpt/routes/activity.js": {
+    "mtime": 1779267800.8385718,
+    "hash": "3fa7c6d30abb05dc707f3342cc50e3a6"
+  },
+  "/opt/moo-gpt/routes/simulation.js": {
+    "mtime": 1779267800.8395717,
+    "hash": "fde81a9fa16c11d7b60890ef351afc1b"
+  },
+  "/opt/moo-gpt/routes/admin.js": {
+    "mtime": 1779267800.8385718,
+    "hash": "899cd7a8029b238bd75b16b991fdebf9"
+  },
+  "/opt/moo-gpt/routes/teacher.js": {
+    "mtime": 1779267800.8395717,
+    "hash": "9a5948c7ceb81882c629b06beec78b13"
+  },
+  "/opt/moo-gpt/routes/erfahrungsprompt.js": {
+    "mtime": 1779267800.8385718,
+    "hash": "fca5d9563ba2ad33f41d27b42f95a4ca"
+  },
+  "/opt/moo-gpt/routes/personas.js": {
+    "mtime": 1779167941.7195659,
+    "hash": "a0c832e53d9fcc156df03941d6d35625"
+  },
+  "/opt/moo-gpt/stores/feedback.js": {
+    "mtime": 1779123891.5583851,
+    "hash": "f15e11ed99e2ed305f403564be50b864"
+  },
+  "/opt/moo-gpt/stores/persona.js": {
+    "mtime": 1779167938.28754,
+    "hash": "13b5c3d1a145af9e7e9d8901e7c4c540"
+  },
+  "/opt/moo-gpt/stores/criteria.js": {
+    "mtime": 1779123891.562385,
+    "hash": "b793f901f4780419fd24633e52e5b622"
+  },
+  "/opt/moo-gpt/stores/dashboard.js": {
+    "mtime": 1779185502.2613406,
+    "hash": "cd7a2d1929308b6837784cdf351f7bc5"
+  },
+  "/opt/moo-gpt/stores/prompt.js": {
+    "mtime": 1779093696.6715453,
+    "hash": "f65581bdec7d6d061d93532493fcb73d"
+  },
+  "/opt/moo-gpt/stores/chat.js": {
+    "mtime": 1779287439.1258888,
+    "hash": "0f7a4c0b3fd044c04dc96b51b25d7ef4"
+  },
+  "/opt/moo-gpt/stores/activity.js": {
+    "mtime": 1779089606.4278953,
+    "hash": "d2a87440de8bafa43237a8f2ab8a1f4f"
+  },
+  "/opt/moo-gpt/stores/admin.js": {
+    "mtime": 1779088249.3487115,
+    "hash": "b1c56cf9f225e468959b6e53308b57b7"
+  },
+  "/opt/moo-gpt/stores/teacher.js": {
+    "mtime": 1779101981.014588,
+    "hash": "59f4b6704b740707e965de6e9d2f5544"
+  },
+  "/opt/moo-gpt/public/moo-bot.js": {
+    "mtime": 1779291235.2522569,
+    "hash": "fb3af98c4b23efdf50aa5148b596a58a"
+  },
+  "/opt/moo-gpt/public/dashboard.js": {
+    "mtime": 1779020329.3602033,
+    "hash": "c8b9f1068b3bdd91dc78e06e474b09ac"
+  },
+  "/opt/moo-gpt/public/script.js": {
+    "mtime": 1776755709.5215068,
+    "hash": "a63a4a4494e39b50204a9761b0b07e26"
+  },
+  "/opt/moo-gpt/public/mmbbs-bot.js": {
+    "mtime": 1778357344.5383809,
+    "hash": "9690e4abcb06bf67f24fb55368de0510"
+  },
+  "/opt/moo-gpt/public/config.js": {
+    "mtime": 1779020329.3582034,
+    "hash": "8b982118fa7b2e0617d7491cb29779f6"
+  },
+  "/opt/moo-gpt/seeds/personas.js": {
+    "mtime": 1779020329.3612034,
+    "hash": "54c88f769fe9efa5f05e27c2bb1c5256"
+  },
+  "/opt/moo-gpt/CONTRIBUTING.md": {
+    "mtime": 1779123891.565385,
+    "hash": "af8b7cb7bf4c27cc16c404f7492ae295"
+  },
+  "/opt/moo-gpt/CLAUDE.local.example.md": {
+    "mtime": 1778357344.533381,
+    "hash": "2008a5c3158ef041da9d6ce466ae6e12"
+  },
+  "/opt/moo-gpt/CONTEXT.md": {
+    "mtime": 1779210931.9038754,
+    "hash": "3fab14c7260b3102da587c804779382c"
+  },
+  "/opt/moo-gpt/index.html": {
+    "mtime": 1778357344.5353827,
+    "hash": "8ca97b3f328e09eb84e7e6b34808d706"
+  },
+  "/opt/moo-gpt/README.md": {
+    "mtime": 1779292510.0143037,
+    "hash": "d5e989a672194670d63c1fdae95f467a"
+  },
+  "/opt/moo-gpt/INSTALL.md": {
+    "mtime": 1779292515.391346,
+    "hash": "73947b128c1cba0d6f3c3dfe7dcbc710"
+  },
+  "/opt/moo-gpt/CLAUDE.md": {
+    "mtime": 1779291864.3542209,
+    "hash": "1b7bbf9500d93bbf3e2f45e8a9dbdb02"
+  },
+  "/opt/moo-gpt/snippets/moodle-additional-html.html": {
+    "mtime": 1778357344.539381,
+    "hash": "e8a889c9aa375116c6e267703b8f94cc"
+  },
+  "/opt/moo-gpt/snippets/tegpt.txt": {
+    "mtime": 1777887546.902858,
+    "hash": "8429f5b7eac3fb674befefe49f0d245c"
+  },
+  "/opt/moo-gpt/snippets/SNIPPET-SETUP.md": {
+    "mtime": 1776877378.2559462,
+    "hash": "885d30aa26fb1b580da976f0948763f2"
+  },
+  "/opt/moo-gpt/snippets/moogpt.txt": {
+    "mtime": 1779020329.3622034,
+    "hash": "54acfb8f523e1f95ae1a0d5808048e4f"
+  },
+  "/opt/moo-gpt/snippets/snippet1_aufgabe.html": {
+    "mtime": 1778357344.540381,
+    "hash": "b0c426e1a50f782079f845cf1f6b5c27"
+  },
+  "/opt/moo-gpt/snippets/abgpt.txt": {
+    "mtime": 1778357344.539381,
+    "hash": "6626ad9f19b5d3844612b622c6c8fc6b"
+  },
+  "/opt/moo-gpt/snippets/snippet2_testfrage.html": {
+    "mtime": 1777106202.9341266,
+    "hash": "9731ee9be65bb736d33f7abd31bad26a"
+  },
+  "/opt/moo-gpt/config/info.txt": {
+    "mtime": 1776755709.520537,
+    "hash": "8000ff42c295e035c2332a45802d1a04"
+  },
+  "/opt/moo-gpt/public/chat.html": {
+    "mtime": 1777887546.897858,
+    "hash": "1b514a013ff6af9b0b0ce8e08265ab7c"
+  },
+  "/opt/moo-gpt/public/dashboard.html": {
+    "mtime": 1779020329.3592033,
+    "hash": "d4e254e071d3927f9535ff1181655139"
+  },
+  "/opt/moo-gpt/public/index.html": {
+    "mtime": 1776755709.5215068,
+    "hash": "bb89cfaaa762e3bb746b36577d7ff9dd"
+  },
+  "/opt/moo-gpt/public/config.html": {
+    "mtime": 1779020329.3582034,
+    "hash": "4f82474ac5cb04e155b37f8ca6f5d26d"
+  },
+  "/opt/moo-gpt/docs/architecture.md": {
+    "mtime": 1779020329.3532033,
+    "hash": "2e28bd00857caf191d93e41310d612fd"
+  },
+  "/opt/moo-gpt/docs/moodle-plugin-roadmap.md": {
+    "mtime": 1779020329.3542032,
+    "hash": "ba3493cee8fe0562cab7711544f7c204"
+  },
+  "/opt/moo-gpt/docs/moodle.md": {
+    "mtime": 1779292776.775401,
+    "hash": "d38423eb99229559d7de35e136e78b43"
+  },
+  "/opt/moo-gpt/docs/git-workflow.md": {
+    "mtime": 1778357344.534381,
+    "hash": "958c38ddbac7d0339bd776b3de423997"
+  },
+  "/opt/moo-gpt/docs/security-roadmap.md": {
+    "mtime": 1779020329.3572032,
+    "hash": "ee23fbfe7f353d43b2ea89e8d08e7030"
+  },
+  "/opt/moo-gpt/docs/plans/feature-prompt-check.md": {
+    "mtime": 1779291272.6105518,
+    "hash": "79ae074154abe75e7d6dfe4e8af6bfc8"
+  },
+  "/opt/moo-gpt/docs/plans/feature-roadmap.md": {
+    "mtime": 1779020329.3542032,
+    "hash": "58c1ec507863ac31502b3924a698537a"
+  },
+  "/opt/moo-gpt/docs/plans/2026-05-14-architektur-optimierungen.md": {
+    "mtime": 1779020329.3542032,
+    "hash": "7ee48d1b44eb473bca6d3c35a4196edc"
+  },
+  "/opt/moo-gpt/docs/plans/steps/p3-plenumsphase.md": {
+    "mtime": 1778390204.996197,
+    "hash": "93504215f999fe7e9246b9dfedd7f328"
+  },
+  "/opt/moo-gpt/docs/plans/steps/p4a-umbenennung-infra.md": {
+    "mtime": 1778390204.9971766,
+    "hash": "f0bc8dfaabf8d3f0191a03cee1c2fb71"
+  },
+  "/opt/moo-gpt/docs/plans/steps/p9-grafische-darstellung.md": {
+    "mtime": 1778390205.0040119,
+    "hash": "2250c9807cd7b76d8c0237ac3fc7a829"
+  },
+  "/opt/moo-gpt/docs/plans/steps/s6-security-verifikation.md": {
+    "mtime": 1779020329.3572032,
+    "hash": "e5299d6d1f2d22717e03f6e7e9ca99a9"
+  },
+  "/opt/moo-gpt/docs/plans/steps/p1-bugs.md": {
+    "mtime": 1778390119.900523,
+    "hash": "2bbb7dd8b0c46a9a6e1e59506e593529"
+  },
+  "/opt/moo-gpt/docs/plans/steps/p2-ux-button-states-soft-delete.md": {
+    "mtime": 1778390204.9921768,
+    "hash": "6a6080a92ebe24c810abcbae100b1f68"
+  },
+  "/opt/moo-gpt/docs/plans/steps/p5a-snippet-refactoring.md": {
+    "mtime": 1779020329.3552034,
+    "hash": "09c5e8121fd29023dd96d29e7683ae9b"
+  },
+  "/opt/moo-gpt/docs/plans/steps/s4-upload-ssrf-haertung.md": {
+    "mtime": 1779020329.3562033,
+    "hash": "9ed65df7190a303826476da3f6918a62"
+  },
+  "/opt/moo-gpt/docs/plans/steps/p5-konfig-seite.md": {
+    "mtime": 1779020329.3542032,
+    "hash": "6a327585572b6d6b144db79ecf6f5451"
+  },
+  "/opt/moo-gpt/docs/plans/steps/p6-personas-umbau.md": {
+    "mtime": 1779020329.3552034,
+    "hash": "63dcafc598473969c69335199c0c629a"
+  },
+  "/opt/moo-gpt/docs/plans/steps/p5b-lehrer-vorlagen.md": {
+    "mtime": 1779020329.3552034,
+    "hash": "c4b3d8656d2e3f9c5a6749620f3294e3"
+  },
+  "/opt/moo-gpt/docs/plans/steps/p4-umbenennung-code.md": {
+    "mtime": 1778390204.9969015,
+    "hash": "1ae155c0b392379f7de14648dc201f62"
+  },
+  "/opt/moo-gpt/docs/plans/steps/s5-origin-cors-header-haertung.md": {
+    "mtime": 1779020329.3562033,
+    "hash": "571deed6c87de912340f2329caa410bd"
+  },
+  "/opt/moo-gpt/docs/plans/steps/p8-debugging-admin-only.md": {
+    "mtime": 1778390205.0033627,
+    "hash": "0e329089af22b7044aa7451e88fb5f19"
+  },
+  "/opt/moo-gpt/docs/plans/steps/p7-one-click-optimierung.md": {
+    "mtime": 1779020329.3562033,
+    "hash": "97c5f3091bb197ebd36f754d64e5039a"
+  },
+  "/opt/moo-gpt/docs/plans/steps/p10-repository-ver\u00f6ffentlichung.md": {
+    "mtime": 1778390205.0041769,
+    "hash": "23d5ef667e3eb7300a4742cfd7d67576"
+  },
+  "/opt/moo-gpt/docs/plans/steps/s3-xss-haertung.md": {
+    "mtime": 1779020329.3562033,
+    "hash": "25357b7dd790e75ca02f47f4943b94ff"
+  },
+  "/opt/moo-gpt/docs/plans/steps/s1-handshake-identitaet.md": {
+    "mtime": 1779020329.3562033,
+    "hash": "a0c2b545bcdb38feb5e7087979c6d570"
+  },
+  "/opt/moo-gpt/docs/plans/cleanup/04-persona-selector.md": {
+    "mtime": 1779211309.8076918,
+    "hash": "6ced0f50127a4b0077967e2a69ba33d6"
+  },
+  "/opt/moo-gpt/docs/plans/cleanup/handoff-03.md": {
+    "mtime": 1779267800.8375719,
+    "hash": "d50b7e9e22421da9cd7bdc9e3d6a4b3e"
+  },
+  "/opt/moo-gpt/docs/plans/cleanup/05-lock-manager.md": {
+    "mtime": 1779211335.4928792,
+    "hash": "83f45d56e3a7b1fd1a6c511abd5967f8"
+  },
+  "/opt/moo-gpt/docs/plans/cleanup/handoff-02.md": {
+    "mtime": 1779219280.960834,
+    "hash": "dbbc433c541c740831b7c212d3a11812"
+  },
+  "/opt/moo-gpt/docs/plans/cleanup/00-strategie.md": {
+    "mtime": 1779267800.8375719,
+    "hash": "da78015e3c7720679dbb849e3e8645df"
+  },
+  "/opt/moo-gpt/docs/plans/cleanup/handoff-04.md": {
+    "mtime": 1779265312.762562,
+    "hash": "d980e1efc698817fd9e447632ff195d1"
+  },
+  "/opt/moo-gpt/docs/plans/cleanup/02-criteria-entkoppeln.md": {
+    "mtime": 1779211273.1144183,
+    "hash": "fc1342a36239f23c662b451fe682024f"
+  },
+  "/opt/moo-gpt/docs/plans/cleanup/handoff-05.md": {
+    "mtime": 1779267800.8375719,
+    "hash": "1e870903e70be5847d69f1847cca6ebb"
+  },
+  "/opt/moo-gpt/docs/plans/cleanup/03-optimize-entkoppeln.md": {
+    "mtime": 1779211295.066582,
+    "hash": "ad50258d5533e1597a2875bc45650a50"
+  },
+  "/opt/moo-gpt/docs/plans/cleanup/01-validators-verschieben.md": {
+    "mtime": 1779211254.6782808,
+    "hash": "6f5e4a23e419d7ec74cad8137d2896d5"
+  },
+  "/opt/moo-gpt/docs/plans/cleanup/handoff-01.md": {
+    "mtime": 1779211360.9990652,
+    "hash": "8a070fe6718d0230905ca1909429f963"
+  },
+  "/opt/moo-gpt/docs/plans/db-decomposition/06-store-feedback.md": {
+    "mtime": 1779123892.8083944,
+    "hash": "093581994ee1b28892054f120073bd4d"
+  },
+  "/opt/moo-gpt/docs/plans/db-decomposition/05-store-teacher.md": {
+    "mtime": 1779102323.1261523,
+    "hash": "6a057b46a4e218f4a3355ed4cd235919"
+  },
+  "/opt/moo-gpt/docs/plans/db-decomposition/07-store-criteria.md": {
+    "mtime": 1779123892.8083944,
+    "hash": "78596af3d69b44a580ebf78f46659087"
+  },
+  "/opt/moo-gpt/docs/plans/db-decomposition/09-store-chat.md": {
+    "mtime": 1779205967.0251417,
+    "hash": "8bdb3ec6772cce31460baf40af4177d3"
+  },
+  "/opt/moo-gpt/docs/plans/db-decomposition/00-strategy.md": {
+    "mtime": 1779207739.9142148,
+    "hash": "1dc10a8b7e598d499fc4e3aac855ff29"
+  },
+  "/opt/moo-gpt/docs/plans/db-decomposition/01-store-admin.md": {
+    "mtime": 1779087918.398231,
+    "hash": "dd986638ba77f9ca6ef23e4bfefe9028"
+  },
+  "/opt/moo-gpt/docs/plans/db-decomposition/10-db-cleanup.md": {
+    "mtime": 1779206723.4978628,
+    "hash": "6dc6c316e37f9448282fa9e4299cf4b9"
+  },
+  "/opt/moo-gpt/docs/plans/db-decomposition/08-store-persona.md": {
+    "mtime": 1779133716.7708242,
+    "hash": "1be09a315e57ef22673ec505c19fd7dd"
+  },
+  "/opt/moo-gpt/docs/plans/db-decomposition/02-store-activity.md": {
+    "mtime": 1779123892.8073943,
+    "hash": "2dcb2fd3e40fc8d989e1569532e04f67"
+  },
+  "/opt/moo-gpt/docs/plans/db-decomposition/04-store-prompt.md": {
+    "mtime": 1779123892.8073943,
+    "hash": "dfac5c19c33934bb2426d0418b7979e8"
+  },
+  "/opt/moo-gpt/docs/plans/route-decomposition/02-validators.md": {
+    "mtime": 1779026029.8528225,
+    "hash": "1fdc93c13144651c9a6a03b3e9a5f934"
+  },
+  "/opt/moo-gpt/docs/plans/route-decomposition/10-routes-simulation.md": {
+    "mtime": 1779045550.7786727,
+    "hash": "7a3d1a1ce31b1bb7bba7b0f780e67e4a"
+  },
+  "/opt/moo-gpt/docs/plans/route-decomposition/08-routes-personas.md": {
+    "mtime": 1779026174.4119031,
+    "hash": "a5c17cb004469667cba1c76d952f41db"
+  },
+  "/opt/moo-gpt/docs/plans/route-decomposition/04-routes-dashboard.md": {
+    "mtime": 1779026074.178154,
+    "hash": "d4eef96cfebc1c9a969d78dbf50d31b2"
+  },
+  "/opt/moo-gpt/docs/plans/route-decomposition/06-routes-teacher.md": {
+    "mtime": 1779026129.5145676,
+    "hash": "75db504a89e7898c26e3bd40cce690c1"
+  },
+  "/opt/moo-gpt/docs/plans/route-decomposition/05-routes-admin.md": {
+    "mtime": 1779037356.4014714,
+    "hash": "192828ba33ad7d11799c0603fb16f816"
+  },
+  "/opt/moo-gpt/docs/plans/route-decomposition/00-plan.md": {
+    "mtime": 1779041991.0720925,
+    "hash": "9a18daa5bbc30d3776c05a17fcc72a53"
+  },
+  "/opt/moo-gpt/docs/plans/route-decomposition/07-routes-erfahrungsprompt.md": {
+    "mtime": 1779039835.953995,
+    "hash": "0c3e3e00fb456b922446b1572dc8ee04"
+  },
+  "/opt/moo-gpt/docs/plans/route-decomposition/01-infra-modules.md": {
+    "mtime": 1779026017.084727,
+    "hash": "2a8c0580395eeb408f6276c4604648da"
+  },
+  "/opt/moo-gpt/docs/plans/route-decomposition/09-routes-criteria.md": {
+    "mtime": 1779043847.0339527,
+    "hash": "44185b497c412fa7544e02c8507eadd6"
+  },
+  "/opt/moo-gpt/docs/plans/route-decomposition/03-routes-activity.md": {
+    "mtime": 1779026055.9290175,
+    "hash": "c11331187fbffe259eed67ce1b790e35"
+  },
+  "/opt/moo-gpt/docs/plans/route-decomposition/11-server-cleanup.md": {
+    "mtime": 1779026275.8326614,
+    "hash": "863ecac7f4b2a0f45b9df9ce777a5993"
+  },
+  "/opt/moo-gpt/public/grw.png": {
+    "mtime": 1778357344.537381,
+    "hash": "b49927045b4342e42c959b33787c0500"
+  },
+  "/opt/moo-gpt/public/loading.gif": {
+    "mtime": 1776755709.5215068,
+    "hash": "ea4e6e5ffedcebac2f5ca8dde6233aa2"
+  },
+  "/opt/moo-gpt/public/weiblich.png": {
+    "mtime": 1776877378.2559462,
+    "hash": "811bd096443bcf534cec7feb789b6427"
+  },
+  "/opt/moo-gpt/public/chat-icon.png": {
+    "mtime": 1776755709.520537,
+    "hash": "811bd096443bcf534cec7feb789b6427"
+  },
+  "/opt/moo-gpt/public/close-icon.png": {
+    "mtime": 1776755709.5215068,
+    "hash": "1982b315aeb2af294d9d493080d8841f"
+  },
+  "/opt/moo-gpt/public/grw2.png": {
+    "mtime": 1778357344.5383809,
+    "hash": "69c2a092400dbfcf180245aa8c3f8229"
+  },
+  "/opt/moo-gpt/docs/images/Dashboard-Chats.png": {
+    "mtime": 1779292432.2666914,
+    "hash": "68886c1ae1feb2d60f16194ed226381f"
+  },
+  "/opt/moo-gpt/docs/images/Sch\u00fclerchat.png": {
+    "mtime": 1779292432.2686915,
+    "hash": "f8f23686ba20761dbaffabf9b359e677"
+  },
+  "/opt/moo-gpt/docs/images/Aktivit\u00e4tseinstellungen.png": {
+    "mtime": 1779292432.2646916,
+    "hash": "43684a6a6563203643294621b8d91778"
+  },
+  "/opt/moo-gpt/docs/images/Snippet-in-Tiny-einfuegen.png": {
+    "mtime": 1779292432.2686915,
+    "hash": "555b585835933680f9899a82da175d3b"
+  },
+  "/opt/moo-gpt/docs/images/Dashboard-Optimierung.png": {
+    "mtime": 1779292747.4291723,
+    "hash": "8608eb5e0bad159a28301060d70b8b7e"
+  },
+  "/opt/moo-gpt/docs/images/DashboardEinstellungen.png": {
+    "mtime": 1779292747.4301724,
+    "hash": "68ea9962e749131acb51ce3a854ef383"
+  }
+}
