@@ -1,6 +1,6 @@
 {
   "name": "moo-gpt",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "description": "Chat-GPT application using GPT-4 model",
   "main": "server.js",
   "scripts": {
