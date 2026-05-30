@@ -2,7 +2,7 @@
 
 Alle bemerkenswerten Änderungen an moo-gpt werden hier dokumentiert.
 
-Ab v3.0.0 wird der Changelog strukturiert und transparent geführt — mit Git-Tags, Conventional Commits und automatisch generiertem Entwurf via `git-cliff`. Ältere Versionen: Tabelle am Ende dieser Datei.
+Ab v3.0.0 wird der Changelog strukturiert und transparent geführt — mit Git-Tags, Conventional Commits und automatisch generiertem Entwurf via [`git-cliff`](https://git-cliff.org). Ältere Versionen: Tabelle am Ende dieser Datei.
 
 ---
 
