@@ -91,7 +91,7 @@ npx skills@latest add mattpocock/skills
 
 ## Release-Workflow
 
-Releases werden über Git-Tags und `git-cliff` verwaltet. Details: [`docs/git-workflow.md`](docs/git-workflow.md)
+Releases werden über Git-Tags und [`git-cliff`](https://git-cliff.org) verwaltet. Details: [`docs/git-workflow.md`](docs/git-workflow.md)
 
 **Versionierung:**
 

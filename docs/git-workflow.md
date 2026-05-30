@@ -37,7 +37,7 @@ systemctl restart moo-gpt && systemctl status moo-gpt
 
 ## Release-Workflow
 
-CHANGELOG.md liegt im Root-Verzeichnis. Releases werden über Git-Tags und `git-cliff` verwaltet.
+CHANGELOG.md liegt im Root-Verzeichnis. Releases werden über Git-Tags und [`git-cliff`](https://git-cliff.org) verwaltet.
 
 ### Einmaliger Setup (git-cliff installieren)
 
