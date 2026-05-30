@@ -5,7 +5,7 @@
 ## Mac-Block
 
 ```bash
-cd ~/Documents/Claude/Projects/Moodle/moo-gpt
+cd /Users/mg/Documents/Claude/Projects/Moodle/moo-gpt
 rm -f .git/index.lock .git/HEAD.lock
 git add .
 git commit -m "COMMIT-MSG"
