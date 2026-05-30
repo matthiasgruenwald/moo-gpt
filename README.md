@@ -61,6 +61,7 @@ Das Lehrer-Dashboard zeigt alle Schülerchats in Echtzeit und bietet Steuerungsf
 | Admins / IT | [INSTALL.md](INSTALL.md) – Installation, Konfiguration, Docker, Systemd |
 | Lehrkräfte | [docs/moodle.md](docs/moodle.md) – Moodle-Einbindung, Snippets, Dashboard |
 | Entwickler | [CONTRIBUTING.md](CONTRIBUTING.md) – Architektur, Datenbankschema, Roadmap |
+| Alle | [CHANGELOG.md](CHANGELOG.md) – Versionen, neue Features, Bug Fixes |
 
 ---
 

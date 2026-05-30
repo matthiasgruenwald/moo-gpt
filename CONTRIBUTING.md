@@ -94,4 +94,4 @@ npx skills@latest add mattpocock/skills
 
 ## Versionsverlauf
 
-→ [docs/changelog.md](docs/changelog.md)
+→ [CHANGELOG.md](CHANGELOG.md)
