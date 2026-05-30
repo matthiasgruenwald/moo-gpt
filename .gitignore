@@ -29,6 +29,3 @@ graphify-out/
 skills-lock.json
 AGENTS.md
 .claude/skills/
-
-# graphify output (lebt auf graphify-data Branch)
-graphify-out/
