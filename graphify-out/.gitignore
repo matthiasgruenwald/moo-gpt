@@ -1,5 +1,0 @@
-# graphify temp files
-.graphify_*
-cache/
-cost.json
-manifest.json

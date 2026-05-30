@@ -33,6 +33,11 @@
     "Bash(cat*)",
     "Bash(echo*)",
     "Bash(head*)",
-    "Bash(tail*)"
+    "Bash(tail*)",
+    "Bash(graphify query *)",
+    "Bash(graphify explain *)",
+    "Bash(graphify path *)",
+    "Bash(graphify benchmark)",
+    "Bash(/Users/mg/.local/share/uv/tools/graphifyy/bin/python *)"
   ]
 }
