@@ -16,13 +16,6 @@ Sobald der Administrator das Snippet installiert hat, kann jede Lehrkraft das Wi
 
 ![Snippet-Auswahl im TinyMCE-Editor](images/Snippet-in-Tiny-einfuegen.png)
 
-Die verfügbaren Snippets und deren Import sind in [`snippets/SNIPPET-SETUP.md`](../snippets/SNIPPET-SETUP.md) beschrieben (für Administratoren).
-
-## Manuell einbinden
-
-> ⚠️ **Aktuell nicht empfohlen.** Die Konfiguration des Widgets erfolgt serverseitig über das Dashboard – eine vollständige manuelle Einbindung per HTML-Snippet ist derzeit nicht funktional. Für diesen Anwendungsfall bitte ein [Issue anlegen](https://github.com/matthiasgruenwald/moo-gpt/issues/new).
-
-
 ## Lehrer-Dashboard
 
 Lehrkräfte sehen nach dem Öffnen des Chat-Widgets automatisch einen Dashboard-Button (blaues Icon über dem Chat-Button). Ein Klick öffnet das Dashboard in einem neuen Tab.
@@ -98,21 +91,6 @@ Schüler können unter jeder KI-Antwort ein Feedback hinterlassen und optional e
 - **Lehrkraft:** Memory pro Schüler im Dashboard (**Chats**-Seite) sichtbar und verwaltbar – auch ohne vorherige Schüler-Aktion (z. B. um Hinweise für einzelne Schüler direkt einzutragen).
 
 
-## Einstellungen (Admin)
-
-Der Tab **Einstellungen** ist für Administratoren. Hier wird der globale System-Prompt und das Standard-Modell für alle Aufgaben festgelegt. Lehrkräfte können außerdem eigene Personas verwalten, die in der Simulation zur Verfügung stehen.
-
-<details>
-<summary>Screenshot: Einstellungen-Tab anzeigen</summary>
-
-![Dashboard Einstellungen-Tab](images/DashboardEinstellungen.png)
-
-</details>
-
-## Rollenerkennung
-
-Das Widget erkennt automatisch, ob der aktuelle Nutzer Lehrkraft oder Schüler ist und zeigt die Oberfläche entsprechend an. Die Erkennung funktioniert zuverlässig im **Boost-Theme**. Bei anderen Themes oder nach Moodle-Updates kann es sein, dass die Erkennung nicht greift – in diesem Fall den Administrator bitten, die Lehrkraft-IDs in der Serverkonfiguration einzutragen (`TEACHER_USER_IDS`).
-
 ## Audio: Spracheingabe & Vorlesen
 
 ### Spracheingabe (Whisper)
@@ -133,3 +111,21 @@ Spracheingabe, TTS, Dateiupload und weitere Widget-Funktionen lassen sich pro Au
 Bilder in der Aufgabenstellung werden automatisch erkannt und an die KI übergeben. Das funktioniert zuverlässig für Grafiken und Diagramme in normaler Auflösung.
 
 **Vorsicht bei hochauflösenden Fotos** (z. B. fotografierte Schulbuchseiten): Ab einer bestimmten Dateigröße kann die Übertragung fehlschlagen. Bilder möglichst als komprimiertes PNG oder SVG einbinden. Bilder müssen im **Moodle-Medienpool** liegen – externe Quellen funktionieren nicht (CORS).
+
+---
+
+<details>
+<summary>Rollenerkennung</summary>
+
+Das Widget erkennt automatisch, ob der aktuelle Nutzer Lehrkraft oder Schüler ist und zeigt die Oberfläche entsprechend an. Die Erkennung funktioniert zuverlässig im **Boost-Theme**. Bei anderen Themes oder nach Moodle-Updates kann es sein, dass die Erkennung nicht greift – in diesem Fall den Administrator bitten, die Lehrkraft-IDs in der Serverkonfiguration einzutragen (`TEACHER_USER_IDS`).
+
+</details>
+
+<details>
+<summary>Einstellungen (Admin)</summary>
+
+Der Tab **Einstellungen** ist für Administratoren. Hier wird der globale System-Prompt und das Standard-Modell für alle Aufgaben festgelegt. Lehrkräfte können außerdem eigene Personas verwalten, die in der Simulation zur Verfügung stehen.
+
+![Dashboard Einstellungen-Tab](images/DashboardEinstellungen.png)
+
+</details>

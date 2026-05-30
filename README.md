@@ -2,7 +2,11 @@
 
 KI-Chatbot-Widget für Moodle. Lehrkräfte betten einen KI-Assistenten direkt in Aufgaben ein – ohne separaten Login für Schülerinnen und Schüler.
 
-![moo-gpt Chat-Widget in einer Moodle-Aufgabe](docs/images/Schülerchat.png)
+Das Lehrer-Dashboard zeigt alle Schülerchats in Echtzeit und bietet Steuerungsfunktionen direkt aus dem Unterricht.
+
+<img src="docs/images/Schülerchat.png" width="560" alt="moo-gpt Chat-Widget in einer Moodle-Aufgabe">
+
+<img src="docs/images/Dashboard-Chats.png" width="560" alt="Lehrer-Dashboard mit Schülerchats">
 
 ---
 
@@ -37,11 +41,10 @@ KI-Chatbot-Widget für Moodle. Lehrkräfte betten einen KI-Assistenten direkt in
 ### Dashboard & Unterrichtssteuerung
 
 - Lehrer-Dashboard mit Chatverlauf, Live-Updates und Token-Kosten
-- Live-Unterrichts-Überblick: thematische Zusammenfassung aller Chats auf Knopfdruck, Liste nicht aktiver Schüler
+- Live-Unterrichts-Überblick: thematische Zusammenfassung aller Chats auf Knopfdruck, gruppierte Übersicht aktiver und nicht aktiver Schüler
 - KI-Antworten im Dashboard inline bearbeitbar (versioniert); Schüler sehen die aktive Version
-- Rollenerkennung (Lehrer/Schüler) per Moodle-DOM, serverseitiger Override möglich
-- Plenumsmodus: Chat für alle Schüler einer Aufgabe sperren – direkt aus dem Widget (Stop-Button), manuell oder mit Timer
-- Schüler-Memory: Feedback-Buttons im Widget, KI passt Antworten an individuelle Präferenzen an; Lehrkraft verwaltet Memory im Dashboard
+- Plenumsmodus: Chat für alle Schüler einer Aufgabe sperren – direkt aus dem Widget oder dem Dashboard, manuell oder mit Timer
+- Schüler-Memory: Schüler können ihr Memory im Chat einsehen und bearbeiten; Lehrkräfte verwalten die Schüler-Memories im Dashboard
 - Schülerantworten im Dashboard bewertbar; Bewertungen fließen in KI-gestützte Prompt-Verbesserungsvorschläge ein *(wird voraussichtlich nicht weiterentwickelt – Prompt-Assistent und Prompt-Check decken diesen Bedarf effektiver ab)*
 
 ### Prompt & Modell

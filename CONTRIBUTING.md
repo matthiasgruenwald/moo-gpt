@@ -88,25 +88,10 @@ npx skills@latest add mattpocock/skills
 - Reines ESM, keine Transpilierung – Node.js 22 vorausgesetzt
 - Neue Features als Issue anlegen, bevor die Implementierung beginnt
 
-## Offene Issues
+## Issues
 
-| # | Thema |
-|---|---|
-| #6 | Chat-Verwaltung: Neue Chats, Archivierung & sicheres Löschen |
-| #9 | Snippet für Lehrer-Übersicht über mehrere Aktivitäten |
-| #32 | Azure OpenAI / EU-Inferenz-Residency unterstützen |
-
-Aktuelle Issues: https://github.com/matthiasgruenwald/moo-gpt/issues
+→ https://github.com/matthiasgruenwald/moo-gpt/issues
 
 ## Versionsverlauf
 
-| Version | Änderung |
-|---|---|
-| 3.0.0 | DB-Decomposition: stores/ Architektur, Refactoring der Datenbankzugriffe |
-| 2.0.0 | Lehrer-Dashboard, Token-Auth, Fan-out, activities-Tabelle |
-| 1.11.0 | Rollenerkennung Lehrer/Schüler via DOM + userswitchedrole |
-| 1.10.0 | Chatverlauf beim Öffnen anzeigen, Zeitstempel auf allen Nachrichten |
-| 1.9.0 | Thread-Persistenz + Reconnect |
-| 1.8.0 | SQLite-Logging |
-| 1.7.0 | Keepalive-Ping gegen Cloudflare-Timeout |
-| 1.6.x | Lazy-Init, Bilder-Upload via OpenAI Files API |
+→ [docs/changelog.md](docs/changelog.md)

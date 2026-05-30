@@ -21,6 +21,9 @@ CLAUDE.local.md
 # macOS
 .DS_Store
 
+# Graphify-Output (eigener Branch: graphify-data)
+graphify-out/
+
 # Claude Code / ECC harness
 .agents/
 skills-lock.json

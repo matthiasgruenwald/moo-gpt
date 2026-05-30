@@ -127,7 +127,7 @@ Im Verzeichnis `snippets/` liegt die fertige Snippet-Datei `moo-gpt.txt`.
 
 Import per Drag & Drop: Die Datei direkt in das Snippet-Plugin ziehen. Vor dem Import `gpt.gruenwald.fun` durch die URL der eigenen moo-gpt-Instanz ersetzen (zwei Stellen in der Datei).
 
-Vollständige Einrichtungsanleitung: [`snippets/SNIPPET-SETUP.md`](snippets/SNIPPET-SETUP.md)
+Das Snippet hat den Namen **„KI-Chat (moo-gpt)"** und den Key **`moogpt`**. Im TinyMCE-Editor `moogpt` eingeben und **Tab** drücken (nicht Enter) – der Dialog öffnet sich.
 
 ![Snippet-Import via Drag & Drop](docs/images/Admin-Snippet-einfügen.gif)
 
