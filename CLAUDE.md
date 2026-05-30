@@ -22,6 +22,8 @@ Entwicklung primär auf LXC. Mac als Review/Merge-Station.
 **Git/gh-Befehle nur ausführen, wenn Matthias explizit dazu auffordert.** Sonst Terminal-Block ausgeben.
 Git-Workflow-Details: [`docs/git-workflow.md`](docs/git-workflow.md)
 
+**STOPP vor `gh release create`:** CHANGELOG.md mit Matthias zusammen manuell prüfen — git-cliff-Ausgabe kontrollieren, Version bestätigen, erst dann Release erstellen.
+
 ---
 
 ## Nicht-offensichtliche Dateien
