@@ -1,522 +1,578 @@
 {
-  "/opt/moo-gpt/prompt-builder.js": {
-    "mtime": 1779020329.3582034,
-    "hash": "4e2406372376e0fe68be1282c7c2d1aa"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/validators.js": {
+    "mtime": 1780119425.4714797,
+    "hash": "3d1350411690ca4d09508e3a82b411ce"
   },
-  "/opt/moo-gpt/client-registry.js": {
-    "mtime": 1779020329.3532033,
-    "hash": "2b81930065dfb8b093e47d76f609a448"
-  },
-  "/opt/moo-gpt/config-cache.js": {
-    "mtime": 1779267800.8375719,
-    "hash": "326dfab08e147d7494b4ea96203b79ea"
-  },
-  "/opt/moo-gpt/validators.js": {
-    "mtime": 1779267800.8395717,
-    "hash": "28eb11472cebeb91ee2e9e34a5112d60"
-  },
-  "/opt/moo-gpt/db.js": {
-    "mtime": 1779185564.157808,
-    "hash": "411bc06cb31720b67879c2b6f89bec99"
-  },
-  "/opt/moo-gpt/patch_mmbbs_images.py": {
-    "mtime": 1777106202.9341266,
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/patch_mmbbs_images.py": {
+    "mtime": 1780119425.453896,
     "hash": "dacea1dfa761fc9abbe947aa806732d9"
   },
-  "/opt/moo-gpt/criteria.js": {
-    "mtime": 1779219548.8708646,
-    "hash": "429efe5728f71ccf305995d139923831"
-  },
-  "/opt/moo-gpt/chat-session.js": {
-    "mtime": 1779287463.8080876,
-    "hash": "d8d35507c732ef021eb141957cc8c22d"
-  },
-  "/opt/moo-gpt/persona-selector.js": {
-    "mtime": 1779267800.8385718,
-    "hash": "8ee7afed3663e34babeda3a197160e5c"
-  },
-  "/opt/moo-gpt/simulation.js": {
-    "mtime": 1779209296.0177782,
-    "hash": "17e6bc53a3eb666e17d5fc779bcb817f"
-  },
-  "/opt/moo-gpt/env-config.js": {
-    "mtime": 1779028290.140718,
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/env-config.js": {
+    "mtime": 1780119425.4482958,
     "hash": "afeaeefaa9e9598e6a5df8f6c86cefbe"
   },
-  "/opt/moo-gpt/ai-client.js": {
-    "mtime": 1779020329.3522034,
-    "hash": "e0bfb1c0f22af9bbd99f4c23a4bb9901"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/rate-limiter.js": {
+    "mtime": 1780119425.4617212,
+    "hash": "dda39112fdf23d57a237d56ffdbefc92"
   },
-  "/opt/moo-gpt/ai-instance.js": {
-    "mtime": 1779028287.067695,
-    "hash": "88cbb9a516391f6b9a42bf953a8df15e"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/chat-session.js": {
+    "mtime": 1780119425.4279091,
+    "hash": "7f73de3d34f8f7a8dd3690960effc715"
   },
-  "/opt/moo-gpt/server.js": {
-    "mtime": 1779266768.0916836,
-    "hash": "4ab82214c3f421431de8dc1aec6c3d42"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/server.js": {
+    "mtime": 1780119425.4639285,
+    "hash": "68b0e046aa58d8ab893994304b6f9f6a"
   },
-  "/opt/moo-gpt/lock-manager.js": {
-    "mtime": 1779266750.6625504,
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/lock-manager.js": {
+    "mtime": 1780119425.4523485,
     "hash": "20e46497eb7af497f6f4be10165974d3"
   },
-  "/opt/moo-gpt/auth-middleware.js": {
-    "mtime": 1779088259.1847854,
-    "hash": "1f03e332c4032b05b972c7866c881b1f"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/db.js": {
+    "mtime": 1780119425.4286866,
+    "hash": "b1b20b7c868b7e767348b1ecf9f181e9"
   },
-  "/opt/moo-gpt/optimize.js": {
-    "mtime": 1779267800.8385718,
-    "hash": "740b4c2b642a6df08614484ac157170f"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/criteria.js": {
+    "mtime": 1780119425.428292,
+    "hash": "254ae864884d7279174f1db0ff924b95"
   },
-  "/opt/moo-gpt/routes/criteria.js": {
-    "mtime": 1779219555.5539153,
-    "hash": "74ea081fb74565b2f05798a65bba6fdd"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/message-formatter.js": {
+    "mtime": 1780119425.4525974,
+    "hash": "22d3f8194262cca422adf9eb69bba440"
   },
-  "/opt/moo-gpt/routes/dashboard.js": {
-    "mtime": 1779185523.4725008,
-    "hash": "fddf511429c0c06c0a002e32ab0f820c"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/simulation.js": {
+    "mtime": 1780119425.4648364,
+    "hash": "be4a34cc607c0667b4e64687e281e56c"
   },
-  "/opt/moo-gpt/routes/activity.js": {
-    "mtime": 1779267800.8385718,
-    "hash": "3fa7c6d30abb05dc707f3342cc50e3a6"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/optimize.js": {
+    "mtime": 1780119425.4527562,
+    "hash": "674218ad450fd437e3c07d0d47e751f9"
   },
-  "/opt/moo-gpt/routes/simulation.js": {
-    "mtime": 1779267800.8395717,
-    "hash": "fde81a9fa16c11d7b60890ef351afc1b"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/prompt-builder.js": {
+    "mtime": 1780119425.4541593,
+    "hash": "2f73ab651bd6d48f69bcbad2aab4f60e"
   },
-  "/opt/moo-gpt/routes/admin.js": {
-    "mtime": 1779267800.8385718,
-    "hash": "899cd7a8029b238bd75b16b991fdebf9"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/client-registry.js": {
+    "mtime": 1780119425.427993,
+    "hash": "2b81930065dfb8b093e47d76f609a448"
   },
-  "/opt/moo-gpt/routes/teacher.js": {
-    "mtime": 1779267800.8395717,
-    "hash": "9a5948c7ceb81882c629b06beec78b13"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/ai-instance.js": {
+    "mtime": 1780119425.427636,
+    "hash": "88cbb9a516391f6b9a42bf953a8df15e"
   },
-  "/opt/moo-gpt/routes/erfahrungsprompt.js": {
-    "mtime": 1779267800.8385718,
-    "hash": "fca5d9563ba2ad33f41d27b42f95a4ca"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/app-init.js": {
+    "mtime": 1780119425.4277184,
+    "hash": "5b4e95effcb64bf4641258f23e447b82"
   },
-  "/opt/moo-gpt/routes/personas.js": {
-    "mtime": 1779167941.7195659,
-    "hash": "a0c832e53d9fcc156df03941d6d35625"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/ai-client.js": {
+    "mtime": 1780119425.4274275,
+    "hash": "0a68458dbef09ab0adc489c404f9c9d3"
   },
-  "/opt/moo-gpt/stores/feedback.js": {
-    "mtime": 1779123891.5583851,
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/auth-middleware.js": {
+    "mtime": 1780119425.4278154,
+    "hash": "f761a3718fe687fd4f479a9d2229a8dd"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/model-resolver.js": {
+    "mtime": 1780119425.4526777,
+    "hash": "48bda35aefa42206a5b8bd27a32081f8"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/cost-service.js": {
+    "mtime": 1780119425.4280953,
+    "hash": "8bcb7cb5be51d9a18796b2278630204a"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/pricing.js": {
+    "mtime": 1780119425.4540744,
+    "hash": "cbc2485c38148b95c4eb37b8d640f358"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/prompt-assist-suggest.test.js": {
+    "mtime": 1780119425.4697793,
+    "hash": "c3d3b80d59896381b1dc70af3761ae14"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/moo-bot-config-overlay.test.js": {
+    "mtime": 1780119425.468895,
+    "hash": "6add5fa28ce86a68f9ba3de9bee1ccf5"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/audio-cost-service.test.js": {
+    "mtime": 1780119425.4668612,
+    "hash": "b5028c3c493a84492b3d6dcf97691252"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/student-memory-store.test.js": {
+    "mtime": 1780119425.4707646,
+    "hash": "b4fc76c4fad81aa64e5595a214dc227d"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/pricing.test.js": {
+    "mtime": 1780119425.4696224,
+    "hash": "02aa4e1a33867d6a42432865c140f8c3"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/simulation-cost.test.js": {
+    "mtime": 1780119425.4701087,
+    "hash": "ef1bc6d56ff27d7279d6f0c6aa4c44d5"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/dashboard-ws.test.js": {
+    "mtime": 1780119425.4677265,
+    "hash": "a671d7d305cb8c2ec402b98ace17932d"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/criteria-optimize-persona-cost.test.js": {
+    "mtime": 1780119425.4674463,
+    "hash": "b1114d8299ff07a5e35dcc5d69bc8570"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/cost-service.test.js": {
+    "mtime": 1780119425.4673452,
+    "hash": "ad0f1ffdaa598a942bb5cc457a4effbb"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/model-resolver-v2.test.js": {
+    "mtime": 1780119425.468471,
+    "hash": "a1806f2e2c1cba6f8c2443740a037318"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/cost-api.test.js": {
+    "mtime": 1780119425.4672549,
+    "hash": "344c8d6f11b604e5b2b00edc2ac18864"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/prompt-check.test.js": {
+    "mtime": 1780119425.469955,
+    "hash": "575e075278820b9a1927b4c65783b320"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/tts-cost-service.test.js": {
+    "mtime": 1780119425.471149,
+    "hash": "85b6c399ded2961cbe5a8bb2260f2813"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/app-init.test.js": {
+    "mtime": 1780119425.4667716,
+    "hash": "ca958ead74e08929ee814e1680a98283"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/db-migration.test.js": {
+    "mtime": 1780119425.467804,
+    "hash": "968c6390e53d5e3bf1dc65e90afa7e25"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/widget-config-store.test.js": {
+    "mtime": 1780119425.4712968,
+    "hash": "0016cd2faf9303f083b47ecbc2f53af6"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/lock-manager.test.js": {
+    "mtime": 1780119425.4681091,
+    "hash": "f5de43a417c92250babae2c44dd233ae"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/criteria-route.test.js": {
+    "mtime": 1780119425.4675686,
+    "hash": "bb9588444da5281c57038b2fa540b5ff"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/transcribe.test.js": {
+    "mtime": 1780119425.471082,
+    "hash": "a7ddbee404041bc0c29616a7957df945"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/chat-response.test.js": {
+    "mtime": 1780119425.467184,
+    "hash": "d4c6724b9933bcf92aa415578aaf5a3a"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/moo-bot-tts-history.test.js": {
+    "mtime": 1780119425.4694343,
+    "hash": "474be6066dba3be9211e7b1e6057eb9a"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/student-memory-route.test.js": {
+    "mtime": 1780119425.470674,
+    "hash": "e7951caf8fb42693d85b6a2bba1e6623"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/activity-store.test.js": {
+    "mtime": 1780119425.466478,
+    "hash": "6c65a18779473493c96642dc17fd36f3"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/admin-route.test.js": {
+    "mtime": 1780119425.4666064,
+    "hash": "165331cacda2899d92b893d443eccbfd"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/moo-bot-memory-popover.test.js": {
+    "mtime": 1780119425.4690492,
+    "hash": "cfe11c3fa1e849f01144aade91885776"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/prompt-check-ui.test.js": {
+    "mtime": 1780119425.4698732,
+    "hash": "212c857094a6c781c7cd01f0eb655ead"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/auth-middleware-origin-ws.test.js": {
+    "mtime": 1780119425.4671082,
+    "hash": "04c3302a259188cc1614ef59b94bee3d"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/ai-client.test.js": {
+    "mtime": 1780119425.4666898,
+    "hash": "ede7c23de0d925cce8a36b552732ff63"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/speak.test.js": {
+    "mtime": 1780119425.470291,
+    "hash": "111979f272d591f7a026918945db165a"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/student-cost-summary.test.js": {
+    "mtime": 1780119425.4705303,
+    "hash": "3e00d8d3887ffcbf8285aba86999b506"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/teacher-attribution.test.js": {
+    "mtime": 1780119425.4708416,
+    "hash": "69226b10936e65b16f94a07981198a40"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/teacher-template-store.test.js": {
+    "mtime": 1780119425.4709833,
+    "hash": "434f3bade258b5501596d18ba7b92e45"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/dashboard-store.test.js": {
+    "mtime": 1780119425.4676404,
+    "hash": "3289023f5bd9abfe5e0204061b38e215"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/live-summary-cost.test.js": {
+    "mtime": 1780119425.4679437,
+    "hash": "a2c8099bfd69b4a6eea2bd5b6420213a"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/prompt-assist-cost.test.js": {
+    "mtime": 1780119425.4697025,
+    "hash": "3bb136ab43566b675ba3fd90ae688c00"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/message-formatter.test.js": {
+    "mtime": 1780119425.4681742,
+    "hash": "7575768c2f8121fc1a2b70004dba1055"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/simulation-orchestrator.test.js": {
+    "mtime": 1780119425.4701965,
+    "hash": "d5c3dbab5eb625709d70361493c837e0"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/live-summary.test.js": {
+    "mtime": 1780119425.468024,
+    "hash": "da0ecf9a258bb745940fc9d789310924"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/moo-bot-memory-urls.test.js": {
+    "mtime": 1780119425.4692693,
+    "hash": "13b67a4c415c0c1d58715ad5def2c579"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/model-resolver.test.js": {
+    "mtime": 1780119425.4687374,
+    "hash": "1271521beb9d95f3864e23fc738596cb"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/erfahrungsprompt-route.test.js": {
+    "mtime": 1780119425.4678645,
+    "hash": "3396473942cc4375a34121c8ec4944f3"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/rate-limiter.test.js": {
+    "mtime": 1780119425.47003,
+    "hash": "b208749eabb36f17e2aa7a38e423b320"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/audio-cost.test.js": {
+    "mtime": 1780119425.466943,
+    "hash": "3afab00148b5e62c21025949451b1086"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/test/postmessage.test.js": {
+    "mtime": 1780119425.4695437,
+    "hash": "c2b80707f0f10fbe5e2a6117adb7d088"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/stores/feedback.js": {
+    "mtime": 1780119425.4656074,
     "hash": "f15e11ed99e2ed305f403564be50b864"
   },
-  "/opt/moo-gpt/stores/persona.js": {
-    "mtime": 1779167938.28754,
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/stores/persona.js": {
+    "mtime": 1780119425.4657588,
     "hash": "13b5c3d1a145af9e7e9d8901e7c4c540"
   },
-  "/opt/moo-gpt/stores/criteria.js": {
-    "mtime": 1779123891.562385,
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/stores/activity.js": {
+    "mtime": 1780119425.4651372,
+    "hash": "ad3a8bc1de234501b0b844bee42beb1a"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/stores/criteria.js": {
+    "mtime": 1780119425.4654593,
     "hash": "b793f901f4780419fd24633e52e5b622"
   },
-  "/opt/moo-gpt/stores/dashboard.js": {
-    "mtime": 1779185502.2613406,
-    "hash": "cd7a2d1929308b6837784cdf351f7bc5"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/stores/teacher.js": {
+    "mtime": 1780119425.4660516,
+    "hash": "ba59d1458e5d95343a158e073978ebf6"
   },
-  "/opt/moo-gpt/stores/prompt.js": {
-    "mtime": 1779093696.6715453,
-    "hash": "f65581bdec7d6d061d93532493fcb73d"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/stores/widget-config.js": {
+    "mtime": 1780119425.4662948,
+    "hash": "277cf544b8a4759bc8e3aa20cd030ad0"
   },
-  "/opt/moo-gpt/stores/chat.js": {
-    "mtime": 1779287439.1258888,
-    "hash": "0f7a4c0b3fd044c04dc96b51b25d7ef4"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/stores/prompt.js": {
+    "mtime": 1780119425.4658382,
+    "hash": "09735d258faf649ee29d40c355f28ecd"
   },
-  "/opt/moo-gpt/stores/activity.js": {
-    "mtime": 1779089606.4278953,
-    "hash": "d2a87440de8bafa43237a8f2ab8a1f4f"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/stores/student-memory.js": {
+    "mtime": 1780119425.4659135,
+    "hash": "323135c2db46f3caec785908f91a211b"
   },
-  "/opt/moo-gpt/stores/admin.js": {
-    "mtime": 1779088249.3487115,
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/stores/admin.js": {
+    "mtime": 1780119425.465207,
     "hash": "b1c56cf9f225e468959b6e53308b57b7"
   },
-  "/opt/moo-gpt/stores/teacher.js": {
-    "mtime": 1779101981.014588,
-    "hash": "59f4b6704b740707e965de6e9d2f5544"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/stores/message-edits.js": {
+    "mtime": 1780119425.4656887,
+    "hash": "4e28c297bf41f158e2483861bcc2e8df"
   },
-  "/opt/moo-gpt/public/moo-bot.js": {
-    "mtime": 1779291235.2522569,
-    "hash": "fb3af98c4b23efdf50aa5148b596a58a"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/stores/chat.js": {
+    "mtime": 1780119425.4652808,
+    "hash": "91953a4cb41fc22857332d3bb45b0097"
   },
-  "/opt/moo-gpt/public/dashboard.js": {
-    "mtime": 1779020329.3602033,
-    "hash": "c8b9f1068b3bdd91dc78e06e474b09ac"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/stores/dashboard.js": {
+    "mtime": 1780119425.4655342,
+    "hash": "f17fd9b0c5c4b790d3db2502f115a18f"
   },
-  "/opt/moo-gpt/public/script.js": {
-    "mtime": 1776755709.5215068,
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/public/config.js": {
+    "mtime": 1780119425.455672,
+    "hash": "a8ea2a81147e87e4fc50fd3f28a6f3e8"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/public/script.js": {
+    "mtime": 1780119425.460951,
     "hash": "a63a4a4494e39b50204a9761b0b07e26"
   },
-  "/opt/moo-gpt/public/mmbbs-bot.js": {
-    "mtime": 1778357344.5383809,
-    "hash": "9690e4abcb06bf67f24fb55368de0510"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/public/moo-bot.js": {
+    "mtime": 1780119425.4607513,
+    "hash": "abd90333ce81c29b9fbea3f6c6095945"
   },
-  "/opt/moo-gpt/public/config.js": {
-    "mtime": 1779020329.3582034,
-    "hash": "8b982118fa7b2e0617d7491cb29779f6"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/public/dashboard.js": {
+    "mtime": 1780119425.4569418,
+    "hash": "4244ef072690b3107cd9f5be1c520966"
   },
-  "/opt/moo-gpt/seeds/personas.js": {
-    "mtime": 1779020329.3612034,
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/public/settings.js": {
+    "mtime": 1780119425.4610486,
+    "hash": "943975a3a31218758c810ae5d2a31ca4"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/seeds/personas.js": {
+    "mtime": 1780119425.4638436,
     "hash": "54c88f769fe9efa5f05e27c2bb1c5256"
   },
-  "/opt/moo-gpt/CONTRIBUTING.md": {
-    "mtime": 1779123891.565385,
-    "hash": "af8b7cb7bf4c27cc16c404f7492ae295"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/routes/dashboard-pages.js": {
+    "mtime": 1780119425.462503,
+    "hash": "b9f8940b3b4d7ac0fb7c89a64aeddeb3"
   },
-  "/opt/moo-gpt/CLAUDE.local.example.md": {
-    "mtime": 1778357344.533381,
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/routes/activity.js": {
+    "mtime": 1780119425.4619582,
+    "hash": "95ff11d1c9b58ef784f81007d31c003d"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/routes/speak.js": {
+    "mtime": 1780119425.4631155,
+    "hash": "2d7ae8c3bcee1c2bf97f029c65e6147d"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/routes/personas.js": {
+    "mtime": 1780119425.4628928,
+    "hash": "aaa66bccdf73433092cee72b7b4a1ead"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/routes/prompt-assist.js": {
+    "mtime": 1780119425.462974,
+    "hash": "7f9cb1fbdea3525ce55d13396cc3c968"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/routes/criteria.js": {
+    "mtime": 1780119425.462426,
+    "hash": "541cfd96f381fe21b5c58c9779e6704c"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/routes/simulation.js": {
+    "mtime": 1780119425.4630413,
+    "hash": "b819acaf6f413bc3c9d63a98a1e86a8b"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/routes/teacher.js": {
+    "mtime": 1780119425.4636486,
+    "hash": "1e505ff0656bf1bcfc576b46bd85e442"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/routes/erfahrungsprompt.js": {
+    "mtime": 1780119425.4627461,
+    "hash": "fc5249f3ef749099834211f9deb21e79"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/routes/student-memory.js": {
+    "mtime": 1780119425.4634118,
+    "hash": "f5f0f6d599f83d155ce2b19397d33c68"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/routes/admin.js": {
+    "mtime": 1780119425.4620416,
+    "hash": "0f5d22d1fa321aed838b8e9fcb4a4352"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/routes/message-edits.js": {
+    "mtime": 1780119425.462821,
+    "hash": "1dac65d6cc44c7d3b7a775b1110657d7"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/routes/dashboard.js": {
+    "mtime": 1780119425.4626544,
+    "hash": "87eafdf0d63073be7452c32446728e6f"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/routes/dashboard-ws.js": {
+    "mtime": 1780119425.462578,
+    "hash": "6b2dfd8048920618014d97850018e553"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/routes/transcribe.js": {
+    "mtime": 1780119425.4637306,
+    "hash": "5320ce58dcc9de947ad43f36e6376cb5"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/routes/costs.js": {
+    "mtime": 1780119425.4623363,
+    "hash": "280af5dd310564eae3c8115fc8990288"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/services/chat-response.js": {
+    "mtime": 1780119425.464648,
+    "hash": "9007556aec2eaaa5e76636278952c4f4"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/services/live-summary.js": {
+    "mtime": 1780119425.4647353,
+    "hash": "ea29a510bba779097a2fcb1f2662f7a5"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/CONTEXT.md": {
+    "mtime": 1780119425.4257097,
+    "hash": "7d3f6bf005cc559cf4d1ddbfaa30001b"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/CLAUDE.local.example.md": {
+    "mtime": 1780119425.4253852,
     "hash": "2008a5c3158ef041da9d6ce466ae6e12"
   },
-  "/opt/moo-gpt/CONTEXT.md": {
-    "mtime": 1779210931.9038754,
-    "hash": "3fab14c7260b3102da587c804779382c"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/INSTALL.md": {
+    "mtime": 1780119425.4266388,
+    "hash": "70240b85bc75e5401ecb309e9a866788"
   },
-  "/opt/moo-gpt/index.html": {
-    "mtime": 1778357344.5353827,
-    "hash": "8ca97b3f328e09eb84e7e6b34808d706"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/README.md": {
+    "mtime": 1780119425.4273133,
+    "hash": "7287d3f2f9396f5d43e3fa3b963b9059"
   },
-  "/opt/moo-gpt/README.md": {
-    "mtime": 1779292510.0143037,
-    "hash": "d5e989a672194670d63c1fdae95f467a"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/CONTRIBUTING.md": {
+    "mtime": 1780119425.4258,
+    "hash": "60a4805d9d36d3107be5dc9c37a40f4d"
   },
-  "/opt/moo-gpt/INSTALL.md": {
-    "mtime": 1779292515.391346,
-    "hash": "73947b128c1cba0d6f3c3dfe7dcbc710"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/AGENTS.md": {
+    "mtime": 1778525245.972496,
+    "hash": "0139b6ddfcec0c76e3bc81fe6ffb3454"
   },
-  "/opt/moo-gpt/CLAUDE.md": {
-    "mtime": 1779291864.3542209,
-    "hash": "1b7bbf9500d93bbf3e2f45e8a9dbdb02"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/CLAUDE.md": {
+    "mtime": 1780120198.712732,
+    "hash": "79eb75e65d661c599b5b0c7d7714a1a4"
   },
-  "/opt/moo-gpt/snippets/moodle-additional-html.html": {
-    "mtime": 1778357344.539381,
-    "hash": "e8a889c9aa375116c6e267703b8f94cc"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/snippets/moo-gpt.txt": {
+    "mtime": 1780119425.4650369,
+    "hash": "3a61dc60f5852560d9de97eb0675de3e"
   },
-  "/opt/moo-gpt/snippets/tegpt.txt": {
-    "mtime": 1777887546.902858,
-    "hash": "8429f5b7eac3fb674befefe49f0d245c"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/snippets/SNIPPET-SETUP.md": {
+    "mtime": 1780119425.464957,
+    "hash": "f400cb8e6947f5dc0a6eb1adaeba1a3f"
   },
-  "/opt/moo-gpt/snippets/SNIPPET-SETUP.md": {
-    "mtime": 1776877378.2559462,
-    "hash": "885d30aa26fb1b580da976f0948763f2"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/snippets.md": {
+    "mtime": 1780119425.448213,
+    "hash": "b9ca951a3bbe3f3f698a2adec1e3f6ec"
   },
-  "/opt/moo-gpt/snippets/moogpt.txt": {
-    "mtime": 1779020329.3622034,
-    "hash": "54acfb8f523e1f95ae1a0d5808048e4f"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/architecture.md": {
+    "mtime": 1780120556.0939865,
+    "hash": "585841a38a2efc5615e0b2a8ecaa49a1"
   },
-  "/opt/moo-gpt/snippets/snippet1_aufgabe.html": {
-    "mtime": 1778357344.540381,
-    "hash": "b0c426e1a50f782079f845cf1f6b5c27"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/git-workflow.md": {
+    "mtime": 1780120208.513891,
+    "hash": "257c04514fa8617a060ee74adf0fe148"
   },
-  "/opt/moo-gpt/snippets/abgpt.txt": {
-    "mtime": 1778357344.539381,
-    "hash": "6626ad9f19b5d3844612b622c6c8fc6b"
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/moodle.md": {
+    "mtime": 1780119425.4479842,
+    "hash": "dbb7d86d01570a8e242b45d82c179661"
   },
-  "/opt/moo-gpt/snippets/snippet2_testfrage.html": {
-    "mtime": 1777106202.9341266,
-    "hash": "9731ee9be65bb736d33f7abd31bad26a"
-  },
-  "/opt/moo-gpt/config/info.txt": {
-    "mtime": 1776755709.520537,
-    "hash": "8000ff42c295e035c2332a45802d1a04"
-  },
-  "/opt/moo-gpt/public/chat.html": {
-    "mtime": 1777887546.897858,
-    "hash": "1b514a013ff6af9b0b0ce8e08265ab7c"
-  },
-  "/opt/moo-gpt/public/dashboard.html": {
-    "mtime": 1779020329.3592033,
-    "hash": "d4e254e071d3927f9535ff1181655139"
-  },
-  "/opt/moo-gpt/public/index.html": {
-    "mtime": 1776755709.5215068,
-    "hash": "bb89cfaaa762e3bb746b36577d7ff9dd"
-  },
-  "/opt/moo-gpt/public/config.html": {
-    "mtime": 1779020329.3582034,
-    "hash": "4f82474ac5cb04e155b37f8ca6f5d26d"
-  },
-  "/opt/moo-gpt/docs/architecture.md": {
-    "mtime": 1779020329.3532033,
-    "hash": "2e28bd00857caf191d93e41310d612fd"
-  },
-  "/opt/moo-gpt/docs/moodle-plugin-roadmap.md": {
-    "mtime": 1779020329.3542032,
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/moodle-plugin-roadmap.md": {
+    "mtime": 1780119425.4477172,
     "hash": "ba3493cee8fe0562cab7711544f7c204"
   },
-  "/opt/moo-gpt/docs/moodle.md": {
-    "mtime": 1779292776.775401,
-    "hash": "d38423eb99229559d7de35e136e78b43"
-  },
-  "/opt/moo-gpt/docs/git-workflow.md": {
-    "mtime": 1778357344.534381,
-    "hash": "958c38ddbac7d0339bd776b3de423997"
-  },
-  "/opt/moo-gpt/docs/security-roadmap.md": {
-    "mtime": 1779020329.3572032,
-    "hash": "ee23fbfe7f353d43b2ea89e8d08e7030"
-  },
-  "/opt/moo-gpt/docs/plans/feature-prompt-check.md": {
-    "mtime": 1779291272.6105518,
-    "hash": "79ae074154abe75e7d6dfe4e8af6bfc8"
-  },
-  "/opt/moo-gpt/docs/plans/feature-roadmap.md": {
-    "mtime": 1779020329.3542032,
-    "hash": "58c1ec507863ac31502b3924a698537a"
-  },
-  "/opt/moo-gpt/docs/plans/2026-05-14-architektur-optimierungen.md": {
-    "mtime": 1779020329.3542032,
-    "hash": "7ee48d1b44eb473bca6d3c35a4196edc"
-  },
-  "/opt/moo-gpt/docs/plans/steps/p3-plenumsphase.md": {
-    "mtime": 1778390204.996197,
-    "hash": "93504215f999fe7e9246b9dfedd7f328"
-  },
-  "/opt/moo-gpt/docs/plans/steps/p4a-umbenennung-infra.md": {
-    "mtime": 1778390204.9971766,
-    "hash": "f0bc8dfaabf8d3f0191a03cee1c2fb71"
-  },
-  "/opt/moo-gpt/docs/plans/steps/p9-grafische-darstellung.md": {
-    "mtime": 1778390205.0040119,
-    "hash": "2250c9807cd7b76d8c0237ac3fc7a829"
-  },
-  "/opt/moo-gpt/docs/plans/steps/s6-security-verifikation.md": {
-    "mtime": 1779020329.3572032,
-    "hash": "e5299d6d1f2d22717e03f6e7e9ca99a9"
-  },
-  "/opt/moo-gpt/docs/plans/steps/p1-bugs.md": {
-    "mtime": 1778390119.900523,
-    "hash": "2bbb7dd8b0c46a9a6e1e59506e593529"
-  },
-  "/opt/moo-gpt/docs/plans/steps/p2-ux-button-states-soft-delete.md": {
-    "mtime": 1778390204.9921768,
-    "hash": "6a6080a92ebe24c810abcbae100b1f68"
-  },
-  "/opt/moo-gpt/docs/plans/steps/p5a-snippet-refactoring.md": {
-    "mtime": 1779020329.3552034,
-    "hash": "09c5e8121fd29023dd96d29e7683ae9b"
-  },
-  "/opt/moo-gpt/docs/plans/steps/s4-upload-ssrf-haertung.md": {
-    "mtime": 1779020329.3562033,
-    "hash": "9ed65df7190a303826476da3f6918a62"
-  },
-  "/opt/moo-gpt/docs/plans/steps/p5-konfig-seite.md": {
-    "mtime": 1779020329.3542032,
-    "hash": "6a327585572b6d6b144db79ecf6f5451"
-  },
-  "/opt/moo-gpt/docs/plans/steps/p6-personas-umbau.md": {
-    "mtime": 1779020329.3552034,
-    "hash": "63dcafc598473969c69335199c0c629a"
-  },
-  "/opt/moo-gpt/docs/plans/steps/p5b-lehrer-vorlagen.md": {
-    "mtime": 1779020329.3552034,
-    "hash": "c4b3d8656d2e3f9c5a6749620f3294e3"
-  },
-  "/opt/moo-gpt/docs/plans/steps/p4-umbenennung-code.md": {
-    "mtime": 1778390204.9969015,
-    "hash": "1ae155c0b392379f7de14648dc201f62"
-  },
-  "/opt/moo-gpt/docs/plans/steps/s5-origin-cors-header-haertung.md": {
-    "mtime": 1779020329.3562033,
-    "hash": "571deed6c87de912340f2329caa410bd"
-  },
-  "/opt/moo-gpt/docs/plans/steps/p8-debugging-admin-only.md": {
-    "mtime": 1778390205.0033627,
-    "hash": "0e329089af22b7044aa7451e88fb5f19"
-  },
-  "/opt/moo-gpt/docs/plans/steps/p7-one-click-optimierung.md": {
-    "mtime": 1779020329.3562033,
-    "hash": "97c5f3091bb197ebd36f754d64e5039a"
-  },
-  "/opt/moo-gpt/docs/plans/steps/p10-repository-ver\u00f6ffentlichung.md": {
-    "mtime": 1778390205.0041769,
-    "hash": "23d5ef667e3eb7300a4742cfd7d67576"
-  },
-  "/opt/moo-gpt/docs/plans/steps/s3-xss-haertung.md": {
-    "mtime": 1779020329.3562033,
-    "hash": "25357b7dd790e75ca02f47f4943b94ff"
-  },
-  "/opt/moo-gpt/docs/plans/steps/s1-handshake-identitaet.md": {
-    "mtime": 1779020329.3562033,
-    "hash": "a0c2b545bcdb38feb5e7087979c6d570"
-  },
-  "/opt/moo-gpt/docs/plans/cleanup/04-persona-selector.md": {
-    "mtime": 1779211309.8076918,
-    "hash": "6ced0f50127a4b0077967e2a69ba33d6"
-  },
-  "/opt/moo-gpt/docs/plans/cleanup/handoff-03.md": {
-    "mtime": 1779267800.8375719,
-    "hash": "d50b7e9e22421da9cd7bdc9e3d6a4b3e"
-  },
-  "/opt/moo-gpt/docs/plans/cleanup/05-lock-manager.md": {
-    "mtime": 1779211335.4928792,
-    "hash": "83f45d56e3a7b1fd1a6c511abd5967f8"
-  },
-  "/opt/moo-gpt/docs/plans/cleanup/handoff-02.md": {
-    "mtime": 1779219280.960834,
-    "hash": "dbbc433c541c740831b7c212d3a11812"
-  },
-  "/opt/moo-gpt/docs/plans/cleanup/00-strategie.md": {
-    "mtime": 1779267800.8375719,
-    "hash": "da78015e3c7720679dbb849e3e8645df"
-  },
-  "/opt/moo-gpt/docs/plans/cleanup/handoff-04.md": {
-    "mtime": 1779265312.762562,
-    "hash": "d980e1efc698817fd9e447632ff195d1"
-  },
-  "/opt/moo-gpt/docs/plans/cleanup/02-criteria-entkoppeln.md": {
-    "mtime": 1779211273.1144183,
-    "hash": "fc1342a36239f23c662b451fe682024f"
-  },
-  "/opt/moo-gpt/docs/plans/cleanup/handoff-05.md": {
-    "mtime": 1779267800.8375719,
-    "hash": "1e870903e70be5847d69f1847cca6ebb"
-  },
-  "/opt/moo-gpt/docs/plans/cleanup/03-optimize-entkoppeln.md": {
-    "mtime": 1779211295.066582,
-    "hash": "ad50258d5533e1597a2875bc45650a50"
-  },
-  "/opt/moo-gpt/docs/plans/cleanup/01-validators-verschieben.md": {
-    "mtime": 1779211254.6782808,
-    "hash": "6f5e4a23e419d7ec74cad8137d2896d5"
-  },
-  "/opt/moo-gpt/docs/plans/cleanup/handoff-01.md": {
-    "mtime": 1779211360.9990652,
-    "hash": "8a070fe6718d0230905ca1909429f963"
-  },
-  "/opt/moo-gpt/docs/plans/db-decomposition/06-store-feedback.md": {
-    "mtime": 1779123892.8083944,
-    "hash": "093581994ee1b28892054f120073bd4d"
-  },
-  "/opt/moo-gpt/docs/plans/db-decomposition/05-store-teacher.md": {
-    "mtime": 1779102323.1261523,
-    "hash": "6a057b46a4e218f4a3355ed4cd235919"
-  },
-  "/opt/moo-gpt/docs/plans/db-decomposition/07-store-criteria.md": {
-    "mtime": 1779123892.8083944,
-    "hash": "78596af3d69b44a580ebf78f46659087"
-  },
-  "/opt/moo-gpt/docs/plans/db-decomposition/09-store-chat.md": {
-    "mtime": 1779205967.0251417,
-    "hash": "8bdb3ec6772cce31460baf40af4177d3"
-  },
-  "/opt/moo-gpt/docs/plans/db-decomposition/00-strategy.md": {
-    "mtime": 1779207739.9142148,
-    "hash": "1dc10a8b7e598d499fc4e3aac855ff29"
-  },
-  "/opt/moo-gpt/docs/plans/db-decomposition/01-store-admin.md": {
-    "mtime": 1779087918.398231,
-    "hash": "dd986638ba77f9ca6ef23e4bfefe9028"
-  },
-  "/opt/moo-gpt/docs/plans/db-decomposition/10-db-cleanup.md": {
-    "mtime": 1779206723.4978628,
-    "hash": "6dc6c316e37f9448282fa9e4299cf4b9"
-  },
-  "/opt/moo-gpt/docs/plans/db-decomposition/08-store-persona.md": {
-    "mtime": 1779133716.7708242,
-    "hash": "1be09a315e57ef22673ec505c19fd7dd"
-  },
-  "/opt/moo-gpt/docs/plans/db-decomposition/02-store-activity.md": {
-    "mtime": 1779123892.8073943,
-    "hash": "2dcb2fd3e40fc8d989e1569532e04f67"
-  },
-  "/opt/moo-gpt/docs/plans/db-decomposition/04-store-prompt.md": {
-    "mtime": 1779123892.8073943,
-    "hash": "dfac5c19c33934bb2426d0418b7979e8"
-  },
-  "/opt/moo-gpt/docs/plans/route-decomposition/02-validators.md": {
-    "mtime": 1779026029.8528225,
-    "hash": "1fdc93c13144651c9a6a03b3e9a5f934"
-  },
-  "/opt/moo-gpt/docs/plans/route-decomposition/10-routes-simulation.md": {
-    "mtime": 1779045550.7786727,
-    "hash": "7a3d1a1ce31b1bb7bba7b0f780e67e4a"
-  },
-  "/opt/moo-gpt/docs/plans/route-decomposition/08-routes-personas.md": {
-    "mtime": 1779026174.4119031,
-    "hash": "a5c17cb004469667cba1c76d952f41db"
-  },
-  "/opt/moo-gpt/docs/plans/route-decomposition/04-routes-dashboard.md": {
-    "mtime": 1779026074.178154,
-    "hash": "d4eef96cfebc1c9a969d78dbf50d31b2"
-  },
-  "/opt/moo-gpt/docs/plans/route-decomposition/06-routes-teacher.md": {
-    "mtime": 1779026129.5145676,
-    "hash": "75db504a89e7898c26e3bd40cce690c1"
-  },
-  "/opt/moo-gpt/docs/plans/route-decomposition/05-routes-admin.md": {
-    "mtime": 1779037356.4014714,
-    "hash": "192828ba33ad7d11799c0603fb16f816"
-  },
-  "/opt/moo-gpt/docs/plans/route-decomposition/00-plan.md": {
-    "mtime": 1779041991.0720925,
-    "hash": "9a18daa5bbc30d3776c05a17fcc72a53"
-  },
-  "/opt/moo-gpt/docs/plans/route-decomposition/07-routes-erfahrungsprompt.md": {
-    "mtime": 1779039835.953995,
-    "hash": "0c3e3e00fb456b922446b1572dc8ee04"
-  },
-  "/opt/moo-gpt/docs/plans/route-decomposition/01-infra-modules.md": {
-    "mtime": 1779026017.084727,
-    "hash": "2a8c0580395eeb408f6276c4604648da"
-  },
-  "/opt/moo-gpt/docs/plans/route-decomposition/09-routes-criteria.md": {
-    "mtime": 1779043847.0339527,
-    "hash": "44185b497c412fa7544e02c8507eadd6"
-  },
-  "/opt/moo-gpt/docs/plans/route-decomposition/03-routes-activity.md": {
-    "mtime": 1779026055.9290175,
-    "hash": "c11331187fbffe259eed67ce1b790e35"
-  },
-  "/opt/moo-gpt/docs/plans/route-decomposition/11-server-cleanup.md": {
-    "mtime": 1779026275.8326614,
-    "hash": "863ecac7f4b2a0f45b9df9ce777a5993"
-  },
-  "/opt/moo-gpt/public/grw.png": {
-    "mtime": 1778357344.537381,
-    "hash": "b49927045b4342e42c959b33787c0500"
-  },
-  "/opt/moo-gpt/public/loading.gif": {
-    "mtime": 1776755709.5215068,
-    "hash": "ea4e6e5ffedcebac2f5ca8dde6233aa2"
-  },
-  "/opt/moo-gpt/public/weiblich.png": {
-    "mtime": 1776877378.2559462,
-    "hash": "811bd096443bcf534cec7feb789b6427"
-  },
-  "/opt/moo-gpt/public/chat-icon.png": {
-    "mtime": 1776755709.520537,
-    "hash": "811bd096443bcf534cec7feb789b6427"
-  },
-  "/opt/moo-gpt/public/close-icon.png": {
-    "mtime": 1776755709.5215068,
-    "hash": "1982b315aeb2af294d9d493080d8841f"
-  },
-  "/opt/moo-gpt/public/grw2.png": {
-    "mtime": 1778357344.5383809,
-    "hash": "69c2a092400dbfcf180245aa8c3f8229"
-  },
-  "/opt/moo-gpt/docs/images/Dashboard-Chats.png": {
-    "mtime": 1779292432.2666914,
-    "hash": "68886c1ae1feb2d60f16194ed226381f"
-  },
-  "/opt/moo-gpt/docs/images/Sch\u00fclerchat.png": {
-    "mtime": 1779292432.2686915,
-    "hash": "f8f23686ba20761dbaffabf9b359e677"
-  },
-  "/opt/moo-gpt/docs/images/Aktivit\u00e4tseinstellungen.png": {
-    "mtime": 1779292432.2646916,
-    "hash": "43684a6a6563203643294621b8d91778"
-  },
-  "/opt/moo-gpt/docs/images/Snippet-in-Tiny-einfuegen.png": {
-    "mtime": 1779292432.2686915,
-    "hash": "555b585835933680f9899a82da175d3b"
-  },
-  "/opt/moo-gpt/docs/images/Dashboard-Optimierung.png": {
-    "mtime": 1779292747.4291723,
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/adr/0005-werkzeugkosten-recording-in-route-nicht-in-ai-client.md": {
+    "mtime": 1780119425.4294288,
+    "hash": "96a226dbed437dde9bc37368b06b68c2"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/adr/0002-teacher-attribution-on-dashboard-access.md": {
+    "mtime": 1780119425.4289105,
+    "hash": "5f5c66ee4ec85a480e2947b4ca15d4a8"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/adr/0004-model-per-activity-not-per-teacher.md": {
+    "mtime": 1780119425.429328,
+    "hash": "783bdc4f3423d5459120a3cb34869e82"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/adr/0003-student-memory-global.md": {
+    "mtime": 1780119425.428997,
+    "hash": "9302872fb72feb0b22cfa2fcc5ad7d3f"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/plans/release-3.0.0.md": {
+    "mtime": 1780119425.4481134,
+    "hash": "09aed4c9bc1e2d138883a5df0fe3c6a7"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/agents/domain.md": {
+    "mtime": 1780119425.429541,
+    "hash": "59c4a2ddaa796047a4b1dc628afc332a"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/agents/triage-labels.md": {
+    "mtime": 1780119425.4297128,
+    "hash": "6d4c188c72f2898258d97dab75fdba63"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/agents/issue-tracker.md": {
+    "mtime": 1780119425.4296172,
+    "hash": "4ec054748a4435dfb920894a58afb4c1"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/public/index.html": {
+    "mtime": 1780119425.460348,
+    "hash": "bb89cfaaa762e3bb746b36577d7ff9dd"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/public/dashboard.html": {
+    "mtime": 1780119425.4560306,
+    "hash": "d4e254e071d3927f9535ff1181655139"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/public/config.html": {
+    "mtime": 1780119425.4555655,
+    "hash": "d29f60bb8dcd3db94003d80986f4ddc2"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/public/chat.html": {
+    "mtime": 1780119425.4551692,
+    "hash": "1b514a013ff6af9b0b0ce8e08265ab7c"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/views/dashboard/costs.html": {
+    "mtime": 1780119425.4723363,
+    "hash": "d51010e5bbe82af9a31f8a678e1516c2"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/views/dashboard/overview.html": {
+    "mtime": 1780119425.4726744,
+    "hash": "58ec0ded854b11053a2c0a2d9634c09c"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/views/dashboard/chats.html": {
+    "mtime": 1780119425.4717066,
+    "hash": "97f842305ba586c72cb253df1a3e7a92"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/views/dashboard/settings.html": {
+    "mtime": 1780120556.0942562,
+    "hash": "dbbb0daa6f68d194525bd58a17db8d25"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/images/Dashboard-Optimierung.png": {
+    "mtime": 1780119425.4417713,
     "hash": "8608eb5e0bad159a28301060d70b8b7e"
   },
-  "/opt/moo-gpt/docs/images/DashboardEinstellungen.png": {
-    "mtime": 1779292747.4301724,
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/images/DashboardEinstellungen.png": {
+    "mtime": 1780119425.4429991,
     "hash": "68ea9962e749131acb51ce3a854ef383"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/images/Sch\u00fclerchat.png": {
+    "mtime": 1780119425.4447374,
+    "hash": "1af1930e0aa1c4fd019f6a6928ddfb61"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/images/Aktivit\u00e4tseinstellungen.png": {
+    "mtime": 1780119425.4357479,
+    "hash": "6738162c09b3adc86033bebf4ee9d623"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/images/Snippet-in-Tiny-einfuegen.png": {
+    "mtime": 1780119425.4474587,
+    "hash": "555b585835933680f9899a82da175d3b"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/images/Dashboard-Chats.png": {
+    "mtime": 1780119425.4400218,
+    "hash": "68886c1ae1feb2d60f16194ed226381f"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/docs/images/Admin-Snippet-einf\u00fcgen.gif": {
+    "mtime": 1780119425.433844,
+    "hash": "b90bfaff059c2ac6dd904a5d12f4a6f5"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/public/grw2.png": {
+    "mtime": 1780119425.4601345,
+    "hash": "69c2a092400dbfcf180245aa8c3f8229"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/public/loading.gif": {
+    "mtime": 1780119425.4604223,
+    "hash": "ea4e6e5ffedcebac2f5ca8dde6233aa2"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/public/close-icon.png": {
+    "mtime": 1780119425.4552374,
+    "hash": "1982b315aeb2af294d9d493080d8841f"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/public/weiblich.png": {
+    "mtime": 1780119425.4614935,
+    "hash": "811bd096443bcf534cec7feb789b6427"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/public/chat-icon.png": {
+    "mtime": 1780119425.4547765,
+    "hash": "811bd096443bcf534cec7feb789b6427"
+  },
+  "/Users/mg/Documents/Claude/Projects/Moodle/moo-gpt/public/grw.png": {
+    "mtime": 1780119425.4586353,
+    "hash": "b49927045b4342e42c959b33787c0500"
   }
 }
