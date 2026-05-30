@@ -12,7 +12,9 @@ Eine Moodle-Aktivität (Textseite oder Aufgabe), in die ein Chat-Widget eingebet
 
 Die konfigurierbaren Felder, die das Verhalten und Erscheinungsbild des Chat-Bots für eine Aktivität festlegen: `botTitle`, `botIcon`, `uploadMode`, `opener`, `audioInput`, `audioOutput`, `ttsVoice`, `audioStudentOptions`, `model`, `hints`. Wird auf drei Ebenen definiert — Systemvorlage → Lehrer-Vorlage → Aktivitätskonfiguration — wobei jede Ebene die darüber überschreibt. Das GPT-Modell wird **pro Aktivität** gespeichert (Spalte `model` in `activities`), nicht mehr als Lehrer-weite Präferenz. Priorität: Aktivitäts-Modell → System-Prompt-Modell (Admin) → `MODEL_NAME`-Env. Die `teacher_preferences.preferred_model`-Spalte entfällt.
 
-**Config-Overlay-Öffnungsverhalten:** Ist das Chat-Fenster beim Klick auf den Einstellungen-Button geöffnet, öffnet sich das Config-Overlay **direkt im `left-side`-Modus** (links angedockt). Ist das Chat-Fenster geschlossen, öffnet es sich im Standard-Modus (rechts). Der ⇔-Button im Overlay-Header erlaubt jederzeit das Umschalten.
+**Config-Overlay-Öffnungsverhalten:** Das Config-Overlay öffnet sich immer auf der **gegenüberliegenden Seite** des Chat-Fensters. Ist das Chat-Fenster rechts → Overlay links angedockt (`left-side`). Ist das Chat-Fenster links → Overlay rechts. Ist das Chat-Fenster geschlossen, öffnet es sich im Standard-Modus (rechts). Der ⇔-Button im Overlay-Header erlaubt jederzeit das Umschalten.
+
+**Schließen-Warnung (Dirty State):** Beim Klick auf das X im Config-Overlay wird geprüft, ob sich seit dem Öffnen des Overlays irgendein Feld geändert hat (Snapshot aller Felder beim Öffnen). Wurde etwas geändert und nicht gespeichert, erscheint eine kurze Warnung. Ziel: verhindert, dass Lehrkräfte ungespeicherte Änderungen versehentlich verlieren, was Unterrichtszeit kostet.
 
 ## Systemvorlage
 
@@ -117,3 +119,16 @@ Das Snippet enthält einen **Editor-Hinweis-Block** — ein farbig hervorgehoben
 ## Live-Unterrichts-Überblick
 
 KI-generierte inhaltliche Zusammenfassung der häufigsten Themen und Fragen aus allen laufenden Schüler-Chats einer Aktivität. Nicht wörtlich, sondern thematisch. Erscheint auf einer eigenen Dashboard-Seite (`/dashboard/overview`) und wird manuell per Knopfdruck aktualisiert. Dient der Vorbereitung auf Plenumsphasen — Lehrkraft sieht, was besprochen werden sollte, bevor sie den Chat sperrt.
+
+## Fehler-Meldung
+
+Workflow, mit dem eine Lehrkraft einen Fehler als GitHub-Issue melden kann. Zugang: Button im Dashboard (unauffällig, z.B. Footer oder Header). Ablauf:
+
+1. Lehrkraft beschreibt das Problem in einem Freitext-Feld.
+2. KI analysiert die Beschreibung und schlägt relevante Zusatz-Materialien vor (Aufgabenprompt, Aktivitäts-Config, ggf. anonymisierte Chat-Auszüge).
+3. Ergebnis-Seite: aufbereiteter Issue-Text + Checkliste der beizufügenden Materialien (alle einzeln abwählbar) + Vorschau der Materialien darunter.
+4. Zwei Buttons: „Mit Material senden" (öffnet GitHub-New-Issue-URL mit vorausgefülltem Titel + Body, max. ~8 KB) und „Nur Beschreibung senden" (ohne Anhänge).
+
+**Datenschutz Chat-Logs:** Schüler-IDs werden durch neutrale Labels ersetzt (Schüler A, B, C …). Freitext kann dennoch Namen enthalten. Checkbox für Chat-Auszüge standardmäßig **abgewählt** mit kurzem Hinweis.
+
+**Implementierung:** Kein GitHub-Token — Issue wird via URL (`github.com/matthiasgruenwald/moo-gpt/issues/new?title=...&body=...`) im Browser geöffnet. Inhalt priorisiert nach: Beschreibung → Prompt → Config → Chat-Log (bis ~8 KB).
