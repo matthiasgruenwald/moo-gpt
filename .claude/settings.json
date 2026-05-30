@@ -69,7 +69,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd=$(jq -r '.tool_input.command // empty' 2>/dev/null); echo \"$cmd\" | grep -q 'git.*push' && (cd /opt/moo-gpt && git-cliff --unreleased 2>&1 | head -30) || true",
+            "command": "cmd=$(jq -r '.tool_input.command // empty' 2>/dev/null); echo \"$cmd\" | grep -q 'git.*push' && (cd /opt/moo-gpt && git-cliff --unreleased 2>&1 | tee /tmp/git-cliff-unreleased.txt | head -30) || true",
             "statusMessage": "git-cliff: unreleased changes prüfen...",
             "timeout": 10
           }
