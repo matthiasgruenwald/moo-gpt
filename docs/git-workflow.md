@@ -42,8 +42,11 @@ CHANGELOG.md liegt im Root-Verzeichnis. Releases werden über Git-Tags und `git-
 ### Einmaliger Setup (git-cliff installieren)
 
 ```bash
-cargo install git-cliff
-# oder: curl https://sh.rustup.rs -sSf | sh  # falls cargo fehlt
+VERSION=$(curl -s "https://api.github.com/repos/orhun/git-cliff/releases/latest" | grep '"tag_name"' | cut -d'"' -f4 | tr -d v)
+curl -L "https://github.com/orhun/git-cliff/releases/download/v${VERSION}/git-cliff-${VERSION}-x86_64-unknown-linux-gnu.tar.gz" -o /tmp/git-cliff.tar.gz
+tar xzf /tmp/git-cliff.tar.gz -C /tmp
+install /tmp/git-cliff-${VERSION}/git-cliff /usr/local/bin/git-cliff
+git-cliff --version
 ```
 
 ### Commit-Typen für den Changelog
