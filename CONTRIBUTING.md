@@ -84,9 +84,36 @@ npx skills@latest add mattpocock/skills
 
 ## Konventionen
 
-- Conventional Commits: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:` …
+- Conventional Commits: `feat:`, `enhance:`, `fix:`, `security:`, `refactor:`, `docs:`, `chore:` …
+- Nur `feat:`, `enhance:`, `fix:` und `security:` landen im Changelog — der Rest wird gefiltert
 - Reines ESM, keine Transpilierung – Node.js 22 vorausgesetzt
 - Neue Features als Issue anlegen, bevor die Implementierung beginnt
+
+## Release-Workflow
+
+Releases werden über Git-Tags und `git-cliff` verwaltet. Details: [`docs/git-workflow.md`](docs/git-workflow.md)
+
+**Versionierung:**
+
+| Typ | Version | Wann |
+|---|---|---|
+| Bug Fixes | x.x.**1** | Ein oder mehrere `fix:`-Commits seit letztem Release |
+| Features & Enhancements | x.**1**.0 | Neue Funktionalität (`feat:` oder `enhance:`) |
+| Breaking Changes | **x**.0.0 | Inkompatible Änderungen (DB-Schema, API, Konfiguration) |
+
+**Ablauf (Patch-Beispiel):**
+
+```bash
+# 1. CHANGELOG-Entwurf generieren
+git-cliff v3.0.0.. --unreleased --tag v3.0.1 --prepend CHANGELOG.md
+
+# 2. Entwurf prüfen, ggf. anpassen
+# 3. Committen und taggen
+git add CHANGELOG.md
+git commit -m "chore: release v3.0.1"
+git tag v3.0.1
+git push && git push --tags
+```
 
 ## Issues
 
