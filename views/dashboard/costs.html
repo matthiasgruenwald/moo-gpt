@@ -488,7 +488,8 @@
           `;
           btn.addEventListener('click', () => {
             activityId = act.activityId;
-            document.getElementById('toolbar-activity-id').textContent = activityId;
+            document.getElementById('toolbar-activity-id').textContent =
+              act.activityName ? act.activityName + ' (' + act.activityId + ')' : act.activityId;
             // Alle selected-Klassen entfernen und neu setzen
             listEl.querySelectorAll('.activity-item').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
