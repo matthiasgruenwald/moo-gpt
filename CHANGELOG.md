@@ -6,6 +6,33 @@ Ab v3.0.0 wird der Changelog strukturiert und transparent geführt — mit Git-T
 
 ---
 
+## [3.0.1] — 2026-05-31
+
+### ✨ Feature
+
+- **Fehler & Ideen melden**: GitHub-Issue direkt aus dem Dashboard einreichen — inkl. optionalem Aufgabenprompt, Konfiguration und Chat-Auszügen als Anhang (GitHub-Konto erforderlich) (#160)
+
+### 🔧 Enhancements
+
+- **Formeln formatieren (mathMode)**: LaTeX-Anweisung pro Aktivität/Vorlage konfigurierbar — kein manueller Prompt-Eintrag mehr nötig; Dashboard-Badge zeigt Status (#166)
+- **LIVE-Badge** erscheint links neben dem Aktivitätsnamen im Header
+- **Chat-Eingabefeld** wächst automatisch mit der Eingabe (#157)
+- **Memory-Löschen** erfordert Bestätigung (#158)
+- **Config-Overlay**: Schließen-Warnung bei ungespeicherten Änderungen (#159)
+
+### 🐛 Bug Fixes
+
+- Senden-Button zeigt ↑-Icon statt Text (#152)
+- TTS AudioBuffer wird per Button gecacht, kein doppeltes Laden (#151)
+- Stimme- und Memory-Popover schließen sich gegenseitig (#153)
+- Config-Overlay öffnet auf der dem Chat gegenüberliegenden Seite (#154)
+- Lehrer-Buttons werden bei offenem Chat abgedunkelt (#155)
+- Admin-Toolbar zeigt Aktivitätsname statt ID (#156)
+- Listenrendering in Dashboard-Chats: `- ` und `1. ` korrekt als HTML-Liste (#165)
+- mathMode: Einstellung wurde nicht aus Datenbank geladen (#166)
+
+---
+
 ## [3.0.0] — 2026-05-30
 
 ### ⚠️ Breaking Changes
