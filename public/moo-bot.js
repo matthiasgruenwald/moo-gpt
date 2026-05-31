@@ -189,6 +189,7 @@ export class MOOBOT {
     inputContainer.className = "input-container";
     inputContainer.innerHTML = this._buildInputHTML('off');
     chatContainer.appendChild(inputContainer);
+    this._attachChatInput(inputContainer);
 
     // Privacy notice
     const privacyNotice = document.createElement("div");
@@ -737,6 +738,7 @@ export class MOOBOT {
     const inputContainer = document.querySelector('.input-container');
     if (inputContainer && mode !== 'off') {
       inputContainer.innerHTML = this._buildInputHTML(mode);
+      this._attachChatInput(inputContainer);
       inputContainer.querySelector('#upload-button')?.addEventListener('click', () => {
         inputContainer.querySelector('#file-input')?.click();
       });
@@ -795,6 +797,7 @@ export class MOOBOT {
       const ic = document.querySelector('.input-container');
       if (ic) {
         ic.innerHTML = this._buildInputHTML('off');
+        this._attachChatInput(ic);
         this._attachMicButton(ic);
       }
     }
@@ -1195,9 +1198,15 @@ export class MOOBOT {
       message.className = "message sent";
       // Issue #88: Mikrofon-Icon für Audio-Nachrichten im Widget
       const prefix = contentType === 'audio' ? '<span class="audio-badge">🎤</span> ' : '';
-      message.innerHTML = `<p>${prefix}${messageText}</p><span class="msg-time">${nowStr}</span>`;
+      // Issue #157: Zeilenumbrüche (Shift+Enter) als <br> darstellen; HTML-Entities escapen
+      const escapedText = messageText
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\n/g, '<br>');
+      message.innerHTML = `<p>${prefix}${escapedText}</p><span class="msg-time">${nowStr}</span>`;
       chatWindow.appendChild(message);
       chatInput.value = "";
+      chatInput.style.height = 'auto';
+      chatInput.style.overflowY = 'hidden';
       this.ws.send(
         JSON.stringify({ type: "chatmsg", data: { message: messageText, content_type: contentType } })
       );
@@ -1330,6 +1339,7 @@ export class MOOBOT {
     if (inputContainer && !document.getElementById("chat-input")) {
       const uploadMode = this.settings.uploadMode || 'off';
       inputContainer.innerHTML = this._buildInputHTML(uploadMode);
+      this._attachChatInput(inputContainer);
       if (uploadMode !== 'off') {
         const fileInput = inputContainer.querySelector('#file-input');
         fileInput?.addEventListener('change', (e) => {
@@ -1355,14 +1365,38 @@ export class MOOBOT {
       : '';
 
     if (uploadMode === 'off') {
-      return `${micBtn}<input type="text" id="chat-input" placeholder="Geben Sie eine Nachricht ein..." onkeydown="handleKeyDown(event)">
+      return `${micBtn}<textarea id="chat-input" rows="1" placeholder="Geben Sie eine Nachricht ein..."></textarea>
         <button id="send-button" onclick="sendMessage()" title="Senden" aria-label="Senden">&#8593;</button>`;
     }
     const accept = uploadMode === 'files' ? 'image/*,application/pdf' : 'image/*';
     return `<input type="file" id="file-input" accept="${accept}" style="display:none">
       <button id="upload-button" title="Bild${uploadMode === 'files' ? ' oder PDF' : ''} hochladen">📎</button>
-      ${micBtn}<input type="text" id="chat-input" placeholder="Geben Sie eine Nachricht ein..." onkeydown="handleKeyDown(event)">
+      ${micBtn}<textarea id="chat-input" rows="1" placeholder="Geben Sie eine Nachricht ein..."></textarea>
       <button id="send-button" onclick="sendMessage()" title="Senden" aria-label="Senden">&#8593;</button>`;
+  }
+
+  /**
+   * Issue #157: Bindet die Textarea #chat-input für auto-grow und Enter/Shift+Enter.
+   * Muss nach jedem _buildInputHTML()-Aufruf aufgerufen werden.
+   */
+  _attachChatInput(container) {
+    const textarea = container?.querySelector('#chat-input');
+    if (!textarea) return;
+
+    // Auto-grow: Höhe zurücksetzen, dann auf scrollHeight setzen (max 80px via CSS)
+    textarea.addEventListener('input', () => {
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 80) + 'px';
+      textarea.style.overflowY = textarea.scrollHeight > 80 ? 'auto' : 'hidden';
+    });
+
+    // Enter → senden; Shift+Enter → Zeilenumbruch
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        this.sendMessage();
+      }
+    });
   }
 
   // ── Issue #92: Mikrofon-Eingabe ───────────────────────────────────────────

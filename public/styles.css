@@ -180,6 +180,7 @@ body {
 
 .input-container {
     display: flex;
+    align-items: flex-end;
     padding: 10px;
     background-color: #003366;
     border-top: 1px solid #004085;
@@ -187,14 +188,20 @@ body {
     border-bottom-right-radius: 10px;
 }
 
-input[type="text"] {
+#chat-input {
     flex: 1;
     padding: 10px;
     border: none;
     border-radius: 20px;
     margin-right: 10px;
     font-size: 16px;
-    box-sizing: border-box; /* Neu hinzugefügt */
+    box-sizing: border-box;
+    resize: none;
+    overflow-y: hidden;
+    max-height: 80px; /* ~4 Zeilen */
+    line-height: 1.4;
+    font-family: Arial, sans-serif;
+    vertical-align: middle;
 }
 
 .chat-window a {
