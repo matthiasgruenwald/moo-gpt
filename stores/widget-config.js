@@ -4,7 +4,7 @@ import { getDb } from '../db.js';
  * Widget-Konfiguration einer Aktivität schreiben (Partial-Update möglich).
  * @param {string} activity_id
  * @param {{ opener?, uploadMode?, title?, botIcon?, audioInput?, audioOutput?,
- *           ttsVoice?, audioStudentOptions?, model? }} config
+ *           ttsVoice?, audioStudentOptions?, model?, mathMode? }} config
  * Alle Felder optional — nur gesetzte Felder werden aktualisiert.
  * Unbekannte Felder werden ignoriert.
  */
@@ -19,6 +19,7 @@ export function setWidgetConfig(activity_id, config) {
     ttsVoice,
     audioStudentOptions,
     model,
+    mathMode,
   } = config;
 
   // Named params (@name) ermöglichen, dass @field in DO UPDATE SET den
@@ -26,11 +27,11 @@ export function setWidgetConfig(activity_id, config) {
   // zwischen "nicht übergeben" (null → bestehendes behalten) und "explizit gesetzt".
   // COALESCE in VALUES setzt Defaults bei frischem INSERT (ohne prior upsertActivity).
   getDb().prepare(`
-    INSERT INTO activities (activity_id, opener, upload_mode, title, bot_icon, audio_input, audio_output, tts_voice, audio_student_options, model, updated_at)
+    INSERT INTO activities (activity_id, opener, upload_mode, title, bot_icon, audio_input, audio_output, tts_voice, audio_student_options, model, math_mode, updated_at)
     VALUES (@activity_id, @opener, @upload_mode, @title,
             COALESCE(@bot_icon, 'grw'), @audio_input,
             COALESCE(@audio_output, 'off'), COALESCE(@tts_voice, 'nova'), COALESCE(@audio_student_options, 'off'),
-            @model, CURRENT_TIMESTAMP)
+            @model, COALESCE(@math_mode, 'off'), CURRENT_TIMESTAMP)
     ON CONFLICT(activity_id) DO UPDATE SET
       opener                = COALESCE(@opener, activities.opener),
       upload_mode           = COALESCE(@upload_mode, activities.upload_mode),
@@ -49,6 +50,9 @@ export function setWidgetConfig(activity_id, config) {
                                    THEN @audio_student_options
                                    ELSE COALESCE(activities.audio_student_options, 'off') END,
       model                 = @model,
+      math_mode             = CASE WHEN @math_mode IS NOT NULL
+                                   THEN @math_mode
+                                   ELSE COALESCE(activities.math_mode, 'off') END,
       updated_at            = CURRENT_TIMESTAMP
   `).run({
     activity_id,
@@ -61,6 +65,7 @@ export function setWidgetConfig(activity_id, config) {
     tts_voice:             ttsVoice            ?? null,
     audio_student_options: audioStudentOptions ?? null,
     model:                 model               ?? null,
+    math_mode:             mathMode            ?? null,
   });
 }
 
@@ -68,10 +73,10 @@ export function setWidgetConfig(activity_id, config) {
  * Nur die Widget-Konfigurationsfelder lesen (kein activity_name, kein teacher_id).
  * @param {string} activity_id
  * @returns {{ opener, upload_mode, title, bot_icon, audio_input, audio_output,
- *             tts_voice, audio_student_options, model } | null}
+ *             tts_voice, audio_student_options, model, math_mode } | null}
  */
 export function getWidgetConfig(activity_id) {
   return getDb().prepare(
-    'SELECT opener, upload_mode, title, bot_icon, audio_input, audio_output, tts_voice, audio_student_options, model FROM activities WHERE activity_id = ?'
+    'SELECT opener, upload_mode, title, bot_icon, audio_input, audio_output, tts_voice, audio_student_options, model, math_mode FROM activities WHERE activity_id = ?'
   ).get(activity_id) || null;
 }

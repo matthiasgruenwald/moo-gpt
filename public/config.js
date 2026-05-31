@@ -58,6 +58,7 @@
       audioStudentOptions: document.getElementById('cfg-audio-student-options').value,
       model:               document.getElementById('cfg-model').value,
       hintsTemplate:       document.getElementById('cfg-hints').value,
+      mathMode:            document.getElementById('cfg-math-mode').value,
     };
   }
 
@@ -99,7 +100,8 @@
       f.ttsVoice            !== (tpl.tts_voice            ?? 'nova') ||
       f.audioStudentOptions !== (tpl.audio_student_options ?? 'off') ||
       f.model               !== (tpl.model               ?? '') ||
-      f.hintsTemplate       !== (tpl.hints_template       ?? '')
+      f.hintsTemplate       !== (tpl.hints_template       ?? '') ||
+      f.mathMode            !== (tpl.math_mode            ?? 'off')
     );
   }
 
@@ -120,7 +122,8 @@
       f.ttsVoice            !== openSnapshot.ttsVoice            ||
       f.audioStudentOptions !== openSnapshot.audioStudentOptions ||
       f.model               !== openSnapshot.model               ||
-      f.hintsTemplate       !== openSnapshot.hintsTemplate
+      f.hintsTemplate       !== openSnapshot.hintsTemplate       ||
+      f.mathMode            !== openSnapshot.mathMode
     );
   }
 
@@ -165,6 +168,7 @@
     document.getElementById('cfg-audio-student-options').value    = tpl.audio_student_options ?? 'off';
     document.getElementById('cfg-model').value                    = tpl.model                ?? '';
     document.getElementById('cfg-hints').value                    = tpl.hints_template       ?? '';
+    document.getElementById('cfg-math-mode').value                = tpl.math_mode            ?? 'off';
     this.style.fontStyle = '';
     updateAudioOutputDependents();   // ruft intern updateAudioSummary()
     updateOpenerSummary();
@@ -174,7 +178,8 @@
   });
 
   ['cfg-title', 'cfg-bot-icon', 'cfg-opener', 'cfg-upload-mode', 'cfg-audio-input',
-   'cfg-audio-output', 'cfg-tts-voice', 'cfg-audio-student-options', 'cfg-model', 'cfg-hints'].forEach(id => {
+   'cfg-audio-output', 'cfg-tts-voice', 'cfg-audio-student-options', 'cfg-model', 'cfg-hints',
+   'cfg-math-mode'].forEach(id => {
     const el = document.getElementById(id);
     el.addEventListener('input',  updateDirtyState);
     el.addEventListener('change', updateDirtyState);
@@ -254,7 +259,7 @@
       upload_mode: f.uploadMode, hints_template: f.hintsTemplate || null,
       audio_input: f.audioInput || 'off', audio_output: f.audioOutput || 'off',
       tts_voice: f.ttsVoice || 'nova', audio_student_options: f.audioStudentOptions || 'off',
-      model: f.model || null,
+      model: f.model || null, math_mode: f.mathMode || 'off',
       is_default: 0, created_at: new Date().toISOString(),
     });
     loadedTemplateId = data.id;
@@ -275,7 +280,8 @@
     templates = templates.map(t => t.id === id
       ? { ...t, title: f.title, bot_icon: f.botIcon, opener: f.opener, upload_mode: f.uploadMode,
           hints_template: f.hintsTemplate, audio_input: f.audioInput, audio_output: f.audioOutput,
-          tts_voice: f.ttsVoice, audio_student_options: f.audioStudentOptions, model: f.model || null }
+          tts_voice: f.ttsVoice, audio_student_options: f.audioStudentOptions, model: f.model || null,
+          math_mode: f.mathMode || 'off' }
       : t);
     updateTemplateUI();
     updateDirtyState();
@@ -365,6 +371,7 @@
       document.getElementById('cfg-tts-voice').value              = data.ttsVoice           || 'nova';
       document.getElementById('cfg-audio-student-options').value  = data.audioStudentOptions || 'off';
       document.getElementById('cfg-hints').value                  = data.erfahrungsprompt   || '';
+      document.getElementById('cfg-math-mode').value              = data.mathMode           || 'off';
 
       const modelSel = document.getElementById('cfg-model');
       for (const m of (data.availableModels || [])) {
@@ -386,6 +393,7 @@
         audioStudentOptions: data.audioStudentOptions || 'off',
         hints:               data.erfahrungsprompt    || '',
         model:               data.model               || '',
+        mathMode:            data.mathMode            || 'off',
       };
 
       elLoading.style.display = 'none';
@@ -417,6 +425,7 @@
     const audioStudentOptions = document.getElementById('cfg-audio-student-options').value;
     const hints               = document.getElementById('cfg-hints').value;
     const model               = document.getElementById('cfg-model').value;
+    const mathMode            = document.getElementById('cfg-math-mode').value;
 
     btn.disabled       = true;
     status.className   = 'cfg-status';
@@ -434,14 +443,15 @@
         audioOutput         !== initial.audioOutput         ||
         ttsVoice            !== initial.ttsVoice            ||
         audioStudentOptions !== initial.audioStudentOptions ||
-        model               !== initial.model
+        model               !== initial.model               ||
+        mathMode            !== initial.mathMode
       ) {
         const res = await fetch(
           `/api/activity-config/${encodeURIComponent(activityId)}?token=${encodeURIComponent(token)}`,
           {
             method:  'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ title, botIcon, opener, uploadMode, audioInput, audioOutput, ttsVoice, audioStudentOptions, model }),
+            body:    JSON.stringify({ title, botIcon, opener, uploadMode, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode }),
           }
         );
         if (res.ok) {
@@ -454,6 +464,7 @@
           initial.ttsVoice            = ttsVoice;
           initial.audioStudentOptions = audioStudentOptions;
           initial.model               = model;
+          initial.mathMode            = mathMode;
         } else {
           errors.push('Einstellungen konnten nicht gespeichert werden.');
         }

@@ -27,6 +27,7 @@ export function createActivityRouter({ lockManager }) {
       audioOutput:            act?.audio_output               || 'off',
       ttsVoice:               act?.tts_voice                  || 'nova',
       audioStudentOptions:    act?.audio_student_options      || 'off',
+      mathMode:               act?.math_mode                  ?? 'off',
       erfahrungsprompt:       erf?.content                    || '',
       model:                  act?.model                      ?? null,
       effectiveModel:         getEffectiveModel(activityId),
@@ -37,12 +38,12 @@ export function createActivityRouter({ lockManager }) {
 
   router.put('/activity-config/:activityId', requireDashboardAuth, (req, res) => {
     const { activityId, userId } = req;
-    const { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions, model } = req.body;
-    const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput);
+    const { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode } = req.body;
+    const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode);
     if (validErr) return res.status(400).json({ error: validErr });
     const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
     if (model && model !== '' && !validModel) return res.status(400).json({ error: 'Ungültiges Modell' });
-    setWidgetConfig(activityId, { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel });
+    setWidgetConfig(activityId, { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel, mathMode });
     console.log(`[Config] Aktivität ${activityId} aktualisiert von ${userId}`);
     res.json({ ok: true });
   });

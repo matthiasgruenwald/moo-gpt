@@ -279,6 +279,11 @@ function handleServerMessage(msg) {
       loadStudentMemories().then(() => renderStudentList());
       // Issue #69: Werkzeug-Kosten-Summary laden
       fetchAndRenderCostSummary();
+      // Issue #166: mathMode-Badge
+      apiGet(`/api/activity-config/${encodeURIComponent(activityId)}`).then(cfg => {
+        const badge = document.getElementById('math-mode-badge');
+        if (badge) badge.style.display = cfg.mathMode === 'on' ? '' : 'none';
+      }).catch(() => {});
       break;
 
     case 'messages':

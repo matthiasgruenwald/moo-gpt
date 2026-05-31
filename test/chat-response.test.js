@@ -69,6 +69,7 @@ function makeFactory({
     getMessagesAll:          () => [{ role: 'user', content: 'hi' }],
     saveMessage:             (m) => { saveMessageCalls.push(m); return 42; },
     recordUsage:             async (...args) => { recordUsageCalls.push(args); return { runCost: 1, threadCost: 2, activityCost: 3 }; },
+    getWidgetConfig:         () => ({ math_mode: 'off' }),
   };
 
   return {

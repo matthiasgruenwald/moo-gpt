@@ -262,6 +262,11 @@ export function initDb() {
   try { db.exec(`ALTER TABLE system_template ADD COLUMN tts_voice TEXT DEFAULT 'nova'`); } catch (_) {}
   try { db.exec(`ALTER TABLE system_template ADD COLUMN audio_student_options TEXT DEFAULT 'off'`); } catch (_) {}
 
+  // Issue #166: mathMode
+  try { db.exec(`ALTER TABLE activities ADD COLUMN math_mode TEXT DEFAULT 'off'`); } catch (_) {}
+  try { db.exec(`ALTER TABLE teacher_templates ADD COLUMN math_mode TEXT DEFAULT 'off'`); } catch (_) {}
+  try { db.exec(`ALTER TABLE system_template ADD COLUMN math_mode TEXT DEFAULT 'off'`); } catch (_) {}
+
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;
 }
