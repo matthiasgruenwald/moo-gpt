@@ -233,13 +233,13 @@ function connectWebSocket() {
 
   ws.onopen = () => {
     hasConnectedSuccessfully = true;
-    statusDot.classList.add('connected');
+    statusDot?.classList.add('connected');
     liveBadge.classList.add('visible');
     console.log('[Dashboard] WS verbunden');
   };
 
   ws.onclose = () => {
-    statusDot.classList.remove('connected');
+    statusDot?.classList.remove('connected');
     liveBadge.classList.remove('visible');
     if (fatalError) return;
     console.log('[Dashboard] WS getrennt, Reconnect in 5 s…');
@@ -2707,5 +2707,14 @@ if (document.getElementById('settings-panel')) loadSettings();
     const url = buildGithubUrl(title, body);
     window.open(url, '_blank', 'noopener');
     statusEl.textContent = '✓ GitHub geöffnet';
+  });
+
+  document.getElementById('br-send-simple-btn-early')?.addEventListener('click', () => {
+    const desc = description.value.trim();
+    if (!desc) return;
+    const title = desc.length > 70 ? desc.slice(0, 67) + '…' : desc;
+    const url = buildGithubUrl(title, desc);
+    window.open(url, '_blank', 'noopener');
+    closeModal();
   });
 })();

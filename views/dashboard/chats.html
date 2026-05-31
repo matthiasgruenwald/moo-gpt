@@ -90,13 +90,7 @@
     .br-send-simple-btn { background: #6c757d; color: white; border: none; border-radius: 6px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
     .br-send-simple-btn:hover { background: #545b62; }
     #br-status { font-size: 12px; color: #888; }
-    #status-dot {
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      background: #aaa;
-      flex-shrink: 0;
-    }
-    #status-dot.connected { background: #28a745; }
+    #live-badge { vertical-align: middle; margin-left: 8px; }
 
     /* ── Toolbar ─────────────────────────────────────────────────────────── */
     #toolbar {
@@ -1274,6 +1268,7 @@
       </div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <button id="br-analyze-btn">KI analysieren lassen</button>
+        <button class="br-send-simple-btn" id="br-send-simple-btn-early">Nur meine Beschreibung senden</button>
         <span id="br-loading">Analysiere…</span>
       </div>
       <div id="br-result">
@@ -1313,7 +1308,7 @@
         </div>
         <div class="br-actions">
           <button class="br-send-btn" id="br-send-full-btn">Mit Material senden</button>
-          <button class="br-send-simple-btn" id="br-send-simple-btn">Nur Beschreibung senden</button>
+          <button class="br-send-simple-btn" id="br-send-simple-btn">Nur meine Beschreibung senden</button>
           <span id="br-status"></span>
         </div>
       </div>
@@ -1322,9 +1317,7 @@
 </div>
 
 <div id="header">
-  <div id="status-dot" title="WebSocket-Status"></div>
-  <h1 id="page-title">Schüler-Dashboard</h1>
-  <span id="live-badge" class="badge-live">LIVE</span>
+  <h1 id="page-title">Schüler-Dashboard <span id="live-badge" class="badge-live">LIVE</span></h1>
   <button id="bug-report-btn" title="Fehler als GitHub-Issue melden">Bug melden</button>
 </div>
 

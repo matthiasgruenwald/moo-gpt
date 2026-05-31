@@ -1104,3 +1104,34 @@ body.chat-open .stop-icon:hover {
 }
 .mmb-toggle input:checked + .mmb-toggle-slider { background: #6c3483; }
 .mmb-toggle input:checked + .mmb-toggle-slider::before { transform: translateX(16px); }
+
+/* Memory-Löschen Bestätigungs-Overlay */
+.mmb-delete-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.mmb-delete-confirm-box {
+    background: white;
+    border: 1px solid #ccd3db;
+    border-radius: 10px;
+    padding: 22px 24px;
+    max-width: 320px;
+    width: calc(100% - 40px);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    font-size: 14px;
+    color: #333;
+    line-height: 1.5;
+}
+.mmb-delete-confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}

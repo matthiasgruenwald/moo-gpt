@@ -2273,27 +2273,7 @@ export class MOOBOT {
     delBtn.textContent = 'Löschen';
     delBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      actions.innerHTML = '';
-      const confirmMsg = document.createElement('span');
-      confirmMsg.style.cssText = 'font-size:12px;color:#555;flex:1;align-self:center';
-      confirmMsg.textContent = 'Memory löschen? Diese Aktion kann nicht rückgängig gemacht werden.';
-      const confirmDelBtn = document.createElement('button');
-      confirmDelBtn.className = 'mmb-memory-delete';
-      confirmDelBtn.textContent = 'Löschen';
-      confirmDelBtn.addEventListener('click', (e) => { e.stopPropagation(); this._deleteMemory(); });
-      const cancelBtn = document.createElement('button');
-      cancelBtn.className = 'mmb-memory-save';
-      cancelBtn.style.background = '#666';
-      cancelBtn.textContent = 'Abbrechen';
-      cancelBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        actions.innerHTML = '';
-        actions.appendChild(delBtn);
-        actions.appendChild(saveBtn);
-      });
-      actions.appendChild(confirmMsg);
-      actions.appendChild(confirmDelBtn);
-      actions.appendChild(cancelBtn);
+      this._showMemoryDeleteConfirm();
     });
     actions.appendChild(delBtn);
 
@@ -2387,6 +2367,39 @@ export class MOOBOT {
     } catch (e) {
       console.error('[Memory] Netzwerkfehler beim Speichern:', e);
     }
+  }
+
+  _showMemoryDeleteConfirm() {
+    const overlay = document.createElement('div');
+    overlay.className = 'mmb-delete-overlay';
+
+    const box = document.createElement('div');
+    box.className = 'mmb-delete-confirm-box';
+
+    const msg = document.createElement('p');
+    msg.textContent = 'Memory löschen? Diese Aktion kann nicht rückgängig gemacht werden.';
+    box.appendChild(msg);
+
+    const actions = document.createElement('div');
+    actions.className = 'mmb-delete-confirm-actions';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'mmb-memory-save';
+    cancelBtn.style.background = '#666';
+    cancelBtn.textContent = 'Abbrechen';
+    cancelBtn.addEventListener('click', () => overlay.remove());
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'mmb-memory-delete';
+    confirmBtn.textContent = 'Löschen';
+    confirmBtn.addEventListener('click', () => { overlay.remove(); this._deleteMemory(); });
+
+    actions.appendChild(cancelBtn);
+    actions.appendChild(confirmBtn);
+    box.appendChild(actions);
+    overlay.appendChild(box);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
   }
 
   async _deleteMemory() {
