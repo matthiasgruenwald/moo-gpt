@@ -2107,6 +2107,7 @@ export class MOOBOT {
       popover.classList.remove('open');
       btn?.classList.remove('active');
     } else {
+      this._closeMemoryPopover(); // Issue #153: gegenseitiges Schließen
       popover.classList.add('open');
       btn?.classList.add('active');
     }
@@ -2230,6 +2231,7 @@ export class MOOBOT {
       popover.classList.remove('open');
       btn?.classList.remove('active');
     } else {
+      this._closeVoicePopover(); // Issue #153: gegenseitiges Schließen
       popover.classList.add('open');
       btn?.classList.add('active');
       this._loadMemoryIntoPopover();
