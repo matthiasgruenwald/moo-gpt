@@ -104,6 +104,7 @@ KI-Kosten, die durch lehrerinitiierte Aktionen entstehen: Live-Unterrichts-Zusam
 | `optimize` | Prompt-Optimierung |
 | `persona` | Persona-Generierung |
 | `simulation` | Simulation |
+| `bug-report` | Fehler-Meldung |
 | `transcription` | Audio-Transkription (schülerinitiiert, Chat-Kosten) |
 | `tts-prep` | TTS-Vorverarbeitung via GPT-mini (schülerinitiiert, Chat-Kosten) |
 | `tts` | TTS-Ausgabe via tts-1-hd (schülerinitiiert, Chat-Kosten) |

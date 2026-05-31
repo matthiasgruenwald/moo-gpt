@@ -2506,3 +2506,206 @@ document.querySelectorAll('.settings-textarea').forEach(ta => attachExpandBtn(ta
 
 // loadSettings nur auf Seiten aufrufen, die ein settings-panel haben
 if (document.getElementById('settings-panel')) loadSettings();
+
+// ── Bug-Report-Modal (#160) ───────────────────────────────────────────────────
+
+(function initBugReport() {
+  const modal       = document.getElementById('bug-report-modal');
+  const openBtn     = document.getElementById('bug-report-btn');
+  const closeBtn    = document.getElementById('bug-report-close');
+  const analyzeBtn  = document.getElementById('br-analyze-btn');
+  const description = document.getElementById('br-description');
+  const loading     = document.getElementById('br-loading');
+  const result      = document.getElementById('br-result');
+  const titleInput  = document.getElementById('br-issue-title');
+  const bodyInput   = document.getElementById('br-issue-body');
+  const statusEl    = document.getElementById('br-status');
+
+  // Material-Checkboxen und Previews
+  const matPrompt   = document.getElementById('br-mat-prompt');
+  const matConfig   = document.getElementById('br-mat-config');
+  const matChatLog  = document.getElementById('br-mat-chatLog');
+  const prevPrompt  = document.getElementById('br-mat-prompt-preview');
+  const prevConfig  = document.getElementById('br-mat-config-preview');
+  const prevChatLog = document.getElementById('br-mat-chatLog-preview');
+
+  // Materialdaten (vom Server geliefert)
+  let materials = { prompt: null, config: null, chatLog: null };
+
+  // ── Modal öffnen/schließen ────────────────────────────────────────────────
+
+  function openModal() {
+    // Reset
+    description.value = '';
+    result.classList.remove('visible');
+    titleInput.value  = '';
+    bodyInput.value   = '';
+    statusEl.textContent = '';
+    loading.classList.remove('visible');
+    analyzeBtn.disabled = false;
+    materials = { prompt: null, config: null, chatLog: null };
+    [prevPrompt, prevConfig, prevChatLog].forEach(p => {
+      p.textContent = '';
+      p.classList.remove('visible');
+    });
+    matPrompt.checked  = false;
+    matConfig.checked  = false;
+    matChatLog.checked = false;
+    modal.classList.add('visible');
+    requestAnimationFrame(() => description.focus());
+  }
+
+  function closeModal() {
+    modal.classList.remove('visible');
+  }
+
+  openBtn?.addEventListener('click', openModal);
+  closeBtn?.addEventListener('click', closeModal);
+  modal?.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal?.classList.contains('visible')) closeModal();
+  });
+
+  // ── Checkbox → Preview togglen ────────────────────────────────────────────
+
+  function wireCheckbox(checkbox, preview, key) {
+    checkbox.addEventListener('change', () => {
+      if (checkbox.checked && materials[key]) {
+        preview.textContent = materials[key];
+        preview.classList.add('visible');
+      } else {
+        preview.classList.remove('visible');
+      }
+    });
+  }
+
+  wireCheckbox(matPrompt,  prevPrompt,  'prompt');
+  wireCheckbox(matConfig,  prevConfig,  'config');
+  wireCheckbox(matChatLog, prevChatLog, 'chatLog');
+
+  // ── KI analysieren ────────────────────────────────────────────────────────
+
+  analyzeBtn?.addEventListener('click', async () => {
+    const desc = description.value.trim();
+    if (!desc) { statusEl.textContent = 'Bitte eine Beschreibung eingeben.'; return; }
+
+    analyzeBtn.disabled = true;
+    loading.classList.add('visible');
+    result.classList.remove('visible');
+    statusEl.textContent = '';
+
+    try {
+      const data = await apiFetch(`/api/bug-report?activityId=${encodeURIComponent(activityId)}`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ description: desc }),
+      });
+
+      titleInput.value = data.title || '';
+      bodyInput.value  = data.body  || '';
+
+      // Materialien speichern
+      materials = {
+        prompt:  data.materials?.prompt  || null,
+        config:  data.materials?.config  || null,
+        chatLog: data.materials?.chatLog || null,
+      };
+
+      // Zeilen einblenden/ausblenden je nach Verfügbarkeit
+      document.getElementById('br-mat-row-prompt').style.display  = materials.prompt  ? '' : 'none';
+      document.getElementById('br-mat-row-config').style.display  = materials.config  ? '' : 'none';
+      document.getElementById('br-mat-row-chatLog').style.display = materials.chatLog ? '' : 'none';
+
+      // Checkboxen nach KI-Vorschlag setzen (chatLog standardmäßig abgewählt)
+      const suggested = new Set(data.suggestedMaterials || []);
+      matPrompt.checked  = suggested.has('prompt')  && !!materials.prompt;
+      matConfig.checked  = suggested.has('config')  && !!materials.config;
+      matChatLog.checked = false; // Datenschutz: immer abgewählt
+
+      // Previews für aktiv ausgewählte Materialien anzeigen
+      [
+        [matPrompt,  prevPrompt,  'prompt'],
+        [matConfig,  prevConfig,  'config'],
+        [matChatLog, prevChatLog, 'chatLog'],
+      ].forEach(([cb, pv, key]) => {
+        if (cb.checked && materials[key]) {
+          pv.textContent = materials[key];
+          pv.classList.add('visible');
+        } else {
+          pv.classList.remove('visible');
+        }
+      });
+
+      result.classList.add('visible');
+    } catch (e) {
+      statusEl.textContent = `Fehler: ${e.message}`;
+    } finally {
+      loading.classList.remove('visible');
+      analyzeBtn.disabled = false;
+    }
+  });
+
+  // ── GitHub-URL bauen ──────────────────────────────────────────────────────
+
+  const GITHUB_ISSUE_URL = 'https://github.com/matthiasgruenwald/moo-gpt/issues/new';
+  const MAX_URL_BYTES = 8000;
+
+  function buildGithubUrl(title, body) {
+    const base = `${GITHUB_ISSUE_URL}?title=${encodeURIComponent(title)}&body=`;
+    const bodyEncoded = encodeURIComponent(body);
+    const full = base + bodyEncoded;
+
+    if (new TextEncoder().encode(full).length <= MAX_URL_BYTES) {
+      return full;
+    }
+
+    // Kürzen: Body in Byte-Budget passen
+    const baseBytes = new TextEncoder().encode(base).length;
+    const budget    = MAX_URL_BYTES - baseBytes - 50; // Puffer für "…\n[gekürzt]"
+    const encoder   = new TextEncoder();
+    let truncated   = body;
+    while (encoder.encode(encodeURIComponent(truncated)).length > budget) {
+      truncated = truncated.slice(0, Math.floor(truncated.length * 0.9));
+    }
+    return base + encodeURIComponent(truncated + '\n\n[Inhalt gekürzt – max. URL-Länge erreicht]');
+  }
+
+  function buildBodyWithMaterials() {
+    const base = bodyInput.value;
+    const sections = [];
+
+    if (matPrompt.checked && materials.prompt) {
+      sections.push(`\n\n---\n## Aufgabenprompt\n\`\`\`\n${materials.prompt}\n\`\`\``);
+    }
+    if (matConfig.checked && materials.config) {
+      sections.push(`\n\n---\n## Aktivitätskonfiguration\n\`\`\`json\n${materials.config}\n\`\`\``);
+    }
+    if (matChatLog.checked && materials.chatLog) {
+      sections.push(`\n\n---\n## Chat-Auszüge (pseudonymisiert)\n\`\`\`\n${materials.chatLog}\n\`\`\``);
+    }
+
+    return base + sections.join('');
+  }
+
+  // ── Senden-Buttons ────────────────────────────────────────────────────────
+
+  document.getElementById('br-send-full-btn')?.addEventListener('click', () => {
+    const title = titleInput.value.trim();
+    const body  = buildBodyWithMaterials();
+    if (!title) { statusEl.textContent = 'Bitte einen Titel eingeben.'; return; }
+    const url = buildGithubUrl(title, body);
+    window.open(url, '_blank', 'noopener');
+    statusEl.textContent = '✓ GitHub geöffnet';
+  });
+
+  document.getElementById('br-send-simple-btn')?.addEventListener('click', () => {
+    const title = titleInput.value.trim();
+    const body  = bodyInput.value;
+    if (!title) { statusEl.textContent = 'Bitte einen Titel eingeben.'; return; }
+    const url = buildGithubUrl(title, body);
+    window.open(url, '_blank', 'noopener');
+    statusEl.textContent = '✓ GitHub geöffnet';
+  });
+})();

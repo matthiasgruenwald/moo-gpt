@@ -30,6 +30,7 @@ const CALL_TYPE_LABELS = {
   'optimize':      'Optimierung',
   'persona':       'Persona',
   'simulation':    'Simulation',
+  'bug-report':    'Fehler-Meldung',
 };
 
 // ── Migriert aus token-log.js (Issue #125) ───────────────────────────────────

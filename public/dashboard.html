@@ -33,6 +33,123 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     }
     #header h1 { font-size: 18px; font-weight: 600; flex: 1; }
+    #bug-report-btn {
+      background: none;
+      border: 1px solid rgba(255,255,255,0.3);
+      color: rgba(255,255,255,0.7);
+      border-radius: 4px;
+      padding: 3px 9px;
+      font-size: 12px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    #bug-report-btn:hover { background: rgba(255,255,255,0.12); color: white; border-color: rgba(255,255,255,0.6); }
+
+    /* ── Bug-Report-Modal ──────────────────────────────────────────────────── */
+    #bug-report-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 5000;
+      background: rgba(0,0,0,0.55);
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    #bug-report-modal.visible { display: flex; }
+    #bug-report-box {
+      background: white;
+      border-radius: 10px;
+      width: 100%;
+      max-width: 640px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      display: flex;
+      flex-direction: column;
+    }
+    #bug-report-box-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid #eef0f3;
+      flex-shrink: 0;
+    }
+    #bug-report-box-header h2 { font-size: 16px; color: #003366; margin: 0; }
+    #bug-report-close {
+      background: none; border: none; font-size: 20px;
+      cursor: pointer; color: #555; line-height: 1; padding: 4px 6px;
+    }
+    #bug-report-close:hover { color: #000; }
+    #bug-report-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+    .br-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #555; margin-bottom: 4px; display: block; }
+    #br-description {
+      width: 100%;
+      font-size: 14px;
+      font-family: Arial, sans-serif;
+      padding: 10px;
+      border: 1px solid #ccd3db;
+      border-radius: 6px;
+      resize: vertical;
+      min-height: 90px;
+      box-sizing: border-box;
+      line-height: 1.5;
+    }
+    #br-description:focus { outline: none; border-color: #5599ff; box-shadow: 0 0 0 2px rgba(85,153,255,0.2); }
+    #br-analyze-btn {
+      background: #004085; color: white;
+      border: none; border-radius: 6px;
+      padding: 8px 18px; font-size: 14px;
+      cursor: pointer; align-self: flex-start;
+    }
+    #br-analyze-btn:hover { background: #003366; }
+    #br-analyze-btn:disabled { background: #a0bcd8; cursor: not-allowed; }
+    #br-loading { font-size: 13px; color: #888; display: none; }
+    #br-loading.visible { display: block; }
+    #br-result { display: none; flex-direction: column; gap: 14px; }
+    #br-result.visible { display: flex; }
+    #br-issue-title {
+      width: 100%; font-size: 14px; padding: 8px 10px;
+      border: 1px solid #ccd3db; border-radius: 6px;
+      box-sizing: border-box;
+    }
+    #br-issue-body {
+      width: 100%; font-size: 12px; font-family: monospace;
+      padding: 10px; border: 1px solid #ccd3db; border-radius: 6px;
+      resize: vertical; min-height: 120px; box-sizing: border-box;
+      background: #fafbfc; line-height: 1.5;
+    }
+    .br-materials-section { display: flex; flex-direction: column; gap: 8px; }
+    .br-material-row { display: flex; flex-direction: column; gap: 4px; }
+    .br-material-header { display: flex; align-items: center; gap: 8px; }
+    .br-material-header label { font-size: 13px; color: #333; cursor: pointer; }
+    .br-material-preview {
+      font-size: 11px; font-family: monospace;
+      background: #f4f6f8; border: 1px solid #e0e4ea;
+      border-radius: 4px; padding: 8px; max-height: 120px;
+      overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+      color: #555; display: none;
+    }
+    .br-material-preview.visible { display: block; }
+    .br-privacy-note { font-size: 11px; color: #888; margin-left: 24px; }
+    .br-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .br-send-btn {
+      background: #27ae60; color: white;
+      border: none; border-radius: 6px;
+      padding: 8px 16px; font-size: 13px;
+      cursor: pointer;
+    }
+    .br-send-btn:hover { background: #219a52; }
+    .br-send-simple-btn {
+      background: #6c757d; color: white;
+      border: none; border-radius: 6px;
+      padding: 8px 16px; font-size: 13px;
+      cursor: pointer;
+    }
+    .br-send-simple-btn:hover { background: #545b62; }
+    #br-status { font-size: 12px; color: #888; }
+
     #header .badge-live {
       font-size: 12px;
       background: #28a745;
@@ -1079,10 +1196,80 @@
   </div>
 </div>
 
+<!-- Bug-Report-Modal (#160) -->
+<div id="bug-report-modal">
+  <div id="bug-report-box">
+    <div id="bug-report-box-header">
+      <h2>Fehler melden</h2>
+      <button id="bug-report-close" aria-label="Schließen">✕</button>
+    </div>
+    <div id="bug-report-body">
+      <div>
+        <span class="br-label">Fehlerbeschreibung</span>
+        <textarea id="br-description" placeholder="Was ist passiert? Beschreibe den Fehler möglichst genau…"></textarea>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <button id="br-analyze-btn">KI analysieren lassen</button>
+        <span id="br-loading">Analysiere…</span>
+      </div>
+
+      <div id="br-result">
+        <hr style="border:none;border-top:1px solid #eef0f3;margin:0">
+
+        <div>
+          <span class="br-label">Issue-Titel (bearbeitbar)</span>
+          <input type="text" id="br-issue-title" placeholder="Issue-Titel…">
+        </div>
+
+        <div>
+          <span class="br-label">Issue-Body (Markdown, bearbeitbar)</span>
+          <textarea id="br-issue-body" rows="8"></textarea>
+        </div>
+
+        <div class="br-materials-section">
+          <span class="br-label">Beizufügende Materialien</span>
+
+          <div class="br-material-row" id="br-mat-row-prompt">
+            <div class="br-material-header">
+              <input type="checkbox" id="br-mat-prompt">
+              <label for="br-mat-prompt">Aufgabenprompt</label>
+            </div>
+            <pre class="br-material-preview" id="br-mat-prompt-preview"></pre>
+          </div>
+
+          <div class="br-material-row" id="br-mat-row-config">
+            <div class="br-material-header">
+              <input type="checkbox" id="br-mat-config">
+              <label for="br-mat-config">Aktivitätskonfiguration</label>
+            </div>
+            <pre class="br-material-preview" id="br-mat-config-preview"></pre>
+          </div>
+
+          <div class="br-material-row" id="br-mat-row-chatLog">
+            <div class="br-material-header">
+              <input type="checkbox" id="br-mat-chatLog">
+              <label for="br-mat-chatLog">Chat-Auszüge (standardmäßig deaktiviert)</label>
+            </div>
+            <p class="br-privacy-note">⚠ Freitext kann Schülernamen enthalten. Schüler-IDs wurden pseudonymisiert (Schüler A, B, …).</p>
+            <pre class="br-material-preview" id="br-mat-chatLog-preview"></pre>
+          </div>
+        </div>
+
+        <div class="br-actions">
+          <button class="br-send-btn" id="br-send-full-btn">Mit Material senden</button>
+          <button class="br-send-simple-btn" id="br-send-simple-btn">Nur Beschreibung senden</button>
+          <span id="br-status"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="header">
   <div id="status-dot" title="WebSocket-Status"></div>
   <h1 id="page-title">Schüler-Dashboard</h1>
   <span id="live-badge" class="badge-live">LIVE</span>
+  <button id="bug-report-btn" title="Fehler als GitHub-Issue melden">Bug melden</button>
 </div>
 
 <div id="tab-bar">
