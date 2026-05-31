@@ -16,7 +16,7 @@ import { getCachedConfig as _getCachedConfig } from '../stores/prompt.js';
 import { getActiveErfahrungsprompt as _getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { getMessagesAll as _getMessagesAll, saveMessage as _saveMessage } from '../stores/chat.js';
 import { recordUsage as _recordUsage } from '../token-log.js';
-import { getWidgetConfig as _getWidgetConfig } from '../stores/widget-config.js';
+import { resolveWidgetConfig as _resolveWidgetConfig } from './widget-config-resolver.js';
 
 const productionModuleDeps = {
   buildInput:                _buildInput,
@@ -28,7 +28,7 @@ const productionModuleDeps = {
   getMessagesAll:            _getMessagesAll,
   saveMessage:               _saveMessage,
   recordUsage:               _recordUsage,
-  getWidgetConfig:           _getWidgetConfig,
+  resolveWidgetConfig:       _resolveWidgetConfig,
 };
 
 /**
@@ -49,7 +49,7 @@ export function createStreamResponse({ dashboardRegistry, aiClient }, moduleDeps
     getMessagesAll,
     saveMessage,
     recordUsage,
-    getWidgetConfig,
+    resolveWidgetConfig,
   } = moduleDeps;
 
   /**
@@ -63,8 +63,8 @@ export function createStreamResponse({ dashboardRegistry, aiClient }, moduleDeps
     const memoryEntry    = (!ws.isTeacher && settings.userId)
       ? getStudentMemory(settings.userId)
       : null;
-    const widgetCfg      = getWidgetConfig(settings.activityId);
-    const mathMode       = widgetCfg?.math_mode ?? 'off';
+    const widgetCfg      = resolveWidgetConfig(settings.activityId, null);
+    const mathMode       = widgetCfg.mathMode;
     const instructions   = buildInstructions({
       systemContent:    getCachedConfig().content,
       erfahrungContent: getActiveErfahrungsprompt(settings.activityId)?.content ?? '',

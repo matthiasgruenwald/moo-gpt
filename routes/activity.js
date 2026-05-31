@@ -7,6 +7,7 @@ import { getTeacherPreference, setTeacherSuggestPreference } from '../stores/tea
 import { AVAILABLE_MODELS } from '../env-config.js';
 import { getEffectiveModel } from '../model-resolver.js';
 import { validateWidgetConfig } from '../validators.js';
+import { resolveWidgetConfig } from '../services/widget-config-resolver.js';
 
 export function createActivityRouter({ lockManager }) {
   const router = Router();
@@ -14,22 +15,23 @@ export function createActivityRouter({ lockManager }) {
   router.get('/activity-config/:activityId', requireDashboardAuth, (req, res) => {
     const { activityId, userId } = req;
     const act  = getActivity(activityId);
+    const cfg  = resolveWidgetConfig(activityId, userId);
     const erf  = getActiveErfahrungsprompt(activityId);
     const pref = getTeacherPreference(userId);
     res.json({
       activityId,
       activityName:           act?.activity_name              || '',
-      title:                  act?.title                      ?? '',
-      botIcon:                act?.bot_icon                   ?? 'grw',
-      opener:                 act?.opener                     || '',
-      uploadMode:             act?.upload_mode                || 'off',
-      audioInput:             act?.audio_input                || 'off',
-      audioOutput:            act?.audio_output               || 'off',
-      ttsVoice:               act?.tts_voice                  || 'nova',
-      audioStudentOptions:    act?.audio_student_options      || 'off',
-      mathMode:               act?.math_mode                  ?? 'off',
+      title:                  cfg.title                       ?? '',
+      botIcon:                cfg.botIcon,
+      opener:                 cfg.opener                      || '',
+      uploadMode:             cfg.uploadMode,
+      audioInput:             cfg.audioInput,
+      audioOutput:            cfg.audioOutput,
+      ttsVoice:               cfg.ttsVoice,
+      audioStudentOptions:    cfg.audioStudentOptions,
+      mathMode:               cfg.mathMode,
       erfahrungsprompt:       erf?.content                    || '',
-      model:                  act?.model                      ?? null,
+      model:                  cfg.model,
       effectiveModel:         getEffectiveModel(activityId),
       availableModels:        AVAILABLE_MODELS,
       preferSuggestQuestions: pref?.prefer_suggest_questions  ?? 1,
@@ -39,7 +41,7 @@ export function createActivityRouter({ lockManager }) {
   router.put('/activity-config/:activityId', requireDashboardAuth, (req, res) => {
     const { activityId, userId } = req;
     const { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode } = req.body;
-    const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode);
+    const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode, audioOutput, ttsVoice, audioStudentOptions);
     if (validErr) return res.status(400).json({ error: validErr });
     const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
     if (model && model !== '' && !validModel) return res.status(400).json({ error: 'Ungültiges Modell' });

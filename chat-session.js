@@ -1,7 +1,7 @@
 import { upsertActivity, getActivity } from './stores/activity.js';
 import { getActiveErfahrungsprompt, saveErfahrungsprompt } from './stores/prompt.js';
-import { getTeacherDefaultTemplate, getSystemTemplate } from './stores/teacher.js';
 import { saveThread, touchThread, findThread, updateThreadName, saveMessage, getMessages, deleteTaskImages } from './stores/chat.js';
+import { resolveWidgetConfig } from './services/widget-config-resolver.js';
 
 function detectRole(settings) {
   const teacherIds = process.env.TEACHER_USER_IDS
@@ -14,18 +14,7 @@ function detectRole(settings) {
 async function resolveActivity(activityId, activityName, isTeacher, userId, hints) {
   let act = getActivity(activityId);
   if (!act) {
-    const defaults = isTeacher && userId
-      ? (getTeacherDefaultTemplate(userId) ?? getSystemTemplate())
-      : null;
-    upsertActivity(
-      activityId,
-      activityName || activityId,
-      defaults?.opener      ?? null,
-      defaults?.upload_mode ?? 'off',
-      defaults?.title       ?? null,
-      defaults?.bot_icon    ?? 'grw',
-    );
-    act = getActivity(activityId);
+    upsertActivity(activityId, activityName || activityId, null, null, null, null);
   } else if (activityName && activityName !== act.activity_name) {
     upsertActivity(activityId, activityName, null, null, null, null);
   }
@@ -35,17 +24,7 @@ async function resolveActivity(activityId, activityName, isTeacher, userId, hint
     console.log(`[Settings] Aufgabenprompt (hints) für ${activityId} aus Snippet importiert`);
   }
 
-  return {
-    title:               act?.title                ?? null,
-    botIcon:             act?.bot_icon             ?? 'grw',
-    opener:              act?.opener               ?? null,
-    uploadMode:          act?.upload_mode          ?? 'off',
-    audioInput:          act?.audio_input          ?? 'off',
-    audioOutput:         act?.audio_output         ?? 'off',
-    ttsVoice:            act?.tts_voice            ?? 'nova',
-    audioStudentOptions: act?.audio_student_options ?? 'off',
-    needsConfig: act?.title == null,
-  };
+  return resolveWidgetConfig(activityId, isTeacher ? userId : null);
 }
 
 async function resolveThread(userId, userName, activityId, images) {
