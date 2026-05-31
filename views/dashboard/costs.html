@@ -261,9 +261,7 @@
   <a class="dash-nav-link" href="#" id="nav-settings">Einstellungen</a>
 </nav>
 
-<div id="toolbar">
-  Aktivität: <span id="toolbar-activity-id">–</span>
-</div>
+<div id="toolbar" style="display:none"></div>
 
 <div id="main">
 
@@ -317,7 +315,6 @@
     document.getElementById('initial-error').classList.add('visible');
   }
 
-  document.getElementById('toolbar-activity-id').textContent = activityId || '–';
 
   // ── Kosten-Format ───────────────────────────────────────────────────────
   function fmtCt(eur) {
@@ -488,8 +485,6 @@
           `;
           btn.addEventListener('click', () => {
             activityId = act.activityId;
-            document.getElementById('toolbar-activity-id').textContent =
-              act.activityName ? act.activityName + ' (' + act.activityId + ')' : act.activityId;
             // Alle selected-Klassen entfernen und neu setzen
             listEl.querySelectorAll('.activity-item').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');

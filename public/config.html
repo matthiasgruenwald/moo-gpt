@@ -274,26 +274,42 @@
 
     .cfg-close-warn {
       position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: #fff3cd;
-      border-top: 2px solid #ffc107;
-      padding: 12px 16px;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
       z-index: 200;
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-size: 13px;
-      color: #333;
+      justify-content: center;
+      padding: 20px;
     }
-    .cfg-close-warn-text { flex: 1; }
+    .cfg-close-warn-box {
+      background: #fff3cd;
+      border: 2px solid #ffc107;
+      border-radius: 10px;
+      padding: 22px 24px;
+      max-width: 380px;
+      width: 100%;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .cfg-close-warn-text {
+      font-size: 14px;
+      color: #333;
+      line-height: 1.5;
+    }
+    .cfg-close-warn-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
     .cfg-close-warn-confirm {
       background: #dc3545;
       color: #fff;
       border: none;
       border-radius: 6px;
-      padding: 7px 14px;
+      padding: 8px 16px;
       font-size: 13px;
       font-weight: 700;
       cursor: pointer;
@@ -303,7 +319,7 @@
       background: none;
       border: 1px solid #999;
       border-radius: 6px;
-      padding: 7px 14px;
+      padding: 8px 16px;
       font-size: 13px;
       cursor: pointer;
     }
@@ -451,9 +467,13 @@
   </div>
 
   <div id="cfg-close-warn" class="cfg-close-warn" style="display:none">
-    <span class="cfg-close-warn-text">Nicht gespeicherte &Auml;nderungen gehen verloren. Trotzdem schlie&szlig;en?</span>
-    <button class="cfg-close-warn-cancel"  id="cfg-close-warn-cancel">Abbrechen</button>
-    <button class="cfg-close-warn-confirm" id="cfg-close-warn-confirm">Schlie&szlig;en</button>
+    <div class="cfg-close-warn-box">
+      <span class="cfg-close-warn-text">Nicht gespeicherte &Auml;nderungen gehen verloren. Trotzdem schlie&szlig;en?<br><br>Tipp: &bdquo;Speichern &amp; Schlie&szlig;en&ldquo; sichert die &Auml;nderungen.</span>
+      <div class="cfg-close-warn-actions">
+        <button class="cfg-close-warn-cancel"  id="cfg-close-warn-cancel">Abbrechen</button>
+        <button class="cfg-close-warn-confirm" id="cfg-close-warn-confirm">Trotzdem schlie&szlig;en</button>
+      </div>
+    </div>
   </div>
 
   <script src="/config.js"></script>
