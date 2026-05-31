@@ -2564,6 +2564,15 @@ if (document.getElementById('settings-panel')) loadSettings();
   // Materialdaten (vom Server geliefert)
   let materials = { prompt: null, config: null, chatLog: null };
 
+  // Tracking ob GitHub schon geöffnet wurde und ob danach Änderungen gemacht wurden
+  let githubOpened    = false;
+  let changedAfterSend = false;
+
+  const footer          = document.getElementById('bug-report-footer');
+  const closeConfirm    = document.getElementById('br-close-confirm');
+  const confirmCloseBtn = document.getElementById('br-confirm-close');
+  const confirmStayBtn  = document.getElementById('br-confirm-stay');
+
   // ── Modal öffnen/schließen ────────────────────────────────────────────────
 
   function openModal() {
@@ -2580,24 +2589,50 @@ if (document.getElementById('settings-panel')) loadSettings();
       p.textContent = '';
       p.classList.remove('visible');
     });
-    matPrompt.checked  = false;
-    matConfig.checked  = false;
-    matChatLog.checked = false;
+    matPrompt.checked   = false;
+    matConfig.checked   = false;
+    matChatLog.checked  = false;
+    githubOpened        = false;
+    changedAfterSend    = false;
+    closeConfirm?.classList.remove('visible');
+    footer?.classList.remove('visible');
     modal.classList.add('visible');
     requestAnimationFrame(() => description.focus());
   }
 
   function closeModal() {
+    closeConfirm?.classList.remove('visible');
     modal.classList.remove('visible');
   }
 
+  function tryClose() {
+    if (githubOpened && changedAfterSend) {
+      closeConfirm?.classList.add('visible');
+    } else {
+      closeModal();
+    }
+  }
+
+  function markChanged() {
+    if (githubOpened) changedAfterSend = true;
+  }
+
+  titleInput.addEventListener('input', markChanged);
+  bodyInput.addEventListener('input', markChanged);
+  matPrompt.addEventListener('change',  markChanged);
+  matConfig.addEventListener('change',  markChanged);
+  matChatLog.addEventListener('change', markChanged);
+
+  confirmCloseBtn?.addEventListener('click', closeModal);
+  confirmStayBtn?.addEventListener('click', () => closeConfirm?.classList.remove('visible'));
+
   openBtn?.addEventListener('click', openModal);
-  closeBtn?.addEventListener('click', closeModal);
+  closeBtn?.addEventListener('click', tryClose);
   modal?.addEventListener('click', (e) => {
-    if (e.target === modal) closeModal();
+    if (e.target === modal) tryClose();
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modal?.classList.contains('visible')) closeModal();
+    if (e.key === 'Escape' && modal?.classList.contains('visible')) tryClose();
   });
 
   // ── Checkbox → Preview togglen ────────────────────────────────────────────
@@ -2671,6 +2706,8 @@ if (document.getElementById('settings-panel')) loadSettings();
       });
 
       result.classList.add('visible');
+      footer?.classList.add('visible');
+      if (githubOpened) changedAfterSend = true;
     } catch (e) {
       statusEl.textContent = `Fehler: ${e.message}`;
     } finally {
@@ -2723,22 +2760,15 @@ if (document.getElementById('settings-panel')) loadSettings();
 
   // ── Senden-Buttons ────────────────────────────────────────────────────────
 
-  document.getElementById('br-send-full-btn')?.addEventListener('click', () => {
+  document.getElementById('br-send-ai-btn')?.addEventListener('click', () => {
     const title = titleInput.value.trim();
     const body  = buildBodyWithMaterials();
     if (!title) { statusEl.textContent = 'Bitte einen Titel eingeben.'; return; }
     const url = buildGithubUrl(title, body);
     window.open(url, '_blank', 'noopener');
     statusEl.textContent = '✓ GitHub geöffnet';
-  });
-
-  document.getElementById('br-send-simple-btn')?.addEventListener('click', () => {
-    const title = titleInput.value.trim();
-    const body  = bodyInput.value;
-    if (!title) { statusEl.textContent = 'Bitte einen Titel eingeben.'; return; }
-    const url = buildGithubUrl(title, body);
-    window.open(url, '_blank', 'noopener');
-    statusEl.textContent = '✓ GitHub geöffnet';
+    githubOpened     = true;
+    changedAfterSend = false;
   });
 
   document.getElementById('br-send-simple-btn-early')?.addEventListener('click', () => {

@@ -54,8 +54,8 @@
     #bug-report-modal.visible { display: flex; }
     #bug-report-box {
       background: white; border-radius: 10px; width: 100%; max-width: 640px;
-      max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-      display: flex; flex-direction: column;
+      max-height: 90vh; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      display: flex; flex-direction: column; position: relative;
     }
     #bug-report-box-header {
       display: flex; align-items: center; justify-content: space-between;
@@ -64,8 +64,9 @@
     #bug-report-box-header h2 { font-size: 16px; color: #003366; margin: 0; }
     #bug-report-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #555; line-height: 1; padding: 4px 6px; }
     #bug-report-close:hover { color: #000; }
-    #bug-report-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+    #bug-report-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; flex: 1; }
     .br-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #555; margin-bottom: 4px; display: block; }
+    .br-hint { font-size: 11px; color: #888; margin-top: -2px; margin-bottom: 4px; display: block; }
     #br-description { width: 100%; font-size: 14px; font-family: Arial,sans-serif; padding: 10px; border: 1px solid #ccd3db; border-radius: 6px; resize: vertical; min-height: 90px; box-sizing: border-box; line-height: 1.5; }
     #br-description:focus { outline: none; border-color: #5599ff; box-shadow: 0 0 0 2px rgba(85,153,255,0.2); }
     #br-analyze-btn { background: #004085; color: white; border: none; border-radius: 6px; padding: 8px 18px; font-size: 14px; cursor: pointer; align-self: flex-start; }
@@ -90,7 +91,25 @@
     .br-send-simple-btn { background: #6c757d; color: white; border: none; border-radius: 6px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
     .br-send-simple-btn:hover { background: #545b62; }
     #br-status { font-size: 12px; color: #888; }
+    #bug-report-footer {
+      display: none; padding: 14px 18px; border-top: 1px solid #eef0f3;
+      flex-shrink: 0; gap: 10px; align-items: center;
+    }
+    #bug-report-footer.visible { display: flex; }
     #bug-report-btn { margin-left: auto; }
+    #br-close-confirm {
+      display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 10; border-radius: 10px; align-items: center; justify-content: center;
+    }
+    #br-close-confirm.visible { display: flex; }
+    #br-close-confirm-box {
+      background: white; border-radius: 8px; padding: 24px 20px; max-width: 300px;
+      text-align: center; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+    #br-close-confirm-box p { font-size: 14px; color: #333; margin: 0 0 6px; line-height: 1.5; }
+    #br-close-confirm-box .br-confirm-actions { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
+    #br-confirm-close { background: #6c757d; color: white; border: none; border-radius: 6px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
+    #br-confirm-stay  { background: #004085; color: white; border: none; border-radius: 6px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
 
     /* ── Toolbar ─────────────────────────────────────────────────────────── */
     #toolbar {
@@ -1293,7 +1312,8 @@
           <input type="text" id="br-issue-title" placeholder="Issue-Titel…">
         </div>
         <div>
-          <span class="br-label">Issue-Body (Markdown, bearbeitbar)</span>
+          <span class="br-label">Issue-Body (bearbeitbar)</span>
+          <span class="br-hint">Wird im Markdown-Format an GitHub gesendet.</span>
           <textarea id="br-issue-body" rows="8"></textarea>
         </div>
         <div class="br-materials-section">
@@ -1321,10 +1341,19 @@
             <pre class="br-material-preview" id="br-mat-chatLog-preview"></pre>
           </div>
         </div>
-        <div class="br-actions">
-          <button class="br-send-btn" id="br-send-full-btn">Mit Material senden</button>
-          <button class="br-send-simple-btn" id="br-send-simple-btn">Nur meine Beschreibung senden</button>
-          <span id="br-status"></span>
+      </div>
+    </div>
+    <div id="bug-report-footer">
+      <button class="br-send-btn" id="br-send-ai-btn">KI-gestützte Beschreibung senden</button>
+      <span id="br-status"></span>
+    </div>
+    <div id="br-close-confirm">
+      <div id="br-close-confirm-box">
+        <p>GitHub wurde bereits geöffnet.</p>
+        <p>Es gibt Änderungen, die noch nicht gesendet wurden.</p>
+        <div class="br-confirm-actions">
+          <button id="br-confirm-close">Trotzdem schließen</button>
+          <button id="br-confirm-stay">Weiter bearbeiten</button>
         </div>
       </div>
     </div>
