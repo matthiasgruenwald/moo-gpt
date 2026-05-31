@@ -271,6 +271,43 @@
       margin-bottom: 10px;
     }
     .cfg-compare-btn { width: 100%; }
+
+    .cfg-close-warn {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fff3cd;
+      border-top: 2px solid #ffc107;
+      padding: 12px 16px;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: #333;
+    }
+    .cfg-close-warn-text { flex: 1; }
+    .cfg-close-warn-confirm {
+      background: #dc3545;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .cfg-close-warn-confirm:hover { background: #b02a37; }
+    .cfg-close-warn-cancel {
+      background: none;
+      border: 1px solid #999;
+      border-radius: 6px;
+      padding: 7px 14px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .cfg-close-warn-cancel:hover { background: #f0f0f0; }
   </style>
 </head>
 <body>
@@ -411,6 +448,12 @@
       <button class="cfg-save-btn" id="cfg-tpl-save-btn" style="background:#555;font-size:12px;padding:10px 14px;">Als Vorlage speichern</button>
       <span class="cfg-status" id="cfg-status"></span>
     </div>
+  </div>
+
+  <div id="cfg-close-warn" class="cfg-close-warn" style="display:none">
+    <span class="cfg-close-warn-text">Nicht gespeicherte &Auml;nderungen gehen verloren. Trotzdem schlie&szlig;en?</span>
+    <button class="cfg-close-warn-cancel"  id="cfg-close-warn-cancel">Abbrechen</button>
+    <button class="cfg-close-warn-confirm" id="cfg-close-warn-confirm">Schlie&szlig;en</button>
   </div>
 
   <script src="/config.js"></script>

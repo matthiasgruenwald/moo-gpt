@@ -11,6 +11,7 @@
   let templates        = [];
   let loadedTemplateId = null;
   let taskContext      = { task: null, images: [] };
+  let openSnapshot     = null;
 
   window.addEventListener('message', (e) => {
     if (e.data?.type === 'moogpt:taskContext') {
@@ -22,6 +23,13 @@
     if (e.data?.type === 'moogpt:suggestAccept') {
       document.getElementById('cfg-hints').value = e.data.prompt;
       updateDirtyState();
+    }
+    if (e.data?.type === 'moogpt:requestClose') {
+      if (computeDirtyFromSnapshot()) {
+        document.getElementById('cfg-close-warn').style.display = '';
+      } else {
+        window.parent.postMessage({ type: 'moogpt:closeConfirmed' }, '*');
+      }
     }
   });
 
@@ -92,6 +100,27 @@
       f.audioStudentOptions !== (tpl.audio_student_options ?? 'off') ||
       f.model               !== (tpl.model               ?? '') ||
       f.hintsTemplate       !== (tpl.hints_template       ?? '')
+    );
+  }
+
+  function captureOpenSnapshot() {
+    openSnapshot = getFields();
+  }
+
+  function computeDirtyFromSnapshot() {
+    if (!openSnapshot) return false;
+    const f = getFields();
+    return (
+      f.title               !== openSnapshot.title               ||
+      f.botIcon             !== openSnapshot.botIcon             ||
+      f.opener              !== openSnapshot.opener              ||
+      f.uploadMode          !== openSnapshot.uploadMode          ||
+      f.audioInput          !== openSnapshot.audioInput          ||
+      f.audioOutput         !== openSnapshot.audioOutput         ||
+      f.ttsVoice            !== openSnapshot.ttsVoice            ||
+      f.audioStudentOptions !== openSnapshot.audioStudentOptions ||
+      f.model               !== openSnapshot.model               ||
+      f.hintsTemplate       !== openSnapshot.hintsTemplate
     );
   }
 
@@ -368,6 +397,7 @@
       updateAdvancedSummary();
 
       await loadTemplates();
+      captureOpenSnapshot();
     } catch (e) {
       showError('Netzwerkfehler: ' + e.message);
     }
@@ -449,6 +479,7 @@
         status.className   = 'cfg-status err';
         status.textContent = errors.join(' ');
       } else {
+        captureOpenSnapshot();
         window.parent.postMessage({ type: 'moogpt:configSaved' }, '*');
       }
     } catch (e) {
@@ -656,6 +687,15 @@
   document.getElementById('cfg-audio-output').addEventListener('change', updateAudioOutputDependents);
   document.getElementById('cfg-tts-voice').addEventListener('change', updateAudioSummary);
   document.getElementById('cfg-audio-student-options').addEventListener('change', updateAudioSummary);
+
+  document.getElementById('cfg-close-warn-confirm').addEventListener('click', () => {
+    document.getElementById('cfg-close-warn').style.display = 'none';
+    window.parent.postMessage({ type: 'moogpt:closeConfirmed' }, '*');
+  });
+
+  document.getElementById('cfg-close-warn-cancel').addEventListener('click', () => {
+    document.getElementById('cfg-close-warn').style.display = 'none';
+  });
 
   loadConfig();
 })();

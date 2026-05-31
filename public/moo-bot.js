@@ -271,7 +271,14 @@ export class MOOBOT {
         </div>
         <iframe id="config-overlay-iframe" class="config-overlay-iframe" src=""></iframe>`;
       document.body.appendChild(cfgOverlay);
-      cfgOverlay.querySelector('#config-overlay-close').onclick = () => this.closeConfig();
+      cfgOverlay.querySelector('#config-overlay-close').onclick = () => {
+        const iframe = document.getElementById('config-overlay-iframe');
+        if (iframe?.contentWindow) {
+          iframe.contentWindow.postMessage({ type: 'moogpt:requestClose' }, '*');
+        } else {
+          this.closeConfig();
+        }
+      };
       cfgOverlay.querySelector('#config-overlay-side-toggle').onclick = () => {
         cfgOverlay.classList.toggle('left-side');
         document.getElementById('suggest-panel')?.classList.toggle('left-side');
@@ -372,6 +379,10 @@ export class MOOBOT {
       if (e.data?.type === 'moogpt:configSaved') {
         this.closeConfig();
         document.getElementById('config-icon')?.querySelector('.cfg-badge')?.remove();
+      }
+      // Issue #159: Schließen nach Dirty-State-Prüfung im Iframe bestätigt
+      if (e.data?.type === 'moogpt:closeConfirmed') {
+        this.closeConfig();
       }
       // Issue #40: Overlay auf Vollbreite erweitern wenn Vergleichs-Panel geöffnet wird
       if (e.data?.type === 'moogpt:expandOverlay') {
