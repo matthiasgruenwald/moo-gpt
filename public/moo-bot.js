@@ -38,6 +38,7 @@ export class MOOBOT {
     this._lastRawText            = '';   // Issue #100: Rohtext der letzten Bot-Antwort
     this._ttsAutoPlay            = false; // Issue #101: Auto-Play, aus student-memory geladen
     this._cachedPreferenceText   = '';   // Issue #101: preferenceText zwischenspeichern (kein Überschreiben beim Speichern)
+    this._ttsCache               = new WeakMap(); // Issue #151: AudioBuffer-Cache pro Button-Element
     this.marked = marked;
     this.katex = katex;
     this.renderMathInElement = renderMathInElement;
@@ -1990,6 +1991,8 @@ export class MOOBOT {
   /**
    * Ruft POST /api/speak auf, spielt den Audio-Blob ab.
    * Stoppt laufende Wiedergabe bevor eine neue gestartet wird.
+   * Issue #151: AudioBuffer wird per WeakMap auf dem Button-Element gecacht.
+   * Bei Voice-Wechsel wird der Cache-Eintrag verworfen und neu abgerufen.
    */
   async _speakMessage(text, btn) {
     // Laufende Wiedergabe stoppen
@@ -2002,29 +2005,37 @@ export class MOOBOT {
     btn.textContent = '⏳';
 
     try {
-      const res = await fetch(`${this._baseUrl()}/api/speak`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text,
-          voice: this._ttsVoice,
-          speed: this._ttsSpeed,
-          activityId: this.settings.activityId || '',
-          threadId:   '',
-          userId:     this.settings.userId || '',
-        }),
-      });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
       // AudioContext verwenden — kein User-Gesture nötig nach erstem Unlock
       if (!this._audioCtx) {
         this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       }
       await this._audioCtx.resume();
 
-      const arrayBuffer = await res.arrayBuffer();
-      const audioBuffer = await this._audioCtx.decodeAudioData(arrayBuffer);
+      // Issue #151: Cache-Hit prüfen — nur verwenden wenn Stimme noch übereinstimmt
+      const cached = this._ttsCache.get(btn);
+      let audioBuffer;
+      if (cached && cached.voice === this._ttsVoice) {
+        audioBuffer = cached.buffer;
+      } else {
+        const res = await fetch(`${this._baseUrl()}/api/speak`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text,
+            voice: this._ttsVoice,
+            speed: this._ttsSpeed,
+            activityId: this.settings.activityId || '',
+            threadId:   '',
+            userId:     this.settings.userId || '',
+          }),
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const arrayBuffer = await res.arrayBuffer();
+        audioBuffer = await this._audioCtx.decodeAudioData(arrayBuffer);
+        this._ttsCache.set(btn, { voice: this._ttsVoice, buffer: audioBuffer });
+      }
       const source = this._audioCtx.createBufferSource();
       source.buffer = audioBuffer;
       source.playbackRate.value = this._ttsSpeed;
