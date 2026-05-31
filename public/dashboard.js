@@ -1028,6 +1028,33 @@ function simpleMarkdown(text) {
   html = html.replace(/```[\s\S]*?```/g, match => `<pre>${match.slice(3, -3).trim()}</pre>`);
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+  // List transformation: runs line-by-line BEFORE \n → <br>
+  {
+    const lines = html.split('\n');
+    const out = [];
+    let inUl = false, inOl = false;
+    for (const line of lines) {
+      if (/^[-*] /.test(line)) {
+        if (inOl) { out.push('</ol>'); inOl = false; }
+        if (!inUl) { out.push('<ul>'); inUl = true; }
+        out.push(`<li>${line.slice(2)}</li>`);
+      } else if (/^\d+\. /.test(line)) {
+        if (inUl) { out.push('</ul>'); inUl = false; }
+        if (!inOl) { out.push('<ol>'); inOl = true; }
+        out.push(`<li>${line.replace(/^\d+\. /, '')}</li>`);
+      } else {
+        if (inUl) { out.push('</ul>'); inUl = false; }
+        if (inOl) { out.push('</ol>'); inOl = false; }
+        out.push(line + '\n');
+      }
+    }
+    if (inUl) out.push('</ul>');
+    if (inOl) out.push('</ol>');
+    html = out.join('');
+    // Remove trailing \n added to non-list lines before the final \n→<br> pass
+  }
+
   html = html.replace(/\n/g, '<br>');
 
   if (math.length) {
