@@ -286,7 +286,7 @@
 </div>
 
 <div id="header">
-  <h1>moo-gpt</h1>
+  <h1 id="page-title">moo-gpt</h1>
   <button id="bug-report-btn" title="Fehler oder Verbesserungsidee als GitHub-Issue melden">Fehler & Ideen melden</button>
 </div>
 <nav id="dashboard-nav">
@@ -351,6 +351,22 @@
   if (!activityId || !token) {
     document.getElementById('initial-error').classList.add('visible');
   }
+
+  async function initPageTitle(fetchFn, dom, aid, tok) {
+    if (!aid || !tok) return;
+    try {
+      const r    = await fetchFn(`/api/activity-config/${encodeURIComponent(aid)}?token=${encodeURIComponent(tok)}`);
+      const data = await r.json();
+      const h1   = dom.getElementById('page-title');
+      if (!h1) return;
+      if (data.activityName) {
+        h1.textContent    = `moo-gpt – ${data.activityName}`;
+        document.title    = `moo-gpt – ${data.activityName} – Überblick`;
+      }
+    } catch (_) { /* Header bleibt "moo-gpt" */ }
+  }
+
+  initPageTitle(fetch, document, activityId, token);
 
   // DOM-Referenzen
   const btn             = document.getElementById('summarize-btn');

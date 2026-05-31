@@ -174,6 +174,7 @@
     updateOpenerSummary();
     updateAppearanceSummary();
     updateAdvancedSummary();
+    updateSubjectSummary();
     updateTemplateUI();
   });
 
@@ -403,6 +404,7 @@
       updateOpenerSummary();
       updateAppearanceSummary();
       updateAdvancedSummary();
+      updateSubjectSummary();
 
       await loadTemplates();
       captureOpenSnapshot();
@@ -678,6 +680,14 @@
     document.querySelector('#cfg-advanced-details summary').textContent = 'Erweitert — ' + parts.join(' | ');
   }
 
+  function updateSubjectSummary() {
+    const mathMode = document.getElementById('cfg-math-mode').value;
+    const el = document.querySelector('#cfg-subject-details summary');
+    el.textContent = mathMode === 'on'
+      ? 'Fachbezogene Präferenzen — Formeln: An'
+      : 'Fachbezogene Präferenzen';
+  }
+
   function updateAudioOutputDependents() {
     const outputEl = document.getElementById('cfg-audio-output');
     if (!outputEl) return;
@@ -694,6 +704,7 @@
   document.getElementById('cfg-audio-input').addEventListener('change',  updateAudioSummary);
   document.getElementById('cfg-upload-mode').addEventListener('change',  updateAdvancedSummary);
   document.getElementById('cfg-model').addEventListener('change',        updateAdvancedSummary);
+  document.getElementById('cfg-math-mode').addEventListener('change',    updateSubjectSummary);
 
   document.getElementById('cfg-audio-output').addEventListener('change', updateAudioOutputDependents);
   document.getElementById('cfg-tts-voice').addEventListener('change', updateAudioSummary);

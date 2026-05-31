@@ -282,7 +282,7 @@ function handleServerMessage(msg) {
       // Issue #166: mathMode-Badge
       apiGet(`/api/activity-config/${encodeURIComponent(activityId)}`).then(cfg => {
         const badge = document.getElementById('math-mode-badge');
-        if (badge) badge.style.display = cfg.mathMode === 'on' ? '' : 'none';
+        if (badge) badge.classList.toggle('visible', cfg.mathMode === 'on');
       }).catch(() => {});
       break;
 

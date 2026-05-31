@@ -10,11 +10,15 @@ Eine Moodle-Aktivität (Textseite oder Aufgabe), in die ein Chat-Widget eingebet
 
 ## Widget-Konfiguration
 
-Die konfigurierbaren Felder, die das Verhalten und Erscheinungsbild des Chat-Bots für eine Aktivität festlegen: `botTitle`, `botIcon`, `uploadMode`, `opener`, `audioInput`, `audioOutput`, `ttsVoice`, `audioStudentOptions`, `model`, `hints`. Wird auf drei Ebenen definiert — Systemvorlage → Lehrer-Vorlage → Aktivitätskonfiguration — wobei jede Ebene die darüber überschreibt. Das GPT-Modell wird **pro Aktivität** gespeichert (Spalte `model` in `activities`), nicht mehr als Lehrer-weite Präferenz. Priorität: Aktivitäts-Modell → System-Prompt-Modell (Admin) → `MODEL_NAME`-Env. Die `teacher_preferences.preferred_model`-Spalte entfällt.
+Die konfigurierbaren Felder, die das Verhalten und Erscheinungsbild des Chat-Bots für eine Aktivität festlegen: `botTitle`, `botIcon`, `uploadMode`, `opener`, `audioInput`, `audioOutput`, `ttsVoice`, `audioStudentOptions`, `model`, `hints`, `mathMode`. Wird auf drei Ebenen definiert — Systemvorlage → Lehrer-Vorlage → Aktivitätskonfiguration — wobei jede Ebene die darüber überschreibt. Das GPT-Modell wird **pro Aktivität** gespeichert (Spalte `model` in `activities`), nicht mehr als Lehrer-weite Präferenz. Priorität: Aktivitäts-Modell → System-Prompt-Modell (Admin) → `MODEL_NAME`-Env. Die `teacher_preferences.preferred_model`-Spalte entfällt.
 
 **Config-Overlay-Öffnungsverhalten:** Das Config-Overlay öffnet sich immer auf der **gegenüberliegenden Seite** des Chat-Fensters. Ist das Chat-Fenster rechts → Overlay links angedockt (`left-side`). Ist das Chat-Fenster links → Overlay rechts. Ist das Chat-Fenster geschlossen, öffnet es sich im Standard-Modus (rechts). Der ⇔-Button im Overlay-Header erlaubt jederzeit das Umschalten.
 
 **Schließen-Warnung (Dirty State):** Beim Klick auf das X im Config-Overlay wird geprüft, ob sich seit dem Öffnen des Overlays irgendein Feld geändert hat (Snapshot aller Felder beim Öffnen). Wurde etwas geändert und nicht gespeichert, erscheint eine kurze Warnung. Ziel: verhindert, dass Lehrkräfte ungespeicherte Änderungen versehentlich verlieren, was Unterrichtszeit kostet.
+
+## Fachpräferenzen
+
+Fachbezogene Verhaltensoptionen der Widget-Konfiguration, die abhängig vom Unterrichtsfach sinnvoll sind. Aktuell: `mathMode` (Formeln in LaTeX). Gespeichert in der Widget-Konfiguration mit vollständiger Template-Vererbung (Systemvorlage → Lehrer-Vorlage → Aktivität). Werden in der Config-UI im Abschnitt „Erweitert" angezeigt und in der Aktivitäts-Zusammenfassung im Dashboard sichtbar (z.B. „Formeln: an").
 
 ## Systemvorlage
 

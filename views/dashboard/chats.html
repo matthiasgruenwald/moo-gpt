@@ -151,6 +151,20 @@
       display: none;
     }
     #lock-badge.visible { display: inline-block; }
+    #math-mode-badge {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: rgba(255,255,255,0.75);
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 2px 8px;
+      border-radius: 4px;
+      display: none;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    #math-mode-badge.visible { display: block; }
 
     /* ── Layout ──────────────────────────────────────────────────────────── */
     #main {
@@ -245,6 +259,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      position: relative;
     }
     #back-btn {
       display: none;
@@ -1318,8 +1333,7 @@
 
 <div id="header">
   <span id="live-badge" class="badge-live">LIVE</span>
-  <h1 id="page-title">Schüler-Dashboard</h1>
-  <span id="math-mode-badge" style="display:none;font-size:12px;background:#e8f0fe;color:#003366;padding:2px 8px;border-radius:12px;">Formeln: an</span>
+  <h1 id="page-title">moo-gpt</h1>
   <button id="bug-report-btn" title="Fehler oder Verbesserungsidee als GitHub-Issue melden">Fehler & Ideen melden</button>
 </div>
 
@@ -1524,6 +1538,7 @@
     <div id="chat-header">
       <button id="back-btn" title="Zurück zur Liste">&#8592;</button>
       <span id="chat-title">Schüler auswählen</span>
+      <span id="math-mode-badge">∑ Formeln: an</span>
       <span id="chat-cost"></span>
     </div>
     <div id="chat-messages">
