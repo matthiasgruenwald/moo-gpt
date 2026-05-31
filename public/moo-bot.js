@@ -1234,9 +1234,13 @@ export class MOOBOT {
       }
       chatContainer.style.display = "flex";
       chatIcon.style.display = "none";
+      // Issue #155: Lehrer-Buttons abdunkeln wenn Chat offen
+      document.body.classList.add("chat-open");
     } else {
       chatContainer.style.display = "none";
       chatIcon.style.display = "block";
+      // Issue #155: Lehrer-Buttons wieder voll sichtbar
+      document.body.classList.remove("chat-open");
     }
   }
 

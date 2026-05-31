@@ -33,7 +33,7 @@ body {
     cursor: pointer;
     z-index: 10000;
     box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, opacity 0.2s ease;
 }
 .dashboard-icon:hover {
     background-color: #004085;
@@ -302,7 +302,7 @@ button:hover {
     cursor: pointer;
     z-index: 10000;
     box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, opacity 0.2s ease;
 }
 .config-icon:hover { background-color: #2d3748; }
 
@@ -582,9 +582,21 @@ button:hover {
     cursor: pointer;
     z-index: 10000;
     box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, opacity 0.2s ease;
 }
 .stop-icon:hover { background-color: #922b21; }
+
+/* Issue #155: Lehrer-Buttons auf 40% Deckkraft wenn Chat offen */
+body.chat-open .dashboard-icon,
+body.chat-open .config-icon,
+body.chat-open .stop-icon {
+    opacity: 0.4;
+}
+body.chat-open .dashboard-icon:hover,
+body.chat-open .config-icon:hover,
+body.chat-open .stop-icon:hover {
+    opacity: 1;
+}
 
 .lock-modal {
     display: none;
