@@ -22,7 +22,7 @@ Ab v3.0.0 wird der Changelog strukturiert und transparent geführt — mit Git-T
 
 ### 🐛 Bug Fixes
 
-- Senden-Button zeigt ↑-Icon statt Text (#152)
+- Senden-Button bleibt innerhalb des Chat-Fensters und nutzt Pfeil statt Text (#152)
 - TTS AudioBuffer wird per Button gecacht, kein doppeltes Laden (#151)
 - Stimme- und Memory-Popover schließen sich gegenseitig (#153)
 - Config-Overlay öffnet auf der dem Chat gegenüberliegenden Seite (#154)
