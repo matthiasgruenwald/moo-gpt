@@ -8,6 +8,1099 @@ import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-java.min.js";
 import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-python.min.js";
 import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-json.min.js";
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Interne Klassen – zukünftige AMD-Module (Issue #171)
+//
+//  ChatCore      — WebSocket-Init, Nachrichten senden, Session-Settings,
+//                  Locked-State, Dashboard/Config-Overlay öffnen
+//  ChatUI        — DOM-Aufbau, Nachrichten rendern, Scroll, History, Lightbox,
+//                  Feedback-Buttons, Fehler/Lock-Overlay, Seiten-Toggle
+//  AudioManager  — Mikrofon-Opt-in, Aufnahme, Transkription (/api/transcribe),
+//                  Dateiupload, Bildkomprimierung
+//  TtsManager    — TTS-Button, Stimmwahl-Popover, Auto-Play-Toggle,
+//                  History-Lautsprecher-Buttons (/api/speak)
+//  MemoryManager — Memory-Popover (🧠), GET/PUT /api/student-memory
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── MemoryManager ─────────────────────────────────────────────────────────────
+
+class MemoryManager {
+  /** @param {MOOBOT} bot */
+  constructor(bot) { this.bot = bot; }
+
+  _buildMemoryPopover(chatHeader) {
+    const bot = this.bot;
+    const popover = document.createElement('div');
+    popover.id = 'mmb-memory-popover';
+    popover.className = 'mmb-memory-popover';
+    const title = document.createElement('div');
+    title.className = 'mmb-memory-popover-title';
+    title.textContent = 'Mein Memory';
+    popover.appendChild(title);
+    const desc = document.createElement('p');
+    desc.className = 'mmb-memory-popover-desc';
+    desc.textContent = 'Notizen für die KI — werden bei jeder Antwort berücksichtigt.';
+    popover.appendChild(desc);
+    const textarea = document.createElement('textarea');
+    textarea.id = 'mmb-memory-textarea';
+    textarea.className = 'mmb-memory-textarea';
+    textarea.placeholder = 'z.B. Ich bevorzuge kurze Erklärungen…';
+    textarea.rows = 5;
+    popover.appendChild(textarea);
+    const actions = document.createElement('div');
+    actions.className = 'mmb-memory-actions';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'mmb-memory-delete';
+    delBtn.textContent = 'Löschen';
+    delBtn.addEventListener('click', (e) => { e.stopPropagation(); this._showMemoryDeleteConfirm(); });
+    actions.appendChild(delBtn);
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'mmb-memory-save';
+    saveBtn.textContent = 'Speichern';
+    saveBtn.addEventListener('click', () => this._saveMemory());
+    actions.appendChild(saveBtn);
+    popover.appendChild(actions);
+    chatHeader.appendChild(popover);
+  }
+
+  _toggleMemoryPopover() {
+    let popover = document.getElementById('mmb-memory-popover');
+    const btn = document.getElementById('mmb-mem-btn');
+    if (!popover) return;
+    const isOpen = popover.classList.contains('open');
+    if (isOpen) {
+      popover.classList.remove('open');
+      btn?.classList.remove('active');
+    } else {
+      this.bot.tts._closeVoicePopover(); // Issue #153: gegenseitiges Schließen
+      // Rebuild to ensure clean state (no stale confirmation)
+      const chatHeader = popover.parentElement;
+      popover.remove();
+      this._buildMemoryPopover(chatHeader);
+      popover = document.getElementById('mmb-memory-popover');
+      popover.classList.add('open');
+      btn?.classList.add('active');
+      this._loadMemoryIntoPopover();
+    }
+  }
+
+  _closeMemoryPopover() {
+    const popover = document.getElementById('mmb-memory-popover');
+    const btn = document.getElementById('mmb-mem-btn');
+    popover?.classList.remove('open');
+    btn?.classList.remove('active');
+  }
+
+  async _loadMemoryIntoPopover() {
+    const userId = this.bot.settings.userId;
+    if (!userId) { console.warn('[Memory] userId fehlt'); return; }
+    const textarea = document.getElementById('mmb-memory-textarea');
+    if (textarea) textarea.value = '';
+    try {
+      const resp = await fetch(
+        `${this.bot._baseUrl()}/api/student-memory?userId=${encodeURIComponent(userId)}`
+      );
+      if (resp.ok) {
+        const data = await resp.json();
+        if (textarea) textarea.value = data.memory?.preference_text ?? '';
+      }
+    } catch (e) { console.error('[Memory] Laden fehlgeschlagen:', e); }
+    if (textarea) textarea.focus();
+  }
+
+  async _saveMemory() {
+    const userId = this.bot.settings.userId;
+    const textarea = document.getElementById('mmb-memory-textarea');
+    const preferenceText = textarea?.value?.trim() ?? '';
+    if (!userId) { console.warn('[Memory] userId fehlt'); return; }
+    if (!preferenceText) { await this._deleteMemory(); return; }
+    try {
+      const resp = await fetch(`${this.bot._baseUrl()}/api/student-memory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, preferenceText }),
+      });
+      if (resp.ok) {
+        this.bot._cachedPreferenceText = preferenceText;
+        this._closeMemoryPopover();
+      } else {
+        console.error('[Memory] Speichern fehlgeschlagen:', resp.status);
+      }
+    } catch (e) { console.error('[Memory] Netzwerkfehler beim Speichern:', e); }
+  }
+
+  _showMemoryDeleteConfirm() {
+    const overlay = document.createElement('div');
+    overlay.className = 'mmb-delete-overlay';
+    const box = document.createElement('div');
+    box.className = 'mmb-delete-confirm-box';
+    const msg = document.createElement('p');
+    msg.textContent = 'Memory löschen? Diese Aktion kann nicht rückgängig gemacht werden.';
+    box.appendChild(msg);
+    const actions = document.createElement('div');
+    actions.className = 'mmb-delete-confirm-actions';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'mmb-memory-save';
+    cancelBtn.style.background = '#666';
+    cancelBtn.textContent = 'Abbrechen';
+    cancelBtn.addEventListener('click', () => overlay.remove());
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'mmb-memory-delete';
+    confirmBtn.textContent = 'Löschen';
+    confirmBtn.addEventListener('click', () => { overlay.remove(); this._deleteMemory(); });
+    actions.appendChild(cancelBtn);
+    actions.appendChild(confirmBtn);
+    box.appendChild(actions);
+    overlay.appendChild(box);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+  }
+
+  async _deleteMemory() {
+    const userId = this.bot.settings.userId;
+    if (!userId) { console.warn('[Memory] userId fehlt'); return; }
+    try {
+      const resp = await fetch(
+        `${this.bot._baseUrl()}/api/student-memory?userId=${encodeURIComponent(userId)}`,
+        { method: 'DELETE' }
+      );
+      if (resp.ok) {
+        this.bot._cachedPreferenceText = '';
+        const textarea = document.getElementById('mmb-memory-textarea');
+        if (textarea) textarea.value = '';
+        this._closeMemoryPopover();
+      } else {
+        console.error('[Memory] Löschen fehlgeschlagen:', resp.status);
+      }
+    } catch (e) { console.error('[Memory] Netzwerkfehler beim Löschen:', e); }
+  }
+}
+
+// ── TtsManager ────────────────────────────────────────────────────────────────
+
+class TtsManager {
+  /** @param {MOOBOT} bot */
+  constructor(bot) { this.bot = bot; }
+
+  async _loadTtsPreferences() {
+    const bot = this.bot;
+    if (bot.settings.audioStudentOptions !== 'on') return;
+    const userId = bot.settings.userId;
+    if (!userId) return;
+    try {
+      const res = await fetch(
+        `${bot._baseUrl()}/api/student-memory?userId=${encodeURIComponent(userId)}`
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      const entry = data.memory;
+      if (!entry) return;
+      bot._cachedPreferenceText = entry.preference_text ?? '';
+      if (entry.preferred_voice) {
+        bot._ttsVoice = entry.preferred_voice;
+        this._updateVoicePopoverSelection();
+      }
+      if (typeof entry.tts_autoplay === 'number') {
+        bot._ttsAutoPlay = entry.tts_autoplay === 1;
+        this._updateAutoPlayToggle();
+      }
+    } catch (e) { console.warn('[TTS] Präferenzen laden fehlgeschlagen, nutze Defaults:', e); }
+  }
+
+  _addSpeakButton(msgEl, rawText) {
+    const btn = document.createElement('button');
+    btn.className = 'mmb-speak-btn';
+    btn.title = 'Vorlesen';
+    btn.textContent = '🔊';
+    btn.addEventListener('click', () => this._speakMessage(rawText, btn));
+    msgEl.appendChild(btn);
+  }
+
+  async _speakMessage(text, btn) {
+    const bot = this.bot;
+    if (bot._currentAudioSource) {
+      try { bot._currentAudioSource.stop(); } catch (_) {}
+      bot._currentAudioSource = null;
+    }
+    btn.disabled = true;
+    btn.textContent = '⏳';
+    try {
+      if (!bot._audioCtx) {
+        bot._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      await bot._audioCtx.resume();
+      // Issue #151: Cache-Hit prüfen — nur verwenden wenn Stimme noch übereinstimmt
+      const cached = bot._ttsCache.get(btn);
+      let audioBuffer;
+      if (cached && cached.voice === bot._ttsVoice) {
+        audioBuffer = cached.buffer;
+      } else {
+        const res = await fetch(`${bot._baseUrl()}/api/speak`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text, voice: bot._ttsVoice, speed: bot._ttsSpeed,
+            activityId: bot.settings.activityId || '',
+            threadId:   '',
+            userId:     bot.settings.userId || '',
+          }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const arrayBuffer = await res.arrayBuffer();
+        audioBuffer = await bot._audioCtx.decodeAudioData(arrayBuffer);
+        bot._ttsCache.set(btn, { voice: bot._ttsVoice, buffer: audioBuffer });
+      }
+      const source = bot._audioCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.playbackRate.value = bot._ttsSpeed;
+      source.connect(bot._audioCtx.destination);
+      bot._currentAudioSource = source;
+      await new Promise((resolve, reject) => {
+        source.onended = () => {
+          bot._currentAudioSource = null;
+          btn.disabled = false;
+          btn.textContent = '🔊';
+          resolve();
+        };
+        source.onerror = reject;
+        source.start(0);
+      });
+      btn.textContent = '🔊';
+      btn.disabled = false;
+    } catch (err) {
+      console.error('[Speak] Fehler:', err?.name, err?.message, err);
+      btn.disabled = false;
+      btn.textContent = '🔊';
+      bot.ui._showChatError('⚠️ Sprachausgabe fehlgeschlagen. Bitte erneut versuchen.');
+    }
+  }
+
+  _buildVoicePopover(chatHeader) {
+    const bot = this.bot;
+    const voices = [
+      { id: 'nova',    label: 'Nova',    desc: 'weiblich, klar, lebendig' },
+      { id: 'alloy',   label: 'Alloy',   desc: 'neutral, androgyn' },
+      { id: 'echo',    label: 'Echo',    desc: 'männlich, klar, sachlich' },
+      { id: 'onyx',    label: 'Onyx',    desc: 'männlich, tief, ruhig' },
+      { id: 'shimmer', label: 'Shimmer', desc: 'weiblich, weich' },
+    ];
+    const popover = document.createElement('div');
+    popover.id = 'mmb-voice-popover';
+    popover.className = 'mmb-voice-popover';
+    const title = document.createElement('div');
+    title.className = 'mmb-voice-popover-title';
+    title.textContent = 'Stimme wählen';
+    popover.appendChild(title);
+    const list = document.createElement('ul');
+    list.className = 'mmb-voice-list';
+    for (const v of voices) {
+      const item = document.createElement('li');
+      item.className = 'mmb-voice-item' + (bot._ttsVoice === v.id ? ' selected' : '');
+      item.dataset.voice = v.id;
+      item.innerHTML = `<span class="mmb-voice-name">${v.label}</span><span class="mmb-voice-desc">${v.desc}</span><span class="mmb-voice-check">&#10003;</span>`;
+      item.addEventListener('click', () => this._selectVoice(v.id));
+      list.appendChild(item);
+    }
+    popover.appendChild(list);
+    const autoplayRow = document.createElement('div');
+    autoplayRow.className = 'mmb-autoplay-row';
+    autoplayRow.innerHTML = `
+      <span class="mmb-autoplay-label">Auto-Play</span>
+      <label class="mmb-toggle">
+        <input type="checkbox" id="mmb-autoplay-toggle"${bot._ttsAutoPlay ? ' checked' : ''}>
+        <span class="mmb-toggle-slider"></span>
+      </label>`;
+    popover.appendChild(autoplayRow);
+    autoplayRow.querySelector('#mmb-autoplay-toggle').addEventListener('change', (e) => {
+      this._setAutoPlay(e.target.checked);
+    });
+    chatHeader.style.position = 'relative';
+    chatHeader.appendChild(popover);
+  }
+
+  _toggleVoicePopover() {
+    const popover = document.getElementById('mmb-voice-popover');
+    const btn = document.getElementById('mmb-wave-btn');
+    if (!popover) return;
+    const isOpen = popover.classList.contains('open');
+    if (isOpen) {
+      popover.classList.remove('open');
+      btn?.classList.remove('active');
+    } else {
+      this.bot.memory._closeMemoryPopover(); // Issue #153: gegenseitiges Schließen
+      popover.classList.add('open');
+      btn?.classList.add('active');
+    }
+  }
+
+  _closeVoicePopover() {
+    const popover = document.getElementById('mmb-voice-popover');
+    const btn = document.getElementById('mmb-wave-btn');
+    popover?.classList.remove('open');
+    btn?.classList.remove('active');
+  }
+
+  _selectVoice(voiceId) {
+    this.bot._ttsVoice = voiceId;
+    this._updateVoicePopoverSelection();
+    this._closeVoicePopover();
+    this._saveTtsPreferences();
+  }
+
+  _updateVoicePopoverSelection() {
+    document.querySelectorAll('.mmb-voice-item').forEach(el => {
+      el.classList.toggle('selected', el.dataset.voice === this.bot._ttsVoice);
+    });
+  }
+
+  _setAutoPlay(enabled) {
+    this.bot._ttsAutoPlay = enabled;
+    this._updateAutoPlayToggle();
+    this._saveTtsPreferences();
+  }
+
+  _updateAutoPlayToggle() {
+    const toggle = document.getElementById('mmb-autoplay-toggle');
+    if (toggle) toggle.checked = this.bot._ttsAutoPlay;
+  }
+
+  async _saveTtsPreferences() {
+    const bot = this.bot;
+    if (bot.settings.audioStudentOptions !== 'on') return;
+    const userId = bot.settings.userId;
+    if (!userId) return;
+    try {
+      await fetch(`${bot._baseUrl()}/api/student-memory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          preferenceText: bot._cachedPreferenceText ?? '',
+          preferred_voice: bot._ttsVoice,
+          tts_autoplay: bot._ttsAutoPlay ? 1 : 0,
+        }),
+      });
+    } catch (e) { console.warn('[TTS] Präferenzen speichern fehlgeschlagen:', e); }
+  }
+}
+
+// ── AudioManager ──────────────────────────────────────────────────────────────
+
+class AudioManager {
+  /** @param {MOOBOT} bot */
+  constructor(bot) { this.bot = bot; }
+
+  _attachMicButton(container) {
+    const btn = container?.querySelector('#mic-button');
+    if (!btn) return;
+    if (!container.querySelector('.mic-error')) {
+      const errDiv = document.createElement('div');
+      errDiv.className = 'mic-error';
+      container.insertAdjacentElement('afterend', errDiv);
+    }
+    btn.addEventListener('click', () => this._handleMicClick());
+  }
+
+  _handleMicClick() {
+    if (this.bot._micRecording) { this._stopRecording(); }
+    else { this._startRecording(); }
+  }
+
+  async _startRecording() {
+    const bot = this.bot;
+    const btn = document.getElementById('mic-button');
+    if (!btn) return;
+    this._hideMicError();
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      this._showMicError('⚠️ Mikrofon-Berechtigung verweigert.');
+      return;
+    }
+    const mimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm';
+    const recorder = new MediaRecorder(stream, { mimeType });
+    bot._micChunks   = [];
+    bot._micMimeType = mimeType;
+    bot._micRecorder = recorder;
+    bot._micRecording = true;
+    bot._micStream    = stream;
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) bot._micChunks.push(e.data); };
+    recorder.onstop = () => this._transcribeAudio();
+    recorder.start();
+    btn.classList.add('recording');
+    this._disableSendControls(true);
+    const MAX_SECONDS = 60;
+    bot._micSecondsLeft = MAX_SECONDS;
+    btn.title = `Aufnahme läuft – ${bot._micSecondsLeft} s`;
+    bot._micCountdown = setInterval(() => {
+      bot._micSecondsLeft -= 1;
+      if (btn) btn.title = `Aufnahme läuft – ${bot._micSecondsLeft} s`;
+      if (bot._micSecondsLeft <= 0) this._stopRecording();
+    }, 1000);
+  }
+
+  _stopRecording() {
+    const bot = this.bot;
+    clearInterval(bot._micCountdown);
+    bot._micRecording = false;
+    if (bot._micRecorder?.state !== 'inactive') { bot._micRecorder.stop(); }
+    bot._micStream?.getTracks().forEach(t => t.stop());
+    const btn = document.getElementById('mic-button');
+    if (btn) { btn.classList.remove('recording'); btn.disabled = true; btn.title = 'Transkription läuft…'; }
+  }
+
+  async _transcribeAudio() {
+    const bot = this.bot;
+    if (!bot._micChunks?.length) { this._resetMicButton(); return; }
+    const blob     = new Blob(bot._micChunks, { type: bot._micMimeType });
+    const ext      = bot._micMimeType.includes('mp4') ? '.mp4' : '.webm';
+    const filename = `audio${ext}`;
+    const formData = new FormData();
+    formData.append('audio', blob, filename);
+    const activityId = bot.settings.activityId || '';
+    const threadId   = '';  // threadDbId ist clientseitig nicht bekannt; Server ignoriert leeren Wert
+    formData.append('activityId', activityId);
+    formData.append('threadId',   threadId);
+    try {
+      const res = await fetch(`${bot._baseUrl()}/api/transcribe`, { method: 'POST', body: formData });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const { text } = await res.json();
+      const chatInput = document.getElementById('chat-input');
+      if (chatInput && text) {
+        chatInput.value = text;
+        chatInput.focus();
+        bot._nextContentType = 'audio';
+      }
+    } catch {
+      this._showMicError('⚠️ Transkription fehlgeschlagen. Bitte erneut versuchen.');
+    } finally {
+      this._resetMicButton();
+    }
+  }
+
+  _resetMicButton() {
+    const bot = this.bot;
+    const btn = document.getElementById('mic-button');
+    if (btn) { btn.disabled = false; btn.classList.remove('recording'); btn.title = 'Spracheingabe'; }
+    this._disableSendControls(false);
+    bot._micChunks   = [];
+    bot._micRecorder = null;
+    bot._micRecording = false;
+  }
+
+  _disableSendControls(disable) {
+    const sendBtn   = document.getElementById('send-button');
+    const uploadBtn = document.getElementById('upload-button');
+    const chatInput = document.getElementById('chat-input');
+    if (sendBtn)   sendBtn.disabled   = disable;
+    if (uploadBtn) uploadBtn.disabled = disable;
+    if (chatInput) chatInput.disabled = disable;
+  }
+
+  _showMicError(msg) {
+    const el = document.querySelector('.mic-error');
+    if (el) { el.textContent = msg; el.classList.add('visible'); }
+  }
+
+  _hideMicError() {
+    const el = document.querySelector('.mic-error');
+    if (el) el.classList.remove('visible');
+  }
+
+  async handleFileUpload(file) {
+    const bot = this.bot;
+    if (file.type.startsWith('video/')) { bot.ui._showChatError('⚠️ Videos werden nicht unterstützt.'); return; }
+    const isPdf = file.type === 'application/pdf';
+    const isImage = file.type.startsWith('image/');
+    const uploadMode = bot.settings.uploadMode || 'off';
+    if (!isPdf && !isImage) { bot.ui._showChatError('⚠️ Nur Bilder und PDFs sind erlaubt.'); return; }
+    if (isPdf && uploadMode !== 'files') { bot.ui._showChatError('⚠️ PDF-Upload ist für diese Aufgabe nicht aktiviert.'); return; }
+    if (!bot.wsInitialized || !bot.ws || bot.ws.readyState !== WebSocket.OPEN) {
+      bot.ui._showChatError('⚠️ Noch nicht verbunden. Chat kurz öffnen und erneut versuchen.');
+      return;
+    }
+    bot.ui._disableInput();
+    try {
+      let jpegBlob;
+      if (isPdf) {
+        jpegBlob = await this._pdfToJpeg(file);
+        if (!jpegBlob) return;
+      } else {
+        jpegBlob = await this._compressImage(file);
+      }
+      const base64 = await this._blobToDataURL(jpegBlob);
+      const originalType = isPdf ? 'pdf' : 'image';
+      bot.ui._appendUploadPreview(base64, originalType);
+      const chatWindow = document.getElementById("chat-window");
+      const loading = document.createElement("div");
+      loading.className = "message_loading";
+      loading.id = "loading";
+      loading.innerHTML = `<img src="${bot._baseUrl()}/loading.gif" alt="Loading...">`;
+      chatWindow.appendChild(loading);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+      bot.msgCount = 0;
+      document.getElementById("send-button").disabled = true;
+      bot.ws.send(JSON.stringify({ type: "filemsg", data: { file: base64, originalType } }));
+    } catch (err) {
+      console.error('[Upload] Fehler:', err);
+      bot.ui._showChatError('⚠️ Fehler beim Verarbeiten der Datei: ' + err.message);
+      bot.ui._enableInput();
+    }
+  }
+
+  async _pdfToJpeg(file) {
+    const bot = this.bot;
+    let pdfjsLib;
+    try {
+      pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.9.155/build/pdf.mjs');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.9.155/build/pdf.worker.mjs';
+    } catch (e) {
+      bot.ui._showChatError('⚠️ PDF-Bibliothek konnte nicht geladen werden.');
+      bot.ui._enableInput();
+      return null;
+    }
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    if (pdf.numPages > 1) {
+      bot.ui._showChatError(`⚠️ Das PDF hat ${pdf.numPages} Seiten. Nur einseitige PDFs sind erlaubt.`);
+      bot.ui._enableInput();
+      return null;
+    }
+    const page = await pdf.getPage(1);
+    const MAX_PX = 1920;
+    let vp = page.getViewport({ scale: 1.0 });
+    const scale = Math.min(MAX_PX / vp.width, MAX_PX / vp.height, 1.0);
+    vp = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width  = Math.round(vp.width);
+    canvas.height = Math.round(vp.height);
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+    return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+  }
+
+  _compressImage(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX_PX = 1920;
+        let w = img.naturalWidth, h = img.naturalHeight;
+        if (w > MAX_PX || h > MAX_PX) {
+          if (w >= h) { h = Math.round(h * MAX_PX / w); w = MAX_PX; }
+          else        { w = Math.round(w * MAX_PX / h); h = MAX_PX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(resolve, 'image/jpeg', 0.85);
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  }
+
+  _blobToPng(blob) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX_PX = 2048;
+        let w = img.naturalWidth, h = img.naturalHeight;
+        if (w > MAX_PX || h > MAX_PX) {
+          if (w >= h) { h = Math.round(h * MAX_PX / w); w = MAX_PX; }
+          else        { w = Math.round(w * MAX_PX / h); h = MAX_PX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(
+          pngBlob => pngBlob ? resolve(pngBlob) : reject(new Error('Canvas PNG export failed')),
+          'image/png'
+        );
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
+      img.src = url;
+    });
+  }
+
+  _blobToDataURL(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror   = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async extractImagesFromTask() {
+    const bot = this.bot;
+    const images = [];
+    let failedCount = 0;
+    if (!bot.settings.task) return { images, failedCount };
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(bot.settings.task, "text/html");
+      const imgTags = doc.querySelectorAll("img");
+      for (const img of imgTags) {
+        try {
+          const response = await fetch(img.src);
+          if (!response.ok) {
+            console.warn("Could not fetch image (HTTP " + response.status + "):", img.src);
+            failedCount++;
+            continue;
+          }
+          const blob = await response.blob();
+          const pngBlob = await this._blobToPng(blob);
+          const base64 = await this._blobToDataURL(pngBlob);
+          images.push(base64);
+          console.log("Image extracted:", img.src);
+        } catch (err) {
+          console.warn("Could not process image:", img.src, err);
+          failedCount++;
+        }
+      }
+    } catch (err) { console.warn("Error extracting images:", err); }
+    return { images, failedCount };
+  }
+}
+
+// ── ChatUI ────────────────────────────────────────────────────────────────────
+
+class ChatUI {
+  /** @param {MOOBOT} bot */
+  constructor(bot) { this.bot = bot; }
+
+  _showChatError(msg) {
+    const chatWindow = document.getElementById("chat-window");
+    if (!chatWindow) return;
+    const div = document.createElement("div");
+    div.className = "message received";
+    div.style.color = '#c00';
+    div.innerHTML = `<p>${msg}</p>`;
+    chatWindow.appendChild(div);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  }
+
+  _disableInput() {
+    const inp = document.getElementById("chat-input");
+    const btn = document.getElementById("send-button");
+    const upBtn = document.getElementById("upload-button");
+    if (inp)  inp.disabled = true;
+    if (btn)  btn.disabled = true;
+    if (upBtn) upBtn.disabled = true;
+  }
+
+  _enableInput() {
+    const inp = document.getElementById("chat-input");
+    const btn = document.getElementById("send-button");
+    const upBtn = document.getElementById("upload-button");
+    if (inp)  { inp.disabled = false; inp.focus(); }
+    if (btn)  btn.disabled = false;
+    if (upBtn) upBtn.disabled = false;
+  }
+
+  _appendUploadPreview(base64, originalType) {
+    const chatWindow = document.getElementById("chat-window");
+    const nowStr = new Date().toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+    const div = document.createElement("div");
+    div.className = "message sent";
+    const label = originalType === 'pdf' ? '<p style="margin:2px 0 0;font-size:11px;opacity:0.7">📄 PDF-Seite</p>' : '';
+    div.innerHTML = `<img src="${base64}" style="max-width:220px;border-radius:6px;display:block;margin-bottom:4px;" class="mmb-lb-trigger" onclick="window._mmbLightbox&&window._mmbLightbox(this.src)">${label}<span class="msg-time">${nowStr}</span>`;
+    chatWindow.appendChild(div);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  }
+
+  _renderUserContent(content, contentType) {
+    if (contentType === 'image' || contentType === 'pdf') {
+      if (content && content.startsWith('data:')) {
+        const label = contentType === 'pdf' ? '<p style="margin:2px 0 0;font-size:11px;opacity:0.7">📄 PDF-Seite</p>' : '';
+        return `<img src="${content}" style="max-width:220px;border-radius:6px;display:block;margin-bottom:4px;" class="mmb-lb-trigger" onclick="window._mmbLightbox&&window._mmbLightbox(this.src)">${label}`;
+      }
+      return contentType === 'pdf'
+        ? `<p>📄 <em>PDF-Upload (1 Seite)</em></p>`
+        : `<p>📷 <em>Bild (extern gespeichert)</em></p>`;
+    }
+    if (contentType === 'audio') {
+      return `<p><span class="audio-badge" title="Spracheingabe (Whisper)">🎤</span> ${content}</p>`;
+    }
+    return `<p>${content}</p>`;
+  }
+
+  _addFeedbackButtons(msgEl) {
+    const bar = document.createElement('div');
+    bar.className = 'mmb-feedback';
+    const thumbUp   = document.createElement('button');
+    thumbUp.className = 'mmb-fb-btn';
+    thumbUp.title   = 'Hilfreich';
+    thumbUp.textContent = '👍';
+    const thumbDown = document.createElement('button');
+    thumbDown.className = 'mmb-fb-btn';
+    thumbDown.title   = 'Nicht hilfreich / Wunsch eingeben';
+    thumbDown.textContent = '👎';
+    bar.appendChild(thumbUp);
+    bar.appendChild(thumbDown);
+    msgEl.appendChild(bar);
+    const openPanel = (prefill) => {
+      msgEl.querySelectorAll('.mmb-fb-panel').forEach(p => p.remove());
+      const panel = document.createElement('div');
+      panel.className = 'mmb-fb-panel';
+      panel.innerHTML = `
+        <input class="mmb-fb-input" type="text" placeholder="Was wünschst du dir? (optional)" value="${prefill || ''}">
+        <div class="mmb-fb-actions">
+          <button class="mmb-fb-save">Speichern</button>
+          <button class="mmb-fb-cancel">Abbrechen</button>
+        </div>`;
+      msgEl.appendChild(panel);
+      const doSave = () => {
+        const text = panel.querySelector('.mmb-fb-input').value.trim();
+        if (text) {
+          this._saveFeedback(text);
+          panel.remove();
+          bar.querySelector('.mmb-fb-saved')?.remove();
+          const saved = document.createElement('span');
+          saved.className = 'mmb-fb-saved';
+          saved.textContent = '✓ gespeichert';
+          bar.appendChild(saved);
+        } else { panel.remove(); }
+      };
+      panel.querySelector('.mmb-fb-cancel').onclick = () => panel.remove();
+      panel.querySelector('.mmb-fb-save').onclick   = doSave;
+      panel.querySelector('.mmb-fb-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); doSave(); }
+      });
+      panel.querySelector('.mmb-fb-input').focus();
+    };
+    thumbUp.onclick = () => {
+      bar.querySelector('.mmb-fb-saved')?.remove();
+      bar.querySelectorAll('.mmb-fb-panel').forEach(p => p.remove());
+      const saved = document.createElement('span');
+      saved.className = 'mmb-fb-saved';
+      saved.textContent = '👍 Danke!';
+      bar.appendChild(saved);
+      setTimeout(() => saved.remove(), 3000);
+    };
+    thumbDown.onclick = () => openPanel('');
+  }
+
+  async _saveFeedback(preferenceText) {
+    const userId = this.bot.settings.userId;
+    if (!userId) { console.warn('[Feedback] userId fehlt – Memory nicht gespeichert'); return; }
+    try {
+      await fetch(`${this.bot._baseUrl()}/api/student-memory`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ userId, preferenceText }),
+      });
+    } catch (e) { console.error('[Feedback] Speichern fehlgeschlagen:', e); }
+  }
+
+  _initLightbox() {
+    if (document.getElementById('mmb-lightbox')) return;
+    const lb = document.createElement('div');
+    lb.id = 'mmb-lightbox';
+    lb.innerHTML = `
+      <button id="mmb-lb-close" aria-label="Schließen">✕</button>
+      <div id="mmb-lb-inner">
+        <div id="mmb-lb-canvas"><img id="mmb-lb-img" src="" alt="Vorschau"></div>
+      </div>`;
+    document.body.appendChild(lb);
+    const inner = lb.querySelector('#mmb-lb-inner');
+    const img   = lb.querySelector('#mmb-lb-img');
+    this._lbInner = inner;
+    this._lbImg   = img;
+    lb.addEventListener('click', (e) => { if (e.target === lb) this._closeLightbox(); });
+    lb.querySelector('#mmb-lb-close').addEventListener('click', () => this._closeLightbox());
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') this._closeLightbox(); });
+    inner.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.05 : (1 / 1.05);
+      const innerRect = inner.getBoundingClientRect();
+      const cursorX = inner.scrollLeft + (e.clientX - innerRect.left);
+      const cursorY = inner.scrollTop  + (e.clientY - innerRect.top);
+      const curW = img.offsetWidth, curH = img.offsetHeight;
+      const imgX = Math.max(0, (inner.clientWidth  - curW) / 2);
+      const imgY = parseFloat(img.style.marginTop || '0');
+      const rx = (cursorX - imgX) / curW;
+      const ry = (cursorY - imgY) / curH;
+      const natW = img.naturalWidth  || inner.clientWidth;
+      const natH = img.naturalHeight || inner.clientHeight;
+      const newW = Math.min(Math.max(curW * factor, 100), natW * 6);
+      const newH = newW / natW * natH;
+      img.style.width = newW + 'px';
+      void inner.scrollWidth;
+      const newImgX = Math.max(0, (inner.clientWidth  - newW) / 2);
+      const newImgY = Math.max(0, (inner.clientHeight - newH) / 2);
+      img.style.marginTop = newImgY + 'px';
+      inner.scrollLeft = newImgX + rx * newW - (e.clientX - innerRect.left);
+      inner.scrollTop  = newImgY + ry * newH - (e.clientY - innerRect.top);
+    }, { passive: false });
+    let isDragging = false, dragX, dragY, scrollX, scrollY;
+    img.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      dragX = e.clientX; dragY = e.clientY;
+      scrollX = inner.scrollLeft; scrollY = inner.scrollTop;
+      img.classList.add('mmb-dragging');
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      inner.scrollLeft = scrollX - (e.clientX - dragX);
+      inner.scrollTop  = scrollY - (e.clientY - dragY);
+    });
+    document.addEventListener('mouseup', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      img.classList.remove('mmb-dragging');
+    });
+    let initDist = null, initW = 0;
+    inner.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        initDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        initW = img.offsetWidth;
+      }
+    }, { passive: true });
+    inner.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && initDist) {
+        e.preventDefault();
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const natW = img.naturalWidth || inner.clientWidth;
+        img.style.width = Math.min(Math.max(initW * dist / initDist, 100), natW * 6) + 'px';
+      }
+    }, { passive: false });
+    inner.addEventListener('touchend', () => { initDist = null; });
+    window._mmbLightbox = (src) => this._openLightbox(src);
+  }
+
+  _openLightbox(src) {
+    const lb    = document.getElementById('mmb-lightbox');
+    const inner = this._lbInner || document.getElementById('mmb-lb-inner');
+    const img   = this._lbImg   || document.getElementById('mmb-lb-img');
+    if (!lb || !img || !inner) return;
+    img.style.width = '';
+    img.src = src;
+    inner.scrollLeft = 0;
+    inner.scrollTop  = 0;
+    lb.style.display = 'flex';
+    const fitImg = () => {
+      const natW = img.naturalWidth, natH = img.naturalHeight;
+      if (!natW || !natH) return;
+      const maxW = inner.clientWidth, maxH = inner.clientHeight;
+      const scale = Math.min(1, maxW / natW, maxH / natH);
+      if (scale < 1) img.style.width = Math.round(natW * scale) + 'px';
+      const dispH = img.offsetHeight || Math.round(natH * scale);
+      img.style.marginTop = Math.max(0, (inner.clientHeight - dispH) / 2) + 'px';
+    };
+    if (img.complete && img.naturalWidth) { fitImg(); }
+    else { img.onload = fitImg; }
+  }
+
+  _closeLightbox() {
+    const lb = document.getElementById('mmb-lightbox');
+    if (lb) lb.style.display = 'none';
+  }
+
+  _showLockOverlay() {
+    const bot = this.bot;
+    let overlay = document.getElementById('mmb-lock-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'mmb-lock-overlay';
+      overlay.style.cssText = [
+        'position:absolute', 'inset:0',
+        'background:rgba(0,51,102,0.92)', 'color:white',
+        'display:flex', 'flex-direction:column',
+        'align-items:center', 'justify-content:center',
+        'gap:12px', 'z-index:10',
+        'font-family:Arial,sans-serif', 'border-radius:inherit',
+      ].join(';');
+      overlay.innerHTML =
+        '<div style="font-size:36px">🔒</div>' +
+        '<div style="font-size:15px;font-weight:600;text-align:center;padding:0 24px">Plenumsphase aktiv</div>' +
+        '<div style="font-size:13px;opacity:0.8;text-align:center;padding:0 24px">Die Lehrperson hat den Chat vorübergehend gesperrt.</div>';
+      const container = document.getElementById('chat-container');
+      if (container) { container.appendChild(overlay); }
+    }
+    overlay.style.display = 'flex';
+    this._disableInput();
+  }
+
+  _hideLockOverlay() {
+    const overlay = document.getElementById('mmb-lock-overlay');
+    if (overlay) overlay.style.display = 'none';
+    this._enableInput();
+  }
+}
+
+// ── ChatCore ──────────────────────────────────────────────────────────────────
+
+class ChatCore {
+  /** @param {MOOBOT} bot */
+  constructor(bot) { this.bot = bot; }
+
+  setupWebSocket() {
+    const bot = this.bot;
+    const host = bot.settings.host || "localhost";
+    const port = bot.settings.port || (window.location.protocol === "https:" ? "443" : "80");
+    const protocol = bot.settings.protocol === "https" ? "wss" : "ws";
+    const wsUrl = `${protocol}://${host}:${port}/api/chat`;
+    console.log("wsUrl: ", wsUrl);
+    bot.ws = new WebSocket(wsUrl);
+
+    bot.ws.onopen = async () => {
+      console.log("WebSocket connection established");
+      bot.ui.restoreInputContainer();
+      const userId = window.M?.cfg?.userId?.toString() || null;
+      let userName = window.M?.cfg?.fullname
+        || document.querySelector('img.userpicture')?.getAttribute('alt')?.trim()
+        || document.querySelector('.usermenu .usertext')?.textContent?.trim()
+        || document.querySelector('span.usertext')?.textContent?.trim()
+        || document.querySelector('[data-key="myprofile"] .menu-action-text')?.textContent?.trim()
+        || null;
+      if (!userName && userId && window.M?.cfg?.wwwroot && window.M?.cfg?.sesskey) {
+        userName = await bot._fetchMoodleUserName(userId, window.M.cfg.wwwroot, window.M.cfg.sesskey);
+      }
+      const activityId = new URLSearchParams(window.location.search).get('id') || null;
+      const activityName =
+        document.querySelector('.page-header-headings h1')?.textContent?.trim()
+        || document.querySelector('#region-main h1')?.textContent?.trim()
+        || document.querySelector('.activity-title')?.textContent?.trim()
+        || document.querySelector('h1.h2')?.textContent?.trim()
+        || document.title?.split('|')[0]?.trim()
+        || null;
+      const task = document.querySelector('.activity-description')?.innerHTML?.trim() || null;
+      if (userId)        bot.settings.userId       = userId;
+      if (userName)      bot.settings.userName     = userName;
+      if (activityId)    bot.settings.activityId   = activityId;
+      if (activityName)  bot.settings.activityName = activityName;
+      if (task)          bot.settings.task         = task;
+      console.log(`[Bot] userId=${userId}, userName=${userName}, activityId=${activityId}, activityName=${activityName}`);
+      const hasEditMode = document.querySelector('form[action*="editmode.php"]') !== null;
+      const isSwitchedRole = document.body.className.includes('userswitchedrole');
+      const isTeacher = hasEditMode && !isSwitchedRole;
+      bot.settings.isTeacher = isTeacher;
+      console.log(`[Bot] isTeacher=${isTeacher} (editmode=${hasEditMode}, switched=${isSwitchedRole})`);
+      if (!isTeacher) bot.tts._loadTtsPreferences();
+      const { images, failedCount } = await bot.audio.extractImagesFromTask();
+      if (images.length > 0) {
+        bot.settings.images = images;
+        console.log(`${images.length} Bild(er) aus Aufgabenstellung extrahiert`);
+      }
+      if (failedCount > 0) {
+        bot.ui._showChatError(
+          `⚠️ ${failedCount} Bild(er) aus der Aufgabenstellung konnten nicht verarbeitet werden ` +
+          `(Format nicht unterstützt – vermutlich TIFF). ` +
+          `Bitte das Bild in GeoGebra oder einem Bildprogramm als PNG exportieren, ` +
+          `dann direkt als Datei in Moodle einfügen (nicht via Zwischenablage).`
+        );
+      }
+      const obj = { type: "settings", data: bot.settings };
+      try {
+        bot.ws.send(JSON.stringify(obj));
+        console.log("Settings sent successfully!");
+      } catch (error) { console.error("Send error:", error); }
+    };
+
+    bot.ws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+      bot.showConnectionLostMessage();
+    };
+
+    bot.ws.onclose = () => {
+      console.warn("WebSocket connection closed");
+      bot.wsInitialized = false;
+      bot.showConnectionLostMessage();
+    };
+
+    bot.ws.onmessage = (event) => {
+      const chatWindow = document.getElementById("chat-window");
+      try {
+        const messageObj = JSON.parse(event.data);
+        if (messageObj.type === "history") { bot.renderHistory(messageObj.messages); return; }
+        if (messageObj.type === "config")  { bot._applyConfig(messageObj.config); return; }
+        if (messageObj.type === "dashboardToken") {
+          bot.dashboardToken = messageObj.token;
+          console.log(`[Bot] Dashboard-Token empfangen für activityId=${messageObj.activityId}`);
+          if (bot.pendingDashboardOpen) {
+            bot.pendingDashboardOpen = false;
+            bot._openDashboardTab(messageObj.token, messageObj.activityId);
+          }
+          if (bot._pendingConfigOpen) {
+            bot._pendingConfigOpen = false;
+            bot._openConfigOverlay(messageObj.token, messageObj.activityId);
+          }
+          return;
+        }
+        if (messageObj.type === "locked") {
+          if (bot.settings.isTeacher) { bot._setLockState(true); }
+          else { bot.ui._showLockOverlay(); }
+          return;
+        }
+        if (messageObj.type === "unlocked") {
+          if (bot.settings.isTeacher) { bot._setLockState(false); }
+          else { bot.ui._hideLockOverlay(); }
+          return;
+        }
+        let messageText = messageObj.messages;
+        if (bot.msgCount === 0) bot._lastRawText = '';
+        bot._lastRawText = messageText;
+        messageText = messageText.replace(/\\\[/g, "$$").replace(/\\\]/g, "$$")
+                                 .replace(/\\\(/g, "$").replace(/\\\)/g, "$");
+        const htmlContent = bot.marked.parse(messageText);
+        if (bot.msgCount === 0) {
+          const loading = document.getElementById("loading");
+          if (loading) { chatWindow.removeChild(loading); }
+          const message = document.createElement("div");
+          message.className = "message received";
+          message.innerHTML = `${htmlContent}`;
+          chatWindow.appendChild(message);
+          renderMathInElement(message, {
+            delimiters: [{ left: "$$", right: "$$", display: true }, { left: "$", right: "$", display: false }],
+          });
+        } else {
+          const lastReceivedMessage = chatWindow.querySelector(".message.received:last-child");
+          lastReceivedMessage.innerHTML = `${htmlContent}`;
+          renderMathInElement(lastReceivedMessage, {
+            delimiters: [{ left: "$$", right: "$$", display: true }, { left: "$", right: "$", display: false }],
+          });
+        }
+        bot.msgCount += 1;
+        Prism.highlightAll();
+        if (messageObj.end === true) {
+          const nowStr = new Date().toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+          const lastMsg = chatWindow.querySelector(".message.received:last-child");
+          if (lastMsg && !lastMsg.querySelector(".msg-time")) {
+            const timeSpan = document.createElement("span");
+            timeSpan.className = "msg-time";
+            timeSpan.textContent = nowStr;
+            lastMsg.appendChild(timeSpan);
+          }
+          if (!bot.settings.isTeacher && lastMsg && !lastMsg.querySelector('.mmb-feedback')) {
+            bot.ui._addFeedbackButtons(lastMsg);
+          }
+          if (bot.settings.audioOutput === 'on' && lastMsg && !lastMsg.querySelector('.mmb-speak-btn')) {
+            bot.tts._addSpeakButton(lastMsg, bot._lastRawText);
+          }
+          if (bot.settings.audioOutput === 'on' && bot._ttsAutoPlay && bot._lastRawText) {
+            const speakBtn = lastMsg?.querySelector('.mmb-speak-btn');
+            if (speakBtn) bot.tts._speakMessage(bot._lastRawText, speakBtn);
+          }
+          bot.ui._enableInput();
+        }
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+      } catch (error) { console.log("Error parsing JSON message:", error); }
+    };
+  }
+}
+
 export class MOOBOT {
   constructor(settings) {
     // P5a: nur host/protocol/port aus dem Snippet verwenden
@@ -48,6 +1141,12 @@ export class MOOBOT {
   }
 
   async init() {
+    // Interne Manager instantiieren (Issue #171)
+    this.memory = new MemoryManager(this);
+    this.tts    = new TtsManager(this);
+    this.audio  = new AudioManager(this);
+    this.ui     = new ChatUI(this);
+    this.core   = new ChatCore(this);
     try {
       this.loadExternalLibraries();
       this.createChatInterface();
@@ -61,35 +1160,9 @@ export class MOOBOT {
 
   /**
    * Issue #101: Lädt TTS-Präferenzen (preferred_voice, tts_autoplay) aus student-memory.
-   * Guard: audioStudentOptions != 'on' → kein Aufruf.
-   * Fallback bei Fehler: Defaults (nova, false) bleiben erhalten.
+   * Delegiert an TtsManager.
    */
-  async _loadTtsPreferences() {
-    if (this.settings.audioStudentOptions !== 'on') return;
-    const userId = this.settings.userId;
-    if (!userId) return;
-    try {
-      const res = await fetch(
-        `${this._baseUrl()}/api/student-memory?userId=${encodeURIComponent(userId)}`
-      );
-      if (!res.ok) return; // Fehler → Defaults bleiben
-      const data = await res.json();
-      const entry = data.memory;
-      if (!entry) return;
-      // Preference-Text cachen, damit er beim Speichern erhalten bleibt
-      this._cachedPreferenceText = entry.preference_text ?? '';
-      if (entry.preferred_voice) {
-        this._ttsVoice = entry.preferred_voice;
-        this._updateVoicePopoverSelection();
-      }
-      if (typeof entry.tts_autoplay === 'number') {
-        this._ttsAutoPlay = entry.tts_autoplay === 1;
-        this._updateAutoPlayToggle();
-      }
-    } catch (e) {
-      console.warn('[TTS] Präferenzen laden fehlgeschlagen, nutze Defaults:', e);
-    }
-  }
+  async _loadTtsPreferences() { return this.tts._loadTtsPreferences(); }
 
   createChatInterface() {
     console.log("createChatInterface");
@@ -924,273 +1997,9 @@ export class MOOBOT {
     ]);
   }
 
-  async extractImagesFromTask() {
-    const images = [];
-    let failedCount = 0;
-    if (!this.settings.task) return { images, failedCount };
-    try {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(this.settings.task, "text/html");
-      const imgTags = doc.querySelectorAll("img");
-      for (const img of imgTags) {
-        try {
-          const response = await fetch(img.src);
-          if (!response.ok) {
-            console.warn("Could not fetch image (HTTP " + response.status + "):", img.src);
-            failedCount++;
-            continue;
-          }
-          const blob = await response.blob();
-          const pngBlob = await this._blobToPng(blob);
-          const base64 = await this._blobToDataURL(pngBlob);
-          images.push(base64);
-          console.log("Image extracted:", img.src);
-        } catch (err) {
-          console.warn("Could not process image:", img.src, err);
-          failedCount++;
-        }
-      }
-    } catch (err) {
-      console.warn("Error extracting images:", err);
-    }
-    return { images, failedCount };
-  }
+  async extractImagesFromTask() { return this.audio.extractImagesFromTask(); }
 
-  setupWebSocket() {
-    const host = this.settings.host || "localhost";
-    const port =
-      this.settings.port ||
-      (window.location.protocol === "https:" ? "443" : "80");
-    const protocol = this.settings.protocol === "https" ? "wss" : "ws";
-    const wsUrl = `${protocol}://${host}:${port}/api/chat`;
-    console.log("wsUrl: ", wsUrl);
-    this.ws = new WebSocket(wsUrl);
-
-    this.ws.onopen = async () => {
-      console.log("WebSocket connection established");
-
-      // Input-Container wiederherstellen (nach Reconnect)
-      this.restoreInputContainer();
-
-      // Moodle-User-Kontext auslesen (Issue #3: Thread-Persistenz)
-      const userId = window.M?.cfg?.userId?.toString() || null;
-      // DOM-Selektoren (leerer String zählt als falsy und wird übersprungen)
-      let userName = window.M?.cfg?.fullname
-        || document.querySelector('img.userpicture')?.getAttribute('alt')?.trim()
-        || document.querySelector('.usermenu .usertext')?.textContent?.trim()
-        || document.querySelector('span.usertext')?.textContent?.trim()
-        || document.querySelector('[data-key="myprofile"] .menu-action-text')?.textContent?.trim()
-        || null;
-      // Zuverlässiger Fallback: Moodles internes AJAX-Endpoint (same-origin, sesskey-Auth)
-      if (!userName && userId && window.M?.cfg?.wwwroot && window.M?.cfg?.sesskey) {
-        userName = await this._fetchMoodleUserName(userId, window.M.cfg.wwwroot, window.M.cfg.sesskey);
-      }
-      const activityId = new URLSearchParams(window.location.search).get('id') || null;
-      // Aufgabentitel aus Moodle-DOM (Issue #5: in DB speichern, nicht per URL-Param)
-      const activityName =
-        document.querySelector('.page-header-headings h1')?.textContent?.trim()
-        || document.querySelector('#region-main h1')?.textContent?.trim()
-        || document.querySelector('.activity-title')?.textContent?.trim()
-        || document.querySelector('h1.h2')?.textContent?.trim()
-        || document.title?.split('|')[0]?.trim()
-        || null;
-      // P5a: task aus Moodle-DOM lesen (nicht mehr aus Constructor)
-      const task = document.querySelector('.activity-description')?.innerHTML?.trim() || null;
-
-      if (userId)        this.settings.userId       = userId;
-      if (userName)      this.settings.userName     = userName;
-      if (activityId)    this.settings.activityId   = activityId;
-      if (activityName)  this.settings.activityName = activityName;
-      if (task)          this.settings.task         = task;
-      console.log(`[Bot] userId=${userId}, userName=${userName}, activityId=${activityId}, activityName=${activityName}`);
-
-      // Rollenerkennung (Issue #4):
-      // form[action*="editmode.php"] ist auf allen Moodle-Seiten für Trainer sichtbar, für Schüler nicht.
-      // userswitchedrole als Fallback wenn Trainer "Als Teilnehmer ansehen" aktiv hat.
-      const hasEditMode = document.querySelector('form[action*="editmode.php"]') !== null;
-      const isSwitchedRole = document.body.className.includes('userswitchedrole');
-      const isTeacher = hasEditMode && !isSwitchedRole;
-      this.settings.isTeacher = isTeacher;
-      console.log(`[Bot] isTeacher=${isTeacher} (editmode=${hasEditMode}, switched=${isSwitchedRole})`);
-
-      // Issue #101: TTS-Präferenzen laden sobald userId bekannt ist (nur Schüler)
-      if (!isTeacher) this._loadTtsPreferences();
-
-      // Bilder aus der Aufgabenstellung extrahieren und als Base64 mitsenden
-      const { images, failedCount } = await this.extractImagesFromTask();
-      if (images.length > 0) {
-        this.settings.images = images;
-        console.log(`${images.length} Bild(er) aus Aufgabenstellung extrahiert`);
-      }
-      if (failedCount > 0) {
-        this._showChatError(
-          `⚠️ ${failedCount} Bild(er) aus der Aufgabenstellung konnten nicht verarbeitet werden ` +
-          `(Format nicht unterstützt – vermutlich TIFF). ` +
-          `Bitte das Bild in GeoGebra oder einem Bildprogramm als PNG exportieren, ` +
-          `dann direkt als Datei in Moodle einfügen (nicht via Zwischenablage).`
-        );
-      }
-
-      const obj = { type: "settings", data: this.settings };
-
-      try {
-        this.ws.send(JSON.stringify(obj));
-        console.log("Settings sent successfully!");
-      } catch (error) {
-        console.error("Send error:", error);
-      }
-    };
-
-    this.ws.onerror = (error) => {
-      console.error("WebSocket error:", error);
-      this.showConnectionLostMessage();
-    };
-
-    this.ws.onclose = () => {
-      console.warn("WebSocket connection closed");
-      this.wsInitialized = false;  // Issue #3: Reconnect beim nächsten Chat-Öffnen
-      this.showConnectionLostMessage();
-    };
-
-    this.ws.onmessage = (event) => {
-      const chatWindow = document.getElementById("chat-window");
-      const chatInput = document.getElementById("chat-input");
-
-      try {
-        const messageObj = JSON.parse(event.data);
-
-        // Chatverlauf beim Reconnect anzeigen (Issue #3)
-        if (messageObj.type === "history") {
-          this.renderHistory(messageObj.messages);
-          return;
-        }
-
-        // P5a: Aktivitäts-Config vom Server empfangen
-        if (messageObj.type === "config") {
-          this._applyConfig(messageObj.config);
-          return;
-        }
-
-        // Issue #5: Dashboard-Token vom Server empfangen
-        if (messageObj.type === "dashboardToken") {
-          this.dashboardToken = messageObj.token;
-          console.log(`[Bot] Dashboard-Token empfangen für activityId=${messageObj.activityId}`);
-          if (this.pendingDashboardOpen) {
-            this.pendingDashboardOpen = false;
-            this._openDashboardTab(messageObj.token, messageObj.activityId);
-          }
-          if (this._pendingConfigOpen) {
-            this._pendingConfigOpen = false;
-            this._openConfigOverlay(messageObj.token, messageObj.activityId);
-          }
-          return;
-        }
-
-        // P3: Plenum-Sperre
-        if (messageObj.type === "locked") {
-          if (this.settings.isTeacher) {
-            this._setLockState(true);
-          } else {
-            this._showLockOverlay();
-          }
-          return;
-        }
-        if (messageObj.type === "unlocked") {
-          if (this.settings.isTeacher) {
-            this._setLockState(false);
-          } else {
-            this._hideLockOverlay();
-          }
-          return;
-        }
-
-        let messageText = messageObj.messages;
-
-        // Issue #100: Rohtext für TTS akkumulieren (vor Mathe-Ersetzung)
-        if (this.msgCount === 0) this._lastRawText = '';
-        this._lastRawText = messageText;
-
-        // Ersetzen von \[ durch $$
-        messageText = messageText.replace(/\\\[/g, "$$");
-        // Ersetzen von \] durch $$
-        messageText = messageText.replace(/\\\]/g, "$$");
-        // Ersetzen von \( durch $
-        messageText = messageText.replace(/\\\(/g, "$");
-        // Ersetzen von \) durch $
-        messageText = messageText.replace(/\\\)/g, "$");
-
-        // Sicherstellen, dass marked geladen ist
-        // Markdown in HTML umwandeln
-        const htmlContent = this.marked.parse(messageText);
-
-        if (this.msgCount === 0) {
-          const loading = document.getElementById("loading");
-          if (loading) {
-            chatWindow.removeChild(loading);
-          }
-
-          const message = document.createElement("div");
-          message.className = "message received";
-          message.innerHTML = `${htmlContent}`;
-          chatWindow.appendChild(message);
-
-          var mathDiv = message;
-          renderMathInElement(mathDiv, {
-            delimiters: [
-              { left: "$$", right: "$$", display: true },
-              { left: "$", right: "$", display: false },
-            ],
-          });
-        } else {
-          const lastReceivedMessage = chatWindow.querySelector(
-            ".message.received:last-child"
-          );
-          lastReceivedMessage.innerHTML = `${htmlContent}`;
-
-          var mathDiv = lastReceivedMessage;
-          renderMathInElement(mathDiv, {
-            delimiters: [
-              { left: "$$", right: "$$", display: true },
-              { left: "$", right: "$", display: false },
-            ],
-          });
-        }
-        this.msgCount += 1;
-
-        // Syntax-Highlighting anwenden
-        Prism.highlightAll();
-
-        if (messageObj.end === true) {
-          // Zeitstempel zur fertigen Antwort hinzufügen
-          const nowStr = new Date().toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
-          const lastMsg = chatWindow.querySelector(".message.received:last-child");
-          if (lastMsg && !lastMsg.querySelector(".msg-time")) {
-            const timeSpan = document.createElement("span");
-            timeSpan.className = "msg-time";
-            timeSpan.textContent = nowStr;
-            lastMsg.appendChild(timeSpan);
-          }
-          // Feedback-Buttons nur für Schüler
-          if (!this.settings.isTeacher && lastMsg && !lastMsg.querySelector('.mmb-feedback')) {
-            this._addFeedbackButtons(lastMsg);
-          }
-          // Issue #100: Lautsprecher-Icon nur wenn audioOutput=on
-          if (this.settings.audioOutput === 'on' && lastMsg && !lastMsg.querySelector('.mmb-speak-btn')) {
-            this._addSpeakButton(lastMsg, this._lastRawText);
-          }
-          // Issue #101: Auto-Play — kein automatischer Mikrofon-Start
-          if (this.settings.audioOutput === 'on' && this._ttsAutoPlay && this._lastRawText) {
-            const speakBtn = lastMsg?.querySelector('.mmb-speak-btn');
-            if (speakBtn) this._speakMessage(this._lastRawText, speakBtn);
-          }
-          this._enableInput();
-        }
-        chatWindow.scrollTop = chatWindow.scrollHeight;
-      } catch (error) {
-        console.log("Error parsing JSON message:", error);
-      }
-    };
-  }
+  setupWebSocket() { return this.core.setupWebSocket(); }
 
   sendMessage() {
     const chatWindow = document.getElementById("chat-window");
@@ -1410,380 +2219,46 @@ export class MOOBOT {
     });
   }
 
-  // ── Issue #92: Mikrofon-Eingabe ───────────────────────────────────────────
+  // ── Issue #92: Mikrofon-Eingabe → AudioManager ───────────────────────────
+  _attachMicButton(container)    { return this.audio._attachMicButton(container); }
 
-  /**
-   * Bindet den #mic-button im gegebenen Container an die Aufnahme-Logik.
-   * Fügt auch das mic-error-Element ein (wenn noch nicht vorhanden).
-   * Kein Fehler wenn kein Button vorhanden (Feature-Detection griff schon in _buildInputHTML).
-   */
-  _attachMicButton(container) {
-    const btn = container?.querySelector('#mic-button');
-    if (!btn) return;
-    // Fehler-Element einfügen (nach dem Input-Container, falls noch nicht vorhanden)
-    if (!container.querySelector('.mic-error')) {
-      const errDiv = document.createElement('div');
-      errDiv.className = 'mic-error';
-      container.insertAdjacentElement('afterend', errDiv);
-    }
-    btn.addEventListener('click', () => this._handleMicClick());
-  }
+  // ── Issue #10: Dateiupload → AudioManager ─────────────────────────────────
+  async handleFileUpload(file)   { return this.audio.handleFileUpload(file); }
 
-  _handleMicClick() {
-    if (this._micRecording) {
-      this._stopRecording();
-    } else {
-      this._startRecording();
-    }
-  }
+  // ── Delegations → ChatUI ─────────────────────────────────────────────────
+  _showChatError(msg)                      { return this.ui._showChatError(msg); }
+  _disableInput()                          { return this.ui._disableInput(); }
+  _enableInput()                           { return this.ui._enableInput(); }
+  _appendUploadPreview(base64, type)       { return this.ui._appendUploadPreview(base64, type); }
+  _renderUserContent(content, contentType) { return this.ui._renderUserContent(content, contentType); }
+  _addFeedbackButtons(msgEl)               { return this.ui._addFeedbackButtons(msgEl); }
+  _saveFeedback(text)                      { return this.ui._saveFeedback(text); }
+  _initLightbox()                          { return this.ui._initLightbox(); }
+  _openLightbox(src)                       { return this.ui._openLightbox(src); }
+  _closeLightbox()                         { return this.ui._closeLightbox(); }
+  _showLockOverlay()                       { return this.ui._showLockOverlay(); }
+  _hideLockOverlay()                       { return this.ui._hideLockOverlay(); }
 
-  async _startRecording() {
-    const btn = document.getElementById('mic-button');
-    if (!btn) return;
+  // ── Delegations → TtsManager ─────────────────────────────────────────────
+  _addSpeakButton(msgEl, rawText)          { return this.tts._addSpeakButton(msgEl, rawText); }
+  _speakMessage(text, btn)                 { return this.tts._speakMessage(text, btn); }
+  _buildVoicePopover(chatHeader)           { return this.tts._buildVoicePopover(chatHeader); }
+  _toggleVoicePopover()                    { return this.tts._toggleVoicePopover(); }
+  _closeVoicePopover()                     { return this.tts._closeVoicePopover(); }
+  _selectVoice(voiceId)                    { return this.tts._selectVoice(voiceId); }
+  _updateVoicePopoverSelection()           { return this.tts._updateVoicePopoverSelection(); }
+  _setAutoPlay(enabled)                    { return this.tts._setAutoPlay(enabled); }
+  _updateAutoPlayToggle()                  { return this.tts._updateAutoPlayToggle(); }
+  _saveTtsPreferences()                    { return this.tts._saveTtsPreferences(); }
 
-    this._hideMicError();
-
-    let stream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      this._showMicError('⚠️ Mikrofon-Berechtigung verweigert.');
-      return;
-    }
-
-    const mimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm';
-    const recorder = new MediaRecorder(stream, { mimeType });
-    this._micChunks   = [];
-    this._micMimeType = mimeType;
-    this._micRecorder = recorder;
-    this._micRecording = true;
-    this._micStream    = stream;
-
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) this._micChunks.push(e.data);
-    };
-
-    recorder.onstop = () => this._transcribeAudio();
-
-    recorder.start();
-    btn.classList.add('recording');
-    this._disableSendControls(true);
-
-    // Countdown (60 s Auto-Stop)
-    const MAX_SECONDS = 60;
-    this._micSecondsLeft = MAX_SECONDS;
-    btn.title = `Aufnahme läuft – ${this._micSecondsLeft} s`;
-
-    this._micCountdown = setInterval(() => {
-      this._micSecondsLeft -= 1;
-      if (btn) btn.title = `Aufnahme läuft – ${this._micSecondsLeft} s`;
-      if (this._micSecondsLeft <= 0) this._stopRecording();
-    }, 1000);
-  }
-
-  _stopRecording() {
-    clearInterval(this._micCountdown);
-    this._micRecording = false;
-
-    if (this._micRecorder?.state !== 'inactive') {
-      this._micRecorder.stop();
-    }
-    this._micStream?.getTracks().forEach(t => t.stop());
-
-    const btn = document.getElementById('mic-button');
-    if (btn) {
-      btn.classList.remove('recording');
-      btn.disabled = true;
-      btn.title = 'Transkription läuft…';
-    }
-  }
-
-  async _transcribeAudio() {
-    if (!this._micChunks?.length) {
-      this._resetMicButton();
-      return;
-    }
-
-    const blob     = new Blob(this._micChunks, { type: this._micMimeType });
-    const ext      = this._micMimeType.includes('mp4') ? '.mp4' : '.webm';
-    const filename = `audio${ext}`;
-
-    const formData = new FormData();
-    formData.append('audio', blob, filename);
-
-    const activityId = this.settings.activityId || '';
-    const threadId   = '';  // threadDbId ist clientseitig nicht bekannt; Server ignoriert leeren Wert
-    formData.append('activityId', activityId);
-    formData.append('threadId',   threadId);
-
-    try {
-      const baseUrl = this._baseUrl();
-      const res = await fetch(`${baseUrl}/api/transcribe`, {
-        method: 'POST',
-        body:   formData,
-      });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      const { text } = await res.json();
-
-      const chatInput = document.getElementById('chat-input');
-      if (chatInput && text) {
-        chatInput.value = text;
-        chatInput.focus();
-        // Markiere nächste Nachricht als audio
-        this._nextContentType = 'audio';
-      }
-    } catch {
-      this._showMicError('⚠️ Transkription fehlgeschlagen. Bitte erneut versuchen.');
-    } finally {
-      this._resetMicButton();
-    }
-  }
-
-  _resetMicButton() {
-    const btn = document.getElementById('mic-button');
-    if (btn) {
-      btn.disabled = false;
-      btn.classList.remove('recording');
-      btn.title = 'Spracheingabe';
-    }
-    this._disableSendControls(false);
-    this._micChunks   = [];
-    this._micRecorder = null;
-    this._micRecording = false;
-  }
-
-  /** Deaktiviert Senden und Upload-Button während Aufnahme/Transkription. */
-  _disableSendControls(disable) {
-    const sendBtn   = document.getElementById('send-button');
-    const uploadBtn = document.getElementById('upload-button');
-    const chatInput = document.getElementById('chat-input');
-    if (sendBtn)   sendBtn.disabled   = disable;
-    if (uploadBtn) uploadBtn.disabled = disable;
-    if (chatInput) chatInput.disabled = disable;
-  }
-
-  _showMicError(msg) {
-    const el = document.querySelector('.mic-error');
-    if (el) { el.textContent = msg; el.classList.add('visible'); }
-  }
-
-  _hideMicError() {
-    const el = document.querySelector('.mic-error');
-    if (el) el.classList.remove('visible');
-  }
-
-  // ── Issue #10: Dateiupload ────────────────────────────────────────────────
-
-  /** Einstiegspunkt für alle Upload-Wege (Button, Paste, Drag&Drop). */
-  async handleFileUpload(file) {
-    // Video ablehnen
-    if (file.type.startsWith('video/')) {
-      this._showChatError('⚠️ Videos werden nicht unterstützt.');
-      return;
-    }
-    const isPdf = file.type === 'application/pdf';
-    const isImage = file.type.startsWith('image/');
-    const uploadMode = this.settings.uploadMode || 'off';
-    if (!isPdf && !isImage) {
-      this._showChatError('⚠️ Nur Bilder und PDFs sind erlaubt.');
-      return;
-    }
-    if (isPdf && uploadMode !== 'files') {
-      this._showChatError('⚠️ PDF-Upload ist für diese Aufgabe nicht aktiviert.');
-      return;
-    }
-    if (!this.wsInitialized || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      this._showChatError('⚠️ Noch nicht verbunden. Chat kurz öffnen und erneut versuchen.');
-      return;
-    }
-
-    this._disableInput();
-
-    try {
-      let jpegBlob;
-      if (isPdf) {
-        jpegBlob = await this._pdfToJpeg(file);
-        if (!jpegBlob) return; // Fehler wurde bereits im Chat angezeigt
-      } else {
-        jpegBlob = await this._compressImage(file);
-      }
-
-      const base64 = await this._blobToDataURL(jpegBlob);
-      const originalType = isPdf ? 'pdf' : 'image';
-
-      // Vorschau im Chat anzeigen
-      this._appendUploadPreview(base64, originalType);
-
-      // Loading anzeigen
-      const chatWindow = document.getElementById("chat-window");
-      const loading = document.createElement("div");
-      loading.className = "message_loading";
-      loading.id = "loading";
-      loading.innerHTML = `<img src="${this._baseUrl()}/loading.gif" alt="Loading...">`;
-      chatWindow.appendChild(loading);
-      chatWindow.scrollTop = chatWindow.scrollHeight;
-      this.msgCount = 0;
-
-      document.getElementById("send-button").disabled = true;
-
-      this.ws.send(JSON.stringify({ type: "filemsg", data: { file: base64, originalType } }));
-    } catch (err) {
-      console.error('[Upload] Fehler:', err);
-      this._showChatError('⚠️ Fehler beim Verarbeiten der Datei: ' + err.message);
-      this._enableInput();
-    }
-  }
-
-  /** PDF: Seite 1 via PDF.js auf Canvas rendern → JPEG Blob. */
-  async _pdfToJpeg(file) {
-    let pdfjsLib;
-    try {
-      pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.9.155/build/pdf.mjs');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.9.155/build/pdf.worker.mjs';
-    } catch (e) {
-      this._showChatError('⚠️ PDF-Bibliothek konnte nicht geladen werden.');
-      this._enableInput();
-      return null;
-    }
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    if (pdf.numPages > 1) {
-      this._showChatError(`⚠️ Das PDF hat ${pdf.numPages} Seiten. Nur einseitige PDFs sind erlaubt.`);
-      this._enableInput();
-      return null;
-    }
-    const page = await pdf.getPage(1);
-    const MAX_PX = 1920;
-    let vp = page.getViewport({ scale: 1.0 });
-    const scale = Math.min(MAX_PX / vp.width, MAX_PX / vp.height, 1.0);
-    vp = page.getViewport({ scale });
-    const canvas = document.createElement('canvas');
-    canvas.width  = Math.round(vp.width);
-    canvas.height = Math.round(vp.height);
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-    return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
-  }
-
-  /** Bild auf max. 1920px skalieren und als JPEG 85% komprimieren. */
-  _compressImage(file) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        const MAX_PX = 1920;
-        let w = img.naturalWidth, h = img.naturalHeight;
-        if (w > MAX_PX || h > MAX_PX) {
-          if (w >= h) { h = Math.round(h * MAX_PX / w); w = MAX_PX; }
-          else        { w = Math.round(w * MAX_PX / h); h = MAX_PX; }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        canvas.toBlob(resolve, 'image/jpeg', 0.85);
-      };
-      img.onerror = reject;
-      img.src = url;
-    });
-  }
-
-  /** Blob → PNG-Blob via Canvas (lossless; wirft bei nicht renderbaren Formaten wie TIFF). */
-  _blobToPng(blob) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const url = URL.createObjectURL(blob);
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        const MAX_PX = 2048;
-        let w = img.naturalWidth, h = img.naturalHeight;
-        if (w > MAX_PX || h > MAX_PX) {
-          if (w >= h) { h = Math.round(h * MAX_PX / w); w = MAX_PX; }
-          else        { w = Math.round(w * MAX_PX / h); h = MAX_PX; }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        canvas.toBlob(
-          pngBlob => pngBlob ? resolve(pngBlob) : reject(new Error('Canvas PNG export failed')),
-          'image/png'
-        );
-      };
-      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
-      img.src = url;
-    });
-  }
-
-  /** Blob → base64 data-URL. */
-  _blobToDataURL(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror   = reject;
-      reader.readAsDataURL(blob);
-    });
-  }
-
-  /** Zeigt eine Vorschau der hochgeladenen Datei als gesendete Nachricht. */
-  _appendUploadPreview(base64, originalType) {
-    const chatWindow = document.getElementById("chat-window");
-    const nowStr = new Date().toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
-    const div = document.createElement("div");
-    div.className = "message sent";
-    const label = originalType === 'pdf' ? '<p style="margin:2px 0 0;font-size:11px;opacity:0.7">📄 PDF-Seite</p>' : '';
-    div.innerHTML = `<img src="${base64}" style="max-width:220px;border-radius:6px;display:block;margin-bottom:4px;" class="mmb-lb-trigger" onclick="window._mmbLightbox&&window._mmbLightbox(this.src)">${label}<span class="msg-time">${nowStr}</span>`;
-    chatWindow.appendChild(div);
-    chatWindow.scrollTop = chatWindow.scrollHeight;
-  }
-
-  /** Rendert den Inhalt einer Nutzernachricht (Text, Bild, PDF, Audio) als HTML-String. */
-  _renderUserContent(content, contentType) {
-    if (contentType === 'image' || contentType === 'pdf') {
-      if (content && content.startsWith('data:')) {
-        const label = contentType === 'pdf' ? '<p style="margin:2px 0 0;font-size:11px;opacity:0.7">📄 PDF-Seite</p>' : '';
-        return `<img src="${content}" style="max-width:220px;border-radius:6px;display:block;margin-bottom:4px;" class="mmb-lb-trigger" onclick="window._mmbLightbox&&window._mmbLightbox(this.src)">${label}`;
-      }
-      return contentType === 'pdf'
-        ? `<p>📄 <em>PDF-Upload (1 Seite)</em></p>`
-        : `<p>📷 <em>Bild (extern gespeichert)</em></p>`;
-    }
-    // Issue #88: Mikrofon-Icon für transkribierte Nachrichten
-    if (contentType === 'audio') {
-      return `<p><span class="audio-badge" title="Spracheingabe (Whisper)">🎤</span> ${content}</p>`;
-    }
-    return `<p>${content}</p>`;
-  }
-
-  /** Zeigt Fehlermeldung als System-Nachricht im Chat. */
-  _showChatError(msg) {
-    const chatWindow = document.getElementById("chat-window");
-    if (!chatWindow) return;
-    const div = document.createElement("div");
-    div.className = "message received";
-    div.style.color = '#c00';
-    div.innerHTML = `<p>${msg}</p>`;
-    chatWindow.appendChild(div);
-    chatWindow.scrollTop = chatWindow.scrollHeight;
-  }
-
-  _disableInput() {
-    const inp = document.getElementById("chat-input");
-    const btn = document.getElementById("send-button");
-    const upBtn = document.getElementById("upload-button");
-    if (inp)  inp.disabled = true;
-    if (btn)  btn.disabled = true;
-    if (upBtn) upBtn.disabled = true;
-  }
-
-  _enableInput() {
-    const inp = document.getElementById("chat-input");
-    const btn = document.getElementById("send-button");
-    const upBtn = document.getElementById("upload-button");
-    if (inp)  { inp.disabled = false; inp.focus(); }
-    if (btn)  btn.disabled = false;
-    if (upBtn) upBtn.disabled = false;
-  }
+  // ── Delegations → MemoryManager ──────────────────────────────────────────
+  _buildMemoryPopover(chatHeader)          { return this.memory._buildMemoryPopover(chatHeader); }
+  _toggleMemoryPopover()                   { return this.memory._toggleMemoryPopover(); }
+  _closeMemoryPopover()                    { return this.memory._closeMemoryPopover(); }
+  _loadMemoryIntoPopover()                 { return this.memory._loadMemoryIntoPopover(); }
+  _saveMemory()                            { return this.memory._saveMemory(); }
+  _deleteMemory()                          { return this.memory._deleteMemory(); }
+  _showMemoryDeleteConfirm()               { return this.memory._showMemoryDeleteConfirm(); }
 
   showConnectionLostMessage() {
     const inputContainer = document.querySelector(".input-container");
@@ -1791,640 +2266,7 @@ export class MOOBOT {
       '<div class="connection-lost">Verbindung unterbrochen – Chat schließen und neu öffnen zum Wiederverbinden.</div>';
   }
 
-  // ── Issue #15: Lightbox ───────────────────────────────────────────────────
-
-  _initLightbox() {
-    if (document.getElementById('mmb-lightbox')) return;
-    const lb = document.createElement('div');
-    lb.id = 'mmb-lightbox';
-    lb.innerHTML = `
-      <button id="mmb-lb-close" aria-label="Schließen">✕</button>
-      <div id="mmb-lb-inner">
-        <div id="mmb-lb-canvas"><img id="mmb-lb-img" src="" alt="Vorschau"></div>
-      </div>`;
-    document.body.appendChild(lb);
-
-    const inner = lb.querySelector('#mmb-lb-inner');
-    const img   = lb.querySelector('#mmb-lb-img');
-    this._lbInner = inner;
-    this._lbImg   = img;
-
-    // Schließen
-    lb.addEventListener('click', (e) => { if (e.target === lb) this._closeLightbox(); });
-    lb.querySelector('#mmb-lb-close').addEventListener('click', () => this._closeLightbox());
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') this._closeLightbox(); });
-
-    // Maus-Zoom: cursor-zentriert, mit erzwungenem Reflow vor scrollLeft
-    inner.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const factor = e.deltaY < 0 ? 1.05 : (1 / 1.05);
-      const innerRect = inner.getBoundingClientRect();
-
-      // Cursor-Position im Scroll-Raum (vor Resize lesen)
-      const cursorX = inner.scrollLeft + (e.clientX - innerRect.left);
-      const cursorY = inner.scrollTop  + (e.clientY - innerRect.top);
-
-      // Aktuelle Bildposition im Canvas (margin:auto horizontal, marginTop vertikal)
-      const curW = img.offsetWidth, curH = img.offsetHeight;
-      const imgX = Math.max(0, (inner.clientWidth  - curW) / 2);
-      const imgY = parseFloat(img.style.marginTop || '0');
-
-      // Relativer Treffer im Bild (0..1)
-      const rx = (cursorX - imgX) / curW;
-      const ry = (cursorY - imgY) / curH;
-
-      const natW = img.naturalWidth  || inner.clientWidth;
-      const natH = img.naturalHeight || inner.clientHeight;
-      const newW = Math.min(Math.max(curW * factor, 100), natW * 6);
-      const newH = newW / natW * natH;
-
-      img.style.width = newW + 'px';
-      void inner.scrollWidth; // ← synchroner Reflow: Canvas hat neue Größe bevor scrollLeft gesetzt wird
-
-      const newImgX = Math.max(0, (inner.clientWidth  - newW) / 2);
-      const newImgY = Math.max(0, (inner.clientHeight - newH) / 2);
-      img.style.marginTop = newImgY + 'px';
-      inner.scrollLeft = newImgX + rx * newW - (e.clientX - innerRect.left);
-      inner.scrollTop  = newImgY + ry * newH - (e.clientY - innerRect.top);
-    }, { passive: false });
-
-    // Drag-to-Pan (Maus)
-    let isDragging = false, dragX, dragY, scrollX, scrollY;
-    img.addEventListener('mousedown', (e) => {
-      isDragging = true;
-      dragX = e.clientX; dragY = e.clientY;
-      scrollX = inner.scrollLeft; scrollY = inner.scrollTop;
-      img.classList.add('mmb-dragging');
-      e.preventDefault();
-    });
-    document.addEventListener('mousemove', (e) => {
-      if (!isDragging) return;
-      inner.scrollLeft = scrollX - (e.clientX - dragX);
-      inner.scrollTop  = scrollY - (e.clientY - dragY);
-    });
-    document.addEventListener('mouseup', () => {
-      if (!isDragging) return;
-      isDragging = false;
-      img.classList.remove('mmb-dragging');
-    });
-
-    // Pinch-to-Zoom (iPad)
-    let initDist = null, initW = 0;
-    inner.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 2) {
-        initDist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        initW = img.offsetWidth;
-      }
-    }, { passive: true });
-    inner.addEventListener('touchmove', (e) => {
-      if (e.touches.length === 2 && initDist) {
-        e.preventDefault();
-        const dist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        const natW = img.naturalWidth || inner.clientWidth;
-        img.style.width = Math.min(Math.max(initW * dist / initDist, 100), natW * 6) + 'px';
-      }
-    }, { passive: false });
-    inner.addEventListener('touchend', () => { initDist = null; });
-
-    window._mmbLightbox = (src) => this._openLightbox(src);
-  }
-
-  _openLightbox(src) {
-    const lb    = document.getElementById('mmb-lightbox');
-    const inner = this._lbInner || document.getElementById('mmb-lb-inner');
-    const img   = this._lbImg   || document.getElementById('mmb-lb-img');
-    if (!lb || !img || !inner) return;
-    img.style.width = '';
-    img.src = src;
-    inner.scrollLeft = 0;
-    inner.scrollTop  = 0;
-    lb.style.display = 'flex';
-
-    // Initiales Fit: Bild auf max 90vw × 90vh skalieren + vertikal zentrieren
-    const fitImg = () => {
-      const natW = img.naturalWidth, natH = img.naturalHeight;
-      if (!natW || !natH) return;
-      const maxW = inner.clientWidth, maxH = inner.clientHeight;
-      const scale = Math.min(1, maxW / natW, maxH / natH);
-      if (scale < 1) img.style.width = Math.round(natW * scale) + 'px';
-      // Vertikale Zentrierung per marginTop (CSS-Flex entfernt → explizit setzen)
-      const dispH = img.offsetHeight || Math.round(natH * scale);
-      img.style.marginTop = Math.max(0, (inner.clientHeight - dispH) / 2) + 'px';
-    };
-    if (img.complete && img.naturalWidth) { fitImg(); }
-    else { img.onload = fitImg; }
-  }
-
-  _closeLightbox() {
-    const lb = document.getElementById('mmb-lightbox');
-    if (lb) lb.style.display = 'none';
-  }
-
-  // ── Issue #46: Schüler-Feedback-Buttons ──────────────────────────────────
-
-  /**
-   * Hängt 👍/👎-Buttons an eine Assistenten-Nachricht.
-   * Klick öffnet ein Inline-Panel mit Freitext + Speichern.
-   */
-  _addFeedbackButtons(msgEl) {
-    const bar = document.createElement('div');
-    bar.className = 'mmb-feedback';
-
-    const thumbUp   = document.createElement('button');
-    thumbUp.className = 'mmb-fb-btn';
-    thumbUp.title   = 'Hilfreich';
-    thumbUp.textContent = '👍';
-
-    const thumbDown = document.createElement('button');
-    thumbDown.className = 'mmb-fb-btn';
-    thumbDown.title   = 'Nicht hilfreich / Wunsch eingeben';
-    thumbDown.textContent = '👎';
-
-    bar.appendChild(thumbUp);
-    bar.appendChild(thumbDown);
-    msgEl.appendChild(bar);
-
-    const openPanel = (prefill) => {
-      // Bestehende Panels in dieser Nachricht entfernen
-      msgEl.querySelectorAll('.mmb-fb-panel').forEach(p => p.remove());
-
-      const panel = document.createElement('div');
-      panel.className = 'mmb-fb-panel';
-      panel.innerHTML = `
-        <input class="mmb-fb-input" type="text" placeholder="Was wünschst du dir? (optional)" value="${prefill || ''}">
-        <div class="mmb-fb-actions">
-          <button class="mmb-fb-save">Speichern</button>
-          <button class="mmb-fb-cancel">Abbrechen</button>
-        </div>`;
-      msgEl.appendChild(panel);
-
-      const doSave = () => {
-        const text = panel.querySelector('.mmb-fb-input').value.trim();
-        if (text) {
-          this._saveFeedback(text);
-          panel.remove();
-          bar.querySelector('.mmb-fb-saved')?.remove();
-          const saved = document.createElement('span');
-          saved.className = 'mmb-fb-saved';
-          saved.textContent = '✓ gespeichert';
-          bar.appendChild(saved);
-        } else {
-          panel.remove();
-        }
-      };
-      panel.querySelector('.mmb-fb-cancel').onclick = () => panel.remove();
-      panel.querySelector('.mmb-fb-save').onclick   = doSave;
-      panel.querySelector('.mmb-fb-input').addEventListener('keydown', e => {
-        if (e.key === 'Enter') { e.preventDefault(); doSave(); }
-      });
-      panel.querySelector('.mmb-fb-input').focus();
-    };
-
-    thumbUp.onclick = () => {
-      // 👍 ohne Text: kurze positive Bestätigung, kein Speichern
-      bar.querySelector('.mmb-fb-saved')?.remove();
-      bar.querySelectorAll('.mmb-fb-panel').forEach(p => p.remove());
-      const saved = document.createElement('span');
-      saved.className = 'mmb-fb-saved';
-      saved.textContent = '👍 Danke!';
-      bar.appendChild(saved);
-      setTimeout(() => saved.remove(), 3000);
-    };
-
-    thumbDown.onclick = () => openPanel('');
-  }
-
-  /** Sendet eine Schüler-Präferenz an den Server. */
-  async _saveFeedback(preferenceText) {
-    const userId = this.settings.userId;
-    if (!userId) {
-      console.warn('[Feedback] userId fehlt – Memory nicht gespeichert');
-      return;
-    }
-    try {
-      await fetch(`${this._baseUrl()}/api/student-memory`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ userId, preferenceText }),
-      });
-    } catch (e) {
-      console.error('[Feedback] Speichern fehlgeschlagen:', e);
-    }
-  }
-
-  // ── Issue #100: Lautsprecher-Icon + TTS-Wiedergabe ───────────────────────
-
-  /**
-   * Hängt einen Lautsprecher-Button an eine abgeschlossene Bot-Nachricht.
-   * Klick ruft _speakMessage auf. Guard: audioOutput=off → wird nie aufgerufen.
-   */
-  _addSpeakButton(msgEl, rawText) {
-    const btn = document.createElement('button');
-    btn.className = 'mmb-speak-btn';
-    btn.title = 'Vorlesen';
-    btn.textContent = '🔊';
-    btn.addEventListener('click', () => this._speakMessage(rawText, btn));
-    msgEl.appendChild(btn);
-  }
-
-  /**
-   * Ruft POST /api/speak auf, spielt den Audio-Blob ab.
-   * Stoppt laufende Wiedergabe bevor eine neue gestartet wird.
-   * Issue #151: AudioBuffer wird per WeakMap auf dem Button-Element gecacht.
-   * Bei Voice-Wechsel wird der Cache-Eintrag verworfen und neu abgerufen.
-   */
-  async _speakMessage(text, btn) {
-    // Laufende Wiedergabe stoppen
-    if (this._currentAudioSource) {
-      try { this._currentAudioSource.stop(); } catch (_) {}
-      this._currentAudioSource = null;
-    }
-
-    btn.disabled = true;
-    btn.textContent = '⏳';
-
-    try {
-      // AudioContext verwenden — kein User-Gesture nötig nach erstem Unlock
-      if (!this._audioCtx) {
-        this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      await this._audioCtx.resume();
-
-      // Issue #151: Cache-Hit prüfen — nur verwenden wenn Stimme noch übereinstimmt
-      const cached = this._ttsCache.get(btn);
-      let audioBuffer;
-      if (cached && cached.voice === this._ttsVoice) {
-        audioBuffer = cached.buffer;
-      } else {
-        const res = await fetch(`${this._baseUrl()}/api/speak`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text,
-            voice: this._ttsVoice,
-            speed: this._ttsSpeed,
-            activityId: this.settings.activityId || '',
-            threadId:   '',
-            userId:     this.settings.userId || '',
-          }),
-        });
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const arrayBuffer = await res.arrayBuffer();
-        audioBuffer = await this._audioCtx.decodeAudioData(arrayBuffer);
-        this._ttsCache.set(btn, { voice: this._ttsVoice, buffer: audioBuffer });
-      }
-      const source = this._audioCtx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.playbackRate.value = this._ttsSpeed;
-      source.connect(this._audioCtx.destination);
-      this._currentAudioSource = source;
-
-      await new Promise((resolve, reject) => {
-        source.onended = () => {
-          this._currentAudioSource = null;
-          btn.disabled = false;
-          btn.textContent = '🔊';
-          resolve();
-        };
-        source.onerror = reject;
-        source.start(0);
-      });
-      btn.textContent = '🔊';
-      btn.disabled = false;
-    } catch (err) {
-      console.error('[Speak] Fehler:', err?.name, err?.message, err);
-      btn.disabled = false;
-      btn.textContent = '🔊';
-      this._showChatError('⚠️ Sprachausgabe fehlgeschlagen. Bitte erneut versuchen.');
-    }
-  }
-
-  // ── Issue #101: Voice-Popover ─────────────────────────────────────────────
-
-  /**
-   * Baut den Voice-Popover und hängt ihn an den chatHeader.
-   * Wird nur aufgerufen wenn audioStudentOptions=on.
-   */
-  _buildVoicePopover(chatHeader) {
-    const voices = [
-      { id: 'nova',    label: 'Nova',    desc: 'weiblich, klar, lebendig' },
-      { id: 'alloy',   label: 'Alloy',   desc: 'neutral, androgyn' },
-      { id: 'echo',    label: 'Echo',    desc: 'männlich, klar, sachlich' },
-      { id: 'onyx',    label: 'Onyx',    desc: 'männlich, tief, ruhig' },
-      { id: 'shimmer', label: 'Shimmer', desc: 'weiblich, weich' },
-    ];
-
-    const popover = document.createElement('div');
-    popover.id = 'mmb-voice-popover';
-    popover.className = 'mmb-voice-popover';
-
-    const title = document.createElement('div');
-    title.className = 'mmb-voice-popover-title';
-    title.textContent = 'Stimme wählen';
-    popover.appendChild(title);
-
-    const list = document.createElement('ul');
-    list.className = 'mmb-voice-list';
-    for (const v of voices) {
-      const item = document.createElement('li');
-      item.className = 'mmb-voice-item' + (this._ttsVoice === v.id ? ' selected' : '');
-      item.dataset.voice = v.id;
-      item.innerHTML = `<span class="mmb-voice-name">${v.label}</span><span class="mmb-voice-desc">${v.desc}</span><span class="mmb-voice-check">&#10003;</span>`;
-      item.addEventListener('click', () => this._selectVoice(v.id));
-      list.appendChild(item);
-    }
-    popover.appendChild(list);
-
-    const autoplayRow = document.createElement('div');
-    autoplayRow.className = 'mmb-autoplay-row';
-    autoplayRow.innerHTML = `
-      <span class="mmb-autoplay-label">Auto-Play</span>
-      <label class="mmb-toggle">
-        <input type="checkbox" id="mmb-autoplay-toggle"${this._ttsAutoPlay ? ' checked' : ''}>
-        <span class="mmb-toggle-slider"></span>
-      </label>`;
-    popover.appendChild(autoplayRow);
-    autoplayRow.querySelector('#mmb-autoplay-toggle').addEventListener('change', (e) => {
-      this._setAutoPlay(e.target.checked);
-    });
-
-    chatHeader.style.position = 'relative';
-    chatHeader.appendChild(popover);
-  }
-
-  _toggleVoicePopover() {
-    const popover = document.getElementById('mmb-voice-popover');
-    const btn = document.getElementById('mmb-wave-btn');
-    if (!popover) return;
-    const isOpen = popover.classList.contains('open');
-    if (isOpen) {
-      popover.classList.remove('open');
-      btn?.classList.remove('active');
-    } else {
-      this._closeMemoryPopover(); // Issue #153: gegenseitiges Schließen
-      popover.classList.add('open');
-      btn?.classList.add('active');
-    }
-  }
-
-  _closeVoicePopover() {
-    const popover = document.getElementById('mmb-voice-popover');
-    const btn = document.getElementById('mmb-wave-btn');
-    popover?.classList.remove('open');
-    btn?.classList.remove('active');
-  }
-
-  /** Setzt die gewählte Stimme, markiert sie im Popover, persistiert via POST. */
-  _selectVoice(voiceId) {
-    this._ttsVoice = voiceId;
-    this._updateVoicePopoverSelection();
-    this._closeVoicePopover();
-    this._saveTtsPreferences();
-  }
-
-  /** Aktualisiert die visuelle Markierung der gewählten Stimme im Popover. */
-  _updateVoicePopoverSelection() {
-    document.querySelectorAll('.mmb-voice-item').forEach(el => {
-      el.classList.toggle('selected', el.dataset.voice === this._ttsVoice);
-    });
-  }
-
-  /** Setzt Auto-Play, aktualisiert Toggle-UI, persistiert via POST. */
-  _setAutoPlay(enabled) {
-    this._ttsAutoPlay = enabled;
-    this._updateAutoPlayToggle();
-    this._saveTtsPreferences();
-  }
-
-  /** Synchronisiert den Toggle-Zustand mit this._ttsAutoPlay. */
-  _updateAutoPlayToggle() {
-    const toggle = document.getElementById('mmb-autoplay-toggle');
-    if (toggle) toggle.checked = this._ttsAutoPlay;
-  }
-
-  /**
-   * Persistiert TTS-Präferenzen via POST /api/student-memory.
-   * Verwendet aktuellen In-Memory-Zustand (this._ttsVoice, this._ttsAutoPlay, this._cachedPreferenceText)
-   * für alle Felder, damit kein Wert versehentlich mit Default überschrieben wird.
-   * Callers müssen this._ttsVoice / this._ttsAutoPlay VOR dem Aufruf aktualisieren.
-   * Fallback bei Fehler: kein Absturz, Änderung gilt für die Session.
-   */
-  async _saveTtsPreferences() {
-    if (this.settings.audioStudentOptions !== 'on') return;
-    const userId = this.settings.userId;
-    if (!userId) return;
-    try {
-      await fetch(`${this._baseUrl()}/api/student-memory`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          preferenceText: this._cachedPreferenceText ?? '',
-          preferred_voice: this._ttsVoice,
-          tts_autoplay: this._ttsAutoPlay ? 1 : 0,
-        }),
-      });
-    } catch (e) {
-      console.warn('[TTS] Präferenzen speichern fehlgeschlagen:', e);
-    }
-  }
-
-  // ── Issue #110: Memory-Popover ───────────────────────────────────────────
-
-  /**
-   * Baut den Memory-Popover und hängt ihn an den chatHeader.
-   * Wird nur für Schüler aufgerufen (!isTeacher).
-   */
-  _buildMemoryPopover(chatHeader) {
-    const popover = document.createElement('div');
-    popover.id = 'mmb-memory-popover';
-    popover.className = 'mmb-memory-popover';
-
-    const title = document.createElement('div');
-    title.className = 'mmb-memory-popover-title';
-    title.textContent = 'Mein Memory';
-    popover.appendChild(title);
-
-    const desc = document.createElement('p');
-    desc.className = 'mmb-memory-popover-desc';
-    desc.textContent = 'Notizen für die KI — werden bei jeder Antwort berücksichtigt.';
-    popover.appendChild(desc);
-
-    const textarea = document.createElement('textarea');
-    textarea.id = 'mmb-memory-textarea';
-    textarea.className = 'mmb-memory-textarea';
-    textarea.placeholder = 'z.B. Ich bevorzuge kurze Erklärungen…';
-    textarea.rows = 5;
-    popover.appendChild(textarea);
-
-    const actions = document.createElement('div');
-    actions.className = 'mmb-memory-actions';
-
-    const delBtn = document.createElement('button');
-    delBtn.className = 'mmb-memory-delete';
-    delBtn.textContent = 'Löschen';
-    delBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this._showMemoryDeleteConfirm();
-    });
-    actions.appendChild(delBtn);
-
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'mmb-memory-save';
-    saveBtn.textContent = 'Speichern';
-    saveBtn.addEventListener('click', () => this._saveMemory());
-    actions.appendChild(saveBtn);
-
-    popover.appendChild(actions);
-    chatHeader.appendChild(popover);
-  }
-
-  _toggleMemoryPopover() {
-    let popover = document.getElementById('mmb-memory-popover');
-    const btn = document.getElementById('mmb-mem-btn');
-    if (!popover) return;
-    const isOpen = popover.classList.contains('open');
-    if (isOpen) {
-      popover.classList.remove('open');
-      btn?.classList.remove('active');
-    } else {
-      this._closeVoicePopover();
-      // Rebuild to ensure clean state (no stale confirmation)
-      const chatHeader = popover.parentElement;
-      popover.remove();
-      this._buildMemoryPopover(chatHeader);
-      popover = document.getElementById('mmb-memory-popover');
-      popover.classList.add('open');
-      btn?.classList.add('active');
-      this._loadMemoryIntoPopover();
-    }
-  }
-
-  _closeMemoryPopover() {
-    const popover = document.getElementById('mmb-memory-popover');
-    const btn = document.getElementById('mmb-mem-btn');
-    popover?.classList.remove('open');
-    btn?.classList.remove('active');
-  }
-
-  async _loadMemoryIntoPopover() {
-    const userId = this.settings.userId;
-    if (!userId) {
-      console.warn('[Memory] userId fehlt');
-      return;
-    }
-    const textarea = document.getElementById('mmb-memory-textarea');
-    if (textarea) textarea.value = '';
-    try {
-      const resp = await fetch(
-        `${this._baseUrl()}/api/student-memory?userId=${encodeURIComponent(userId)}`
-      );
-      if (resp.ok) {
-        const data = await resp.json();
-        if (textarea) textarea.value = data.memory?.preference_text ?? '';
-      }
-    } catch (e) {
-      console.error('[Memory] Laden fehlgeschlagen:', e);
-    }
-    if (textarea) textarea.focus();
-  }
-
-  async _saveMemory() {
-    const userId = this.settings.userId;
-    const textarea = document.getElementById('mmb-memory-textarea');
-    const preferenceText = textarea?.value?.trim() ?? '';
-    if (!userId) {
-      console.warn('[Memory] userId fehlt');
-      return;
-    }
-    if (!preferenceText) {
-      await this._deleteMemory();
-      return;
-    }
-    try {
-      const resp = await fetch(
-        `${this._baseUrl()}/api/student-memory`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, preferenceText }),
-        }
-      );
-      if (resp.ok) {
-        this._cachedPreferenceText = preferenceText;
-        this._closeMemoryPopover();
-      } else {
-        console.error('[Memory] Speichern fehlgeschlagen:', resp.status);
-      }
-    } catch (e) {
-      console.error('[Memory] Netzwerkfehler beim Speichern:', e);
-    }
-  }
-
-  _showMemoryDeleteConfirm() {
-    const overlay = document.createElement('div');
-    overlay.className = 'mmb-delete-overlay';
-
-    const box = document.createElement('div');
-    box.className = 'mmb-delete-confirm-box';
-
-    const msg = document.createElement('p');
-    msg.textContent = 'Memory löschen? Diese Aktion kann nicht rückgängig gemacht werden.';
-    box.appendChild(msg);
-
-    const actions = document.createElement('div');
-    actions.className = 'mmb-delete-confirm-actions';
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'mmb-memory-save';
-    cancelBtn.style.background = '#666';
-    cancelBtn.textContent = 'Abbrechen';
-    cancelBtn.addEventListener('click', () => overlay.remove());
-
-    const confirmBtn = document.createElement('button');
-    confirmBtn.className = 'mmb-memory-delete';
-    confirmBtn.textContent = 'Löschen';
-    confirmBtn.addEventListener('click', () => { overlay.remove(); this._deleteMemory(); });
-
-    actions.appendChild(cancelBtn);
-    actions.appendChild(confirmBtn);
-    box.appendChild(actions);
-    overlay.appendChild(box);
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
-  }
-
-  async _deleteMemory() {
-    const userId = this.settings.userId;
-    if (!userId) {
-      console.warn('[Memory] userId fehlt');
-      return;
-    }
-    try {
-      const resp = await fetch(
-        `${this._baseUrl()}/api/student-memory?userId=${encodeURIComponent(userId)}`,
-        { method: 'DELETE' }
-      );
-      if (resp.ok) {
-        this._cachedPreferenceText = '';
-        const textarea = document.getElementById('mmb-memory-textarea');
-        if (textarea) textarea.value = '';
-        this._closeMemoryPopover();
-      } else {
-        console.error('[Memory] Löschen fehlgeschlagen:', resp.status);
-      }
-    } catch (e) {
-      console.error('[Memory] Netzwerkfehler beim Löschen:', e);
-    }
-  }
+  // ── Issue #15: Lightbox → ChatUI (delegations in delegation block above) ──
 
   // ── Issue #42: Links/Rechts-Toggle ───────────────────────────────────────
 
@@ -2432,54 +2274,15 @@ export class MOOBOT {
     const newSide = this._positionSide === 'right' ? 'left' : 'right';
     this._positionSide = newSide;
     sessionStorage.setItem('moogpt-side', newSide);
-
     const chatContainer  = document.getElementById('chat-container');
     const chatIcon       = document.getElementById('chat-icon');
     const dashboardIcon  = document.getElementById('dashboard-icon');
     const configIcon     = document.getElementById('config-icon');
     const stopIcon       = document.getElementById('stop-icon');
-
     [chatContainer, chatIcon, dashboardIcon, configIcon, stopIcon].forEach(el => {
       if (!el) return;
-      if (newSide === 'left') {
-        el.classList.add('left-side');
-      } else {
-        el.classList.remove('left-side');
-      }
+      if (newSide === 'left') { el.classList.add('left-side'); }
+      else { el.classList.remove('left-side'); }
     });
-  }
-
-  // ── P3: Plenum-Overlay ────────────────────────────────────────────────────
-
-  _showLockOverlay() {
-    let overlay = document.getElementById('mmb-lock-overlay');
-    if (!overlay) {
-      overlay = document.createElement('div');
-      overlay.id = 'mmb-lock-overlay';
-      overlay.style.cssText = [
-        'position:absolute', 'inset:0',
-        'background:rgba(0,51,102,0.92)', 'color:white',
-        'display:flex', 'flex-direction:column',
-        'align-items:center', 'justify-content:center',
-        'gap:12px', 'z-index:10',
-        'font-family:Arial,sans-serif', 'border-radius:inherit',
-      ].join(';');
-      overlay.innerHTML =
-        '<div style="font-size:36px">🔒</div>' +
-        '<div style="font-size:15px;font-weight:600;text-align:center;padding:0 24px">Plenumsphase aktiv</div>' +
-        '<div style="font-size:13px;opacity:0.8;text-align:center;padding:0 24px">Die Lehrperson hat den Chat vorübergehend gesperrt.</div>';
-      const container = document.getElementById('chat-container');
-      if (container) {
-        container.appendChild(overlay);
-      }
-    }
-    overlay.style.display = 'flex';
-    this._disableInput();
-  }
-
-  _hideLockOverlay() {
-    const overlay = document.getElementById('mmb-lock-overlay');
-    if (overlay) overlay.style.display = 'none';
-    this._enableInput();
   }
 }
