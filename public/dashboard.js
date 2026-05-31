@@ -233,13 +233,13 @@ function connectWebSocket() {
 
   ws.onopen = () => {
     hasConnectedSuccessfully = true;
-    statusDot.classList.add('connected');
+    statusDot?.classList.add('connected');
     liveBadge.classList.add('visible');
     console.log('[Dashboard] WS verbunden');
   };
 
   ws.onclose = () => {
-    statusDot.classList.remove('connected');
+    statusDot?.classList.remove('connected');
     liveBadge.classList.remove('visible');
     if (fatalError) return;
     console.log('[Dashboard] WS getrennt, Reconnect in 5 s…');
@@ -1028,6 +1028,33 @@ function simpleMarkdown(text) {
   html = html.replace(/```[\s\S]*?```/g, match => `<pre>${match.slice(3, -3).trim()}</pre>`);
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+  // List transformation: runs line-by-line BEFORE \n → <br>
+  {
+    const lines = html.split('\n');
+    const out = [];
+    let inUl = false, inOl = false;
+    for (const line of lines) {
+      if (/^[-*] /.test(line)) {
+        if (inOl) { out.push('</ol>'); inOl = false; }
+        if (!inUl) { out.push('<ul>'); inUl = true; }
+        out.push(`<li>${line.slice(2)}</li>`);
+      } else if (/^\d+\. /.test(line)) {
+        if (inUl) { out.push('</ul>'); inUl = false; }
+        if (!inOl) { out.push('<ol>'); inOl = true; }
+        out.push(`<li>${line.replace(/^\d+\. /, '')}</li>`);
+      } else {
+        if (inUl) { out.push('</ul>'); inUl = false; }
+        if (inOl) { out.push('</ol>'); inOl = false; }
+        out.push(line + '\n');
+      }
+    }
+    if (inUl) out.push('</ul>');
+    if (inOl) out.push('</ol>');
+    html = out.join('');
+    // Remove trailing \n added to non-list lines before the final \n→<br> pass
+  }
+
   html = html.replace(/\n/g, '<br>');
 
   if (math.length) {
@@ -2707,5 +2734,14 @@ if (document.getElementById('settings-panel')) loadSettings();
     const url = buildGithubUrl(title, body);
     window.open(url, '_blank', 'noopener');
     statusEl.textContent = '✓ GitHub geöffnet';
+  });
+
+  document.getElementById('br-send-simple-btn-early')?.addEventListener('click', () => {
+    const desc = description.value.trim();
+    if (!desc) return;
+    const title = desc.length > 70 ? desc.slice(0, 67) + '…' : desc;
+    const url = buildGithubUrl(title, desc);
+    window.open(url, '_blank', 'noopener');
+    closeModal();
   });
 })();
