@@ -815,10 +815,12 @@ export class MOOBOT {
     if (!iframe || !overlay) return;
     const srcChanged = iframe.src !== url;
     if (srcChanged) iframe.src = url;
-    // Issue #112: open on left side when chat is already visible
+    // Issue #112 / #154: open on opposite side of chat when chat is visible
     const chatVisible = document.getElementById('chat-container')?.style.display === 'flex';
     const suggestPanel = document.getElementById('suggest-panel');
-    if (chatVisible) {
+    // Chat rechts offen → Overlay links; Chat links offen → Overlay rechts; Chat zu → Overlay rechts
+    const overlayOnLeft = chatVisible && this._positionSide === 'right';
+    if (overlayOnLeft) {
       overlay.classList.add('left-side');
       suggestPanel?.classList.add('left-side');
     } else {
