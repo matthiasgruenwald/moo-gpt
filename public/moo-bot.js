@@ -1349,13 +1349,13 @@ export class MOOBOT {
 
     if (uploadMode === 'off') {
       return `${micBtn}<input type="text" id="chat-input" placeholder="Geben Sie eine Nachricht ein..." onkeydown="handleKeyDown(event)">
-        <button id="send-button" onclick="sendMessage()">Senden</button>`;
+        <button id="send-button" onclick="sendMessage()" title="Senden" aria-label="Senden">&#8593;</button>`;
     }
     const accept = uploadMode === 'files' ? 'image/*,application/pdf' : 'image/*';
     return `<input type="file" id="file-input" accept="${accept}" style="display:none">
       <button id="upload-button" title="Bild${uploadMode === 'files' ? ' oder PDF' : ''} hochladen">📎</button>
       ${micBtn}<input type="text" id="chat-input" placeholder="Geben Sie eine Nachricht ein..." onkeydown="handleKeyDown(event)">
-      <button id="send-button" onclick="sendMessage()">Senden</button>`;
+      <button id="send-button" onclick="sendMessage()" title="Senden" aria-label="Senden">&#8593;</button>`;
   }
 
   // ── Issue #92: Mikrofon-Eingabe ───────────────────────────────────────────
