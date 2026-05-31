@@ -16,6 +16,7 @@ import { getCachedConfig as _getCachedConfig } from '../stores/prompt.js';
 import { getActiveErfahrungsprompt as _getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { getMessagesAll as _getMessagesAll, saveMessage as _saveMessage } from '../stores/chat.js';
 import { recordUsage as _recordUsage } from '../token-log.js';
+import { getWidgetConfig as _getWidgetConfig } from '../stores/widget-config.js';
 
 const productionModuleDeps = {
   buildInput:                _buildInput,
@@ -27,6 +28,7 @@ const productionModuleDeps = {
   getMessagesAll:            _getMessagesAll,
   saveMessage:               _saveMessage,
   recordUsage:               _recordUsage,
+  getWidgetConfig:           _getWidgetConfig,
 };
 
 /**
@@ -47,6 +49,7 @@ export function createStreamResponse({ dashboardRegistry, aiClient }, moduleDeps
     getMessagesAll,
     saveMessage,
     recordUsage,
+    getWidgetConfig,
   } = moduleDeps;
 
   /**
@@ -60,6 +63,8 @@ export function createStreamResponse({ dashboardRegistry, aiClient }, moduleDeps
     const memoryEntry    = (!ws.isTeacher && settings.userId)
       ? getStudentMemory(settings.userId)
       : null;
+    const widgetCfg      = getWidgetConfig(settings.activityId);
+    const mathMode       = widgetCfg?.math_mode ?? 'off';
     const instructions   = buildInstructions({
       systemContent:    getCachedConfig().content,
       erfahrungContent: getActiveErfahrungsprompt(settings.activityId)?.content ?? '',
@@ -67,6 +72,7 @@ export function createStreamResponse({ dashboardRegistry, aiClient }, moduleDeps
       task:             settings.task,
       date:             new Date(),
       studentMemory:    memoryEntry?.preference_text ?? null,
+      mathMode,
     });
     const input = buildInput(getMessagesAll(threadDbId));
 

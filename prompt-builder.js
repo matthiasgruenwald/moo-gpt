@@ -18,13 +18,15 @@ function formatDate(date) {
  * @param {string}  [opts.task]            - Aufgabenstellung aus Moodle-DOM
  * @param {Date}    [opts.date]            - Aktuelles Datum (für Zeitstempel)
  * @param {string}  [opts.studentMemory]   - Schüler-Präferenz aus student_memory
+ * @param {string}  [opts.mathMode]        - 'on' | 'off' — LaTeX-Formatierungsanweisung
  */
-export function buildInstructions({ systemContent, erfahrungContent, hints, task, date, studentMemory }) {
+export function buildInstructions({ systemContent, erfahrungContent, hints, task, date, studentMemory, mathMode }) {
   let out = systemContent ?? '';
   if (studentMemory)    out = `[Schüler-Präferenz: ${studentMemory}]\n\n` + out;
   if (date)             out += formatDate(date);
   if (hints)            out += hints;
   if (task)             out += task;
   if (erfahrungContent) out += `\n\n${erfahrungContent}`;
+  if (mathMode === 'on') out += '\n\nSchreibe mathematische Ausdrücke stets in LaTeX: inline mit $...$, abgesetzt mit $$...$$. Beispiel: $-0{,}0213x^2 + 192 = 0$.';
   return out;
 }

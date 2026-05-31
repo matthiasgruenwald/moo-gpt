@@ -28,17 +28,21 @@ router.put('/teacher/preferences', requireTeacherAuth, (req, res) => {
 
 router.get('/teacher/templates', requireTeacherAuth, (req, res) => {
   const { userId } = req;
-  res.json({ templates: getTeacherTemplates(userId) });
+  const templates = getTeacherTemplates(userId).map(tpl => ({
+    ...tpl,
+    mathMode: tpl.math_mode ?? 'off',
+  }));
+  res.json({ templates });
 });
 
 router.post('/teacher/templates', requireTeacherAuth, (req, res) => {
   const { userId } = req;
-  const { name, title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model } = req.body;
+  const { name, title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
-  const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput);
+  const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode);
   if (validErr) return res.status(400).json({ error: validErr });
   const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
-  const id = createTeacherTemplate(userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel });
+  const id = createTeacherTemplate(userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel, mathMode });
   res.json({ ok: true, id });
 });
 
@@ -46,12 +50,12 @@ router.put('/teacher/templates/:id', requireTeacherAuth, (req, res) => {
   const { userId } = req;
   const id = parseInt(req.params.id, 10);
   if (!id) return res.status(400).json({ error: 'Ungültige ID' });
-  const { name, title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model } = req.body;
+  const { name, title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
-  const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput);
+  const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode);
   if (validErr) return res.status(400).json({ error: validErr });
   const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
-  updateTeacherTemplate(id, userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel });
+  updateTeacherTemplate(id, userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel, mathMode });
   res.json({ ok: true });
 });
 

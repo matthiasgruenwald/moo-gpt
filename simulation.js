@@ -7,6 +7,7 @@ import { getActiveErfahrungsprompt } from './stores/prompt.js';
 import { generateOptimizeProposal } from './optimize.js';
 import { getCachedConfig } from './stores/prompt.js';
 import { recordWerkzeugUsage } from './cost-service.js';
+import { getWidgetConfig } from './stores/widget-config.js';
 
 const SIMULATION_TIMEOUT_MS = 90_000;
 
@@ -76,8 +77,8 @@ Antworte NUR mit einem JSON-Array von Strings: ["Äußerung 1", "Äußerung 2", 
   return { text, usage };
 }
 
-async function generateAIResponse(config, erfahrungContent, utterance, aiClient) {
-  const instructions = buildInstructions({ systemContent: config.content, erfahrungContent });
+async function generateAIResponse(config, erfahrungContent, utterance, aiClient, mathMode) {
+  const instructions = buildInstructions({ systemContent: config.content, erfahrungContent, mathMode: mathMode ?? 'off' });
   const { text, usage } = await aiClient.textCall(instructions, utterance, config.model, { timeout: SIMULATION_TIMEOUT_MS });
   return { text, usage };
 }
@@ -104,7 +105,7 @@ Wähle nur Highlights deren Wortlaut EXAKT so in der KI-Antwort steht.`,
   return { text, usage };
 }
 
-export async function runSimulation({ persona, config, erfahrungsprompt, criteria, models, aiClient, onPair }) {
+export async function runSimulation({ persona, config, erfahrungsprompt, criteria, models, aiClient, onPair, mathMode }) {
   const { utteranceModel, evalModel } = models;
   const count = 4;
 
@@ -124,7 +125,7 @@ export async function runSimulation({ persona, config, erfahrungsprompt, criteri
   const pairs = [];
   for (const utterance of utterancesText) {
     const { text: aiResponseText, usage: responseUsage } =
-      await generateAIResponse(config, erfahrungsprompt, utterance, aiClient);
+      await generateAIResponse(config, erfahrungsprompt, utterance, aiClient, mathMode);
     accUsage(responseUsage);
 
     let evaluation;
@@ -163,6 +164,7 @@ export async function runSimulation({ persona, config, erfahrungsprompt, criteri
 export async function runOneClickOptimization({ activityId, userId, aiClient, onProgress, genModel = 'gpt-4.1-nano' }) {
   const existing    = getCriteria(activityId);
   const erf         = getActiveErfahrungsprompt(activityId);
+  const mathMode    = getWidgetConfig(activityId)?.math_mode ?? 'off';
   const newCriteria = await augmentCriteria({
     config: getCachedConfig(),
     erfahrungsprompt: erf?.content || null,
@@ -194,6 +196,7 @@ export async function runOneClickOptimization({ activityId, userId, aiClient, on
         criteria:         currentCriteria,
         models:           { utteranceModel: genModel, evalModel: genModel },
         aiClient,
+        mathMode,
         onPair: (pair, index) => {
           allPairs.push({ personaName: persona.name, pair });
           pairsEmitted++;

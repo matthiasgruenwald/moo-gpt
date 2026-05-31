@@ -1377,13 +1377,13 @@ export class MOOBOT {
 
     if (uploadMode === 'off') {
       return `${micBtn}<textarea id="chat-input" rows="1" placeholder="Geben Sie eine Nachricht ein..."></textarea>
-        <button id="send-button" onclick="sendMessage()" title="Senden" aria-label="Senden">&#8593;</button>`;
+        <button id="send-button" onclick="sendMessage()" title="Senden" aria-label="Senden"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg></button>`;
     }
     const accept = uploadMode === 'files' ? 'image/*,application/pdf' : 'image/*';
     return `<input type="file" id="file-input" accept="${accept}" style="display:none">
       <button id="upload-button" title="Bild${uploadMode === 'files' ? ' oder PDF' : ''} hochladen">📎</button>
       ${micBtn}<textarea id="chat-input" rows="1" placeholder="Geben Sie eine Nachricht ein..."></textarea>
-      <button id="send-button" onclick="sendMessage()" title="Senden" aria-label="Senden">&#8593;</button>`;
+      <button id="send-button" onclick="sendMessage()" title="Senden" aria-label="Senden"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg></button>`;
   }
 
   /**
@@ -2271,28 +2271,9 @@ export class MOOBOT {
     const delBtn = document.createElement('button');
     delBtn.className = 'mmb-memory-delete';
     delBtn.textContent = 'Löschen';
-    delBtn.addEventListener('click', () => {
-      // Issue #158: Bestätigungs-Dialog inline anzeigen
-      actions.innerHTML = '';
-      const confirmMsg = document.createElement('span');
-      confirmMsg.style.cssText = 'font-size:12px;color:#555;flex:1;align-self:center';
-      confirmMsg.textContent = 'Memory löschen? Diese Aktion kann nicht rückgängig gemacht werden.';
-      const confirmDelBtn = document.createElement('button');
-      confirmDelBtn.className = 'mmb-memory-delete';
-      confirmDelBtn.textContent = 'Löschen';
-      confirmDelBtn.addEventListener('click', () => this._deleteMemory());
-      const cancelBtn = document.createElement('button');
-      cancelBtn.className = 'mmb-memory-save';
-      cancelBtn.style.background = '#666';
-      cancelBtn.textContent = 'Abbrechen';
-      cancelBtn.addEventListener('click', () => {
-        actions.innerHTML = '';
-        actions.appendChild(delBtn);
-        actions.appendChild(saveBtn);
-      });
-      actions.appendChild(confirmMsg);
-      actions.appendChild(confirmDelBtn);
-      actions.appendChild(cancelBtn);
+    delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._showMemoryDeleteConfirm();
     });
     actions.appendChild(delBtn);
 
@@ -2307,7 +2288,7 @@ export class MOOBOT {
   }
 
   _toggleMemoryPopover() {
-    const popover = document.getElementById('mmb-memory-popover');
+    let popover = document.getElementById('mmb-memory-popover');
     const btn = document.getElementById('mmb-mem-btn');
     if (!popover) return;
     const isOpen = popover.classList.contains('open');
@@ -2315,7 +2296,12 @@ export class MOOBOT {
       popover.classList.remove('open');
       btn?.classList.remove('active');
     } else {
-      this._closeVoicePopover(); // Issue #153: gegenseitiges Schließen
+      this._closeVoicePopover();
+      // Rebuild to ensure clean state (no stale confirmation)
+      const chatHeader = popover.parentElement;
+      popover.remove();
+      this._buildMemoryPopover(chatHeader);
+      popover = document.getElementById('mmb-memory-popover');
       popover.classList.add('open');
       btn?.classList.add('active');
       this._loadMemoryIntoPopover();
@@ -2381,6 +2367,39 @@ export class MOOBOT {
     } catch (e) {
       console.error('[Memory] Netzwerkfehler beim Speichern:', e);
     }
+  }
+
+  _showMemoryDeleteConfirm() {
+    const overlay = document.createElement('div');
+    overlay.className = 'mmb-delete-overlay';
+
+    const box = document.createElement('div');
+    box.className = 'mmb-delete-confirm-box';
+
+    const msg = document.createElement('p');
+    msg.textContent = 'Memory löschen? Diese Aktion kann nicht rückgängig gemacht werden.';
+    box.appendChild(msg);
+
+    const actions = document.createElement('div');
+    actions.className = 'mmb-delete-confirm-actions';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'mmb-memory-save';
+    cancelBtn.style.background = '#666';
+    cancelBtn.textContent = 'Abbrechen';
+    cancelBtn.addEventListener('click', () => overlay.remove());
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'mmb-memory-delete';
+    confirmBtn.textContent = 'Löschen';
+    confirmBtn.addEventListener('click', () => { overlay.remove(); this._deleteMemory(); });
+
+    actions.appendChild(cancelBtn);
+    actions.appendChild(confirmBtn);
+    box.appendChild(actions);
+    overlay.appendChild(box);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
   }
 
   async _deleteMemory() {

@@ -81,17 +81,18 @@ export function createAdminRouter({ dashboardRegistry }) {
       audioOutput:         tpl?.audio_output         ?? 'off',
       ttsVoice:            tpl?.tts_voice            ?? 'nova',
       audioStudentOptions: tpl?.audio_student_options ?? 'off',
+      mathMode:            tpl?.math_mode            ?? 'off',
       model:               tpl?.model               ?? null,
     });
   });
 
   router.put('/admin/system-template', requireAdminAuth, (req, res) => {
     const { userId } = req;
-    const { title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model } = req.body;
-    const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput);
+    const { title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode } = req.body;
+    const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode);
     if (validErr) return res.status(400).json({ error: validErr });
     const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
-    setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel });
+    setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel, mathMode });
     console.log(`[P5b] Systemvorlage gespeichert von ${userId}`);
     res.json({ ok: true });
   });
