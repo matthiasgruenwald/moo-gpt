@@ -2260,7 +2260,29 @@ export class MOOBOT {
     const delBtn = document.createElement('button');
     delBtn.className = 'mmb-memory-delete';
     delBtn.textContent = 'Löschen';
-    delBtn.addEventListener('click', () => this._deleteMemory());
+    delBtn.addEventListener('click', () => {
+      // Issue #158: Bestätigungs-Dialog inline anzeigen
+      actions.innerHTML = '';
+      const confirmMsg = document.createElement('span');
+      confirmMsg.style.cssText = 'font-size:12px;color:#555;flex:1;align-self:center';
+      confirmMsg.textContent = 'Memory löschen? Diese Aktion kann nicht rückgängig gemacht werden.';
+      const confirmDelBtn = document.createElement('button');
+      confirmDelBtn.className = 'mmb-memory-delete';
+      confirmDelBtn.textContent = 'Löschen';
+      confirmDelBtn.addEventListener('click', () => this._deleteMemory());
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'mmb-memory-save';
+      cancelBtn.style.background = '#666';
+      cancelBtn.textContent = 'Abbrechen';
+      cancelBtn.addEventListener('click', () => {
+        actions.innerHTML = '';
+        actions.appendChild(delBtn);
+        actions.appendChild(saveBtn);
+      });
+      actions.appendChild(confirmMsg);
+      actions.appendChild(confirmDelBtn);
+      actions.appendChild(cancelBtn);
+    });
     actions.appendChild(delBtn);
 
     const saveBtn = document.createElement('button');
