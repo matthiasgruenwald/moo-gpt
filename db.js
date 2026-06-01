@@ -146,6 +146,11 @@ export function initDb() {
       tts_autoplay    INTEGER NOT NULL DEFAULT 0,
       updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS admin_config (
+      key   TEXT PRIMARY KEY,
+      value TEXT
+    );
   `);
 
   // Migrationen für bestehende DBs

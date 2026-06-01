@@ -92,7 +92,7 @@
     const f = getFields();
     return (
       f.title               !== (tpl.title                ?? '') ||
-      f.botIcon             !== (tpl.bot_icon             ?? 'grw') ||
+      f.botIcon             !== (tpl.bot_icon             ?? 'grwdev') ||
       f.opener              !== (tpl.opener               ?? '') ||
       f.uploadMode          !== (tpl.upload_mode          ?? 'off') ||
       f.audioInput          !== (tpl.audio_input          ?? 'off') ||
@@ -159,7 +159,7 @@
     const tpl = getLoadedTemplate();
     if (!tpl) return;
     document.getElementById('cfg-title').value                    = tpl.title                ?? '';
-    document.getElementById('cfg-bot-icon').value                 = tpl.bot_icon             ?? 'grw';
+    document.getElementById('cfg-bot-icon').value                 = tpl.bot_icon             ?? 'grwdev';
     document.getElementById('cfg-opener').value                   = tpl.opener               ?? '';
     document.getElementById('cfg-upload-mode').value              = tpl.upload_mode          ?? 'off';
     document.getElementById('cfg-audio-input').value              = tpl.audio_input          ?? 'off';
@@ -364,7 +364,14 @@
       document.getElementById('cfg-activity-name').textContent =
         data.activityName || `Aktivität ${activityId}`;
       document.getElementById('cfg-title').value        = data.title       || '';
-      document.getElementById('cfg-bot-icon').value     = data.botIcon     || 'grw';
+      const botIconSel = document.getElementById('cfg-bot-icon');
+      botIconSel.innerHTML = '';
+      for (const b of (data.availableBotIcons || [])) {
+        const opt = document.createElement('option');
+        opt.value = b; opt.textContent = b;
+        botIconSel.appendChild(opt);
+      }
+      botIconSel.value = data.botIcon || data.availableBotIcons?.[0] || '';
       document.getElementById('cfg-opener').value       = data.opener      || '';
       document.getElementById('cfg-upload-mode').value  = data.uploadMode  || 'off';
       document.getElementById('cfg-audio-input').value            = data.audioInput         || 'off';
@@ -385,7 +392,7 @@
 
       initial = {
         title:               data.title               || '',
-        botIcon:             data.botIcon             || 'grw',
+        botIcon:             data.botIcon             || 'grwdev',
         opener:              data.opener              || '',
         uploadMode:          data.uploadMode          || 'off',
         audioInput:          data.audioInput          || 'off',

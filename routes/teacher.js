@@ -5,7 +5,7 @@ import {
   getTeacherTemplates, createTeacherTemplate, updateTeacherTemplate,
   deleteTeacherTemplate, setTeacherTemplateDefault,
 } from '../stores/teacher.js';
-import { AVAILABLE_MODELS } from '../env-config.js';
+import { getAvailableModels } from '../env-config.js';
 import { validateWidgetConfig } from '../validators.js';
 
 const router = Router();
@@ -13,13 +13,13 @@ const router = Router();
 router.get('/teacher/preferences', requireTeacherAuth, (req, res) => {
   const { userId } = req;
   const pref = getTeacherPreference(userId);
-  res.json({ myModel: pref?.preferred_model || null, availableModels: AVAILABLE_MODELS });
+  res.json({ myModel: pref?.preferred_model || null, availableModels: getAvailableModels() });
 });
 
 router.put('/teacher/preferences', requireTeacherAuth, (req, res) => {
   const { userId } = req;
   const { model } = req.body;
-  const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
+  const validModel = (!model || model === '') ? null : (getAvailableModels().includes(model) ? model : null);
   if (model && model !== '' && !validModel) return res.status(400).json({ error: 'Ungültiges Modell' });
   setTeacherPreference(userId, validModel);
   console.log(`[Teacher] ${userId} setzt Modell-Präferenz: ${validModel || 'Standard'}`);
@@ -41,7 +41,7 @@ router.post('/teacher/templates', requireTeacherAuth, (req, res) => {
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
   const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode);
   if (validErr) return res.status(400).json({ error: validErr });
-  const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
+  const validModel = (!model || model === '') ? null : (getAvailableModels().includes(model) ? model : null);
   const id = createTeacherTemplate(userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel, mathMode });
   res.json({ ok: true, id });
 });
@@ -54,7 +54,7 @@ router.put('/teacher/templates/:id', requireTeacherAuth, (req, res) => {
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name erforderlich' });
   const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode);
   if (validErr) return res.status(400).json({ error: validErr });
-  const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
+  const validModel = (!model || model === '') ? null : (getAvailableModels().includes(model) ? model : null);
   updateTeacherTemplate(id, userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel, mathMode });
   res.json({ ok: true });
 });
