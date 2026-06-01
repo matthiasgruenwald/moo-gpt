@@ -4,7 +4,7 @@ import { getActivity } from '../stores/activity.js';
 import { setWidgetConfig } from '../stores/widget-config.js';
 import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { getTeacherPreference, setTeacherSuggestPreference } from '../stores/teacher.js';
-import { AVAILABLE_MODELS } from '../env-config.js';
+import { AVAILABLE_MODELS, AVAILABLE_BOT_ICONS } from '../env-config.js';
 import { getEffectiveModel } from '../model-resolver.js';
 import { validateWidgetConfig } from '../validators.js';
 
@@ -20,7 +20,7 @@ export function createActivityRouter({ lockManager }) {
       activityId,
       activityName:           act?.activity_name              || '',
       title:                  act?.title                      ?? '',
-      botIcon:                act?.bot_icon                   ?? 'grw',
+      botIcon:                act?.bot_icon                   ?? 'grwdev',
       opener:                 act?.opener                     || '',
       uploadMode:             act?.upload_mode                || 'off',
       audioInput:             act?.audio_input                || 'off',
@@ -32,6 +32,7 @@ export function createActivityRouter({ lockManager }) {
       model:                  act?.model                      ?? null,
       effectiveModel:         getEffectiveModel(activityId),
       availableModels:        AVAILABLE_MODELS,
+      availableBotIcons:      AVAILABLE_BOT_ICONS,
       preferSuggestQuestions: pref?.prefer_suggest_questions  ?? 1,
     });
   });

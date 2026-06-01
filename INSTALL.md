@@ -27,6 +27,7 @@ Alle Konfiguration erfolgt über Umgebungsvariablen. Empfohlen: `/etc/moo-gpt.en
 | `MODEL_NAME` | ✅ | Fallback-Modell, z. B. `gpt-5`. Wird beim ersten Start in die DB migriert – danach im Dashboard änderbar. Hinweis: wird in einer späteren Version mit `AVAILABLE_MODELS` zusammengeführt. |
 | `ADMIN_USER_IDS` | empfohlen | Kommagetrennte Moodle-User-IDs der initialen Admins, z. B. `12345,67890`. Ohne diesen Eintrag ist das Dashboard nur per direktem SQL-Zugriff einrichtbar. Danach im Dashboard verwaltbar. |
 | `AVAILABLE_MODELS` | – | Kommagetrennte Liste der im Dashboard angebotenen Modelle, z. B. `gpt-5,gpt-4o,gpt-4.1-mini`. Alle Modelle müssen Vision unterstützen. Standard: nur `MODEL_NAME`. |
+| `AVAILABLE_BOT_ICONS` | – | Kommagetrennte Liste der im Dashboard angebotenen Bot-Avatar-Optionen, z. B. `grw,grw2`. Nur Dateinamen ohne `.png`. Standard: `grw,grw2,weiblich,grwdev`. Die entsprechenden PNG-Dateien müssen in `public/` liegen. |
 | `TEACHER_USER_IDS` | – | Kommagetrennte Moodle-User-IDs, die serverseitig als Lehrkraft eingestuft werden – unabhängig vom Client-Flag. Nützlich als Fallback bei abweichenden Themes. Wird in einer späteren Version im Dashboard verwaltbar sein. |
 | `ALLOWED_ORIGIN` | – | Kommagetrennte Liste erlaubter Origins, z. B. `https://moodle.beispiel.de`. Ohne diese Variable ist jede Origin erlaubt. |
 | `MAX_REQUESTS` | – | Max. Anfragen pro IP und Tag, z. B. `4`. |

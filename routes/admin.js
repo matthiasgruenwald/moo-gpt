@@ -5,7 +5,7 @@ import { isAdmin, addAdmin, removeAdmin, getAdmins } from '../stores/admin.js';
 import { saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry } from '../stores/prompt.js';
 import { getSystemTemplate, setSystemTemplate } from '../stores/teacher.js';
 import { getCachedConfig, updateCachedConfig } from '../stores/prompt.js';
-import { AVAILABLE_MODELS, GEN_MODELS } from '../env-config.js';
+import { AVAILABLE_MODELS, AVAILABLE_BOT_ICONS, GEN_MODELS } from '../env-config.js';
 import { validateWidgetConfig } from '../validators.js';
 
 export function createAdminRouter({ dashboardRegistry }) {
@@ -17,8 +17,9 @@ export function createAdminRouter({ dashboardRegistry }) {
     res.json({
       systemPrompt:    config.content,
       model:           config.model,
-      availableModels: AVAILABLE_MODELS,
-      genModels:       GEN_MODELS,
+      availableModels:  AVAILABLE_MODELS,
+      availableBotIcons: AVAILABLE_BOT_ICONS,
+      genModels:        GEN_MODELS,
       isAdmin:         isAdmin(userId),
     });
   });
@@ -73,7 +74,7 @@ export function createAdminRouter({ dashboardRegistry }) {
     const tpl = getSystemTemplate();
     res.json({
       title:               tpl?.title                ?? '',
-      botIcon:             tpl?.bot_icon             ?? 'grw',
+      botIcon:             tpl?.bot_icon             ?? 'grwdev',
       opener:              tpl?.opener               ?? '',
       uploadMode:          tpl?.upload_mode          ?? 'off',
       hintsTemplate:       tpl?.hints_template       ?? '',

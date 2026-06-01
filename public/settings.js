@@ -113,7 +113,7 @@ async function loadSettings() {
       loadPromptHistory();
       apiGet('/api/admin/system-template').then(st => {
         document.getElementById('st-title').value       = st.title         || '';
-        document.getElementById('st-bot-icon').value    = st.botIcon       || 'grw';
+        document.getElementById('st-bot-icon').value    = st.botIcon       || 'grwdev';
         document.getElementById('st-opener').value      = st.opener        || '';
         document.getElementById('st-upload-mode').value = st.uploadMode    || 'off';
         document.getElementById('st-hints').value       = st.hintsTemplate || '';
@@ -138,6 +138,16 @@ function applySettingsData(data) {
     opt.value = m; opt.textContent = m;
     if (m === data.myModel) opt.selected = true;
     mySelect.appendChild(opt);
+  }
+
+  const botIconSel = document.getElementById('st-bot-icon');
+  if (botIconSel) {
+    botIconSel.innerHTML = '';
+    for (const b of (data.availableBotIcons || [])) {
+      const opt = document.createElement('option');
+      opt.value = b; opt.textContent = b;
+      botIconSel.appendChild(opt);
+    }
   }
 
   if (!data.isAdmin) return;

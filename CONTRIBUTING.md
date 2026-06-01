@@ -49,7 +49,7 @@ npm start
 | `db.js` | SQLite-Zugriff (better-sqlite3) |
 | `prompt-builder.js` | System-Prompt zusammensetzen aus systemContent, hints, task, Erfahrungsprompt |
 | `config-cache.js` | Gecachte DB-Konfiguration (System-Prompt, Modell) |
-| `env-config.js` | Berechnete Env-Konstanten: MODEL_NAME, AVAILABLE_MODELS |
+| `env-config.js` | Berechnete Env-Konstanten: MODEL_NAME, AVAILABLE_MODELS, AVAILABLE_BOT_ICONS |
 | `routes/` | REST-Endpunkte: activity, dashboard, admin, teacher, criteria, simulation, … |
 | `public/moo-bot.js` | Chat-Widget (ES-Modul, läuft im Browser) |
 | `public/dashboard.*` | Lehrer-Dashboard (HTML + JS) |
