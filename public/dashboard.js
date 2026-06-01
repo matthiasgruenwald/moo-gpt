@@ -1412,6 +1412,7 @@ function applySettingsData(data) {
   document.getElementById('sp-history-details').style.display   = '';
   document.getElementById('admin-personas-card').style.display  = '';
   document.getElementById('system-template-card').style.display = '';
+  document.getElementById('admin-models-card').style.display    = '';
   loadAdminPersonas();
   initAdminDebug();
 
@@ -2780,3 +2781,43 @@ if (document.getElementById('settings-panel')) loadSettings();
     closeModal();
   });
 })();
+
+// ── Admin: Modell-Verwaltung (Issue #179) ─────────────────────────────────────
+
+document.getElementById('refresh-models-btn')?.addEventListener('click', async () => {
+  const status = document.getElementById('models-status');
+  const list   = document.getElementById('models-checkbox-list');
+  setStatus(status, 'Lade Modellliste…');
+  try {
+    const data = await apiGet('/api/admin/openai-models');
+    const selectedModels = new Set(settingsData?.availableModels ?? []);
+    list.innerHTML = '';
+    for (const modelId of data.models) {
+      const label = document.createElement('label');
+      label.style.cssText = 'display:flex;align-items:center;gap:6px;cursor:pointer';
+      const cb = document.createElement('input');
+      cb.type    = 'checkbox';
+      cb.value   = modelId;
+      cb.checked = selectedModels.has(modelId);
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(modelId));
+      list.appendChild(label);
+    }
+    setStatus(status, data.cached ? 'Gecachte Liste geladen.' : 'Modellliste geladen.');
+  } catch (e) {
+    setStatus(status, e.message, true);
+  }
+});
+
+document.getElementById('save-models-btn')?.addEventListener('click', async () => {
+  const status = document.getElementById('models-status');
+  const list   = document.getElementById('models-checkbox-list');
+  const selected = [...list.querySelectorAll('input[type=checkbox]:checked')].map(cb => cb.value);
+  try {
+    await apiPost('/api/admin/config', { available_models: selected });
+    if (settingsData) settingsData.availableModels = selected;
+    setStatus(status, 'Auswahl gespeichert.');
+  } catch (e) {
+    setStatus(status, e.message, true);
+  }
+});

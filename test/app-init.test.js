@@ -17,26 +17,32 @@ function makeDeps({
   ADMIN_USER_IDS = '',
   SYSTEM_PROMPT = '',
   MODEL_NAME = 'gpt-test',
+  AVAILABLE_MODELS = '',
+  existingAdminConfig = null,
 } = {}) {
   const calls = {
     initDb: 0,
     addAdmin: [],
     saveSystemPrompt: [],
     updateCachedConfig: [],
+    setAdminConfig: [],
   };
 
   return {
     calls,
     deps: {
-      initDb: ()                   => { calls.initDb++; },
-      addAdmin: (uid, src)         => { calls.addAdmin.push({ uid, src }); },
-      getActiveSystemPrompt: ()    => dbPrompt,
-      saveSystemPrompt: (...args)  => { calls.saveSystemPrompt.push(args); return savedSystemPrompt; },
+      initDb: ()                    => { calls.initDb++; },
+      addAdmin: (uid, src)          => { calls.addAdmin.push({ uid, src }); },
+      getAdminConfig: (_key)        => existingAdminConfig,
+      setAdminConfig: (key, value)  => { calls.setAdminConfig.push({ key, value }); },
+      getActiveSystemPrompt: ()     => dbPrompt,
+      saveSystemPrompt: (...args)   => { calls.saveSystemPrompt.push(args); return savedSystemPrompt; },
       updateCachedConfig: (...args) => { calls.updateCachedConfig.push(args); },
-      getCachedConfig: ()          => ({ model: MODEL_NAME }),
+      getCachedConfig: ()           => ({ model: MODEL_NAME }),
       MODEL_NAME,
       SYSTEM_PROMPT,
       ADMIN_USER_IDS,
+      AVAILABLE_MODELS,
     },
   };
 }
@@ -102,5 +108,34 @@ describe('initApp', () => {
     });
     initApp(deps);
     assert.equal(calls.updateCachedConfig[0][1], 'gpt-fallback');
+  });
+
+  test('Bootstrap: leere DB + AVAILABLE_MODELS-Env → setAdminConfig aufgerufen', () => {
+    const { calls, deps } = makeDeps({
+      existingAdminConfig: null,
+      AVAILABLE_MODELS: 'gpt-4o,gpt-4.1',
+    });
+    initApp(deps);
+    assert.equal(calls.setAdminConfig.length, 1);
+    assert.equal(calls.setAdminConfig[0].key, 'available_models');
+    assert.deepEqual(JSON.parse(calls.setAdminConfig[0].value), ['gpt-4o', 'gpt-4.1']);
+  });
+
+  test('Bootstrap idempotent: DB hat bereits Wert → kein setAdminConfig', () => {
+    const { calls, deps } = makeDeps({
+      existingAdminConfig: '["gpt-4o"]',
+      AVAILABLE_MODELS: 'gpt-4o,gpt-4.1',
+    });
+    initApp(deps);
+    assert.equal(calls.setAdminConfig.length, 0);
+  });
+
+  test('Bootstrap: leere DB + keine AVAILABLE_MODELS-Env → kein setAdminConfig', () => {
+    const { calls, deps } = makeDeps({
+      existingAdminConfig: null,
+      AVAILABLE_MODELS: '',
+    });
+    initApp(deps);
+    assert.equal(calls.setAdminConfig.length, 0);
   });
 });

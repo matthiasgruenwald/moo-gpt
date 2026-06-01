@@ -4,30 +4,21 @@
  * Löst das effektive Modell für einen AI-Call auf.
  * Priorität: activities.model → prompts.model (globaler Config-Cache) → MODEL_NAME aus Env.
  *
- * Importiert env-config.js NICHT direkt, um Tests ohne MODEL_NAME-Env zu ermöglichen
- * (env-config.js ruft process.exit(1) wenn MODEL_NAME fehlt, was Tests brechen würde).
- * Production: _getEnvAvailableModels()/_getEnvModelName() lesen process.env direkt.
+ * Production: _getEnvAvailableModels() liest über getAvailableModels() aus admin_config (DB)
+ * mit Fallback auf Env-Variable. Da MODEL_NAME kein process.exit mehr auslöst,
+ * kann env-config.js sicher importiert werden.
  * Tests: deps-Objekt übergeben.
  */
 
 import { getActivity as _getActivity } from './stores/activity.js';
 import { getCachedConfig as _getCachedConfig } from './stores/prompt.js';
-
-function _getEnvModelName() {
-  return process.env.MODEL_NAME ?? '';
-}
-
-function _getEnvAvailableModels() {
-  return process.env.AVAILABLE_MODELS
-    ? process.env.AVAILABLE_MODELS.split(',').map(m => m.trim()).filter(Boolean)
-    : [process.env.MODEL_NAME ?? ''];
-}
+import { getAvailableModels as _getAvailableModels, MODEL_NAME as _MODEL_NAME } from './env-config.js';
 
 const productionDeps = {
-  getActivity:    _getActivity,
+  getActivity:     _getActivity,
   getCachedConfig: _getCachedConfig,
-  get AVAILABLE_MODELS() { return _getEnvAvailableModels(); },
-  get MODEL_NAME()       { return _getEnvModelName(); },
+  get AVAILABLE_MODELS() { return _getAvailableModels(); },
+  get MODEL_NAME()       { return _MODEL_NAME ?? ''; },
 };
 
 /**

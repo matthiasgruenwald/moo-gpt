@@ -4,7 +4,7 @@ import { getActivity } from '../stores/activity.js';
 import { setWidgetConfig } from '../stores/widget-config.js';
 import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { getTeacherPreference, setTeacherSuggestPreference } from '../stores/teacher.js';
-import { AVAILABLE_MODELS, AVAILABLE_BOT_ICONS } from '../env-config.js';
+import { getAvailableModels, getAvailableBotIcons } from '../env-config.js';
 import { getEffectiveModel } from '../model-resolver.js';
 import { validateWidgetConfig } from '../validators.js';
 
@@ -31,8 +31,8 @@ export function createActivityRouter({ lockManager }) {
       erfahrungsprompt:       erf?.content                    || '',
       model:                  act?.model                      ?? null,
       effectiveModel:         getEffectiveModel(activityId),
-      availableModels:        AVAILABLE_MODELS,
-      availableBotIcons:      AVAILABLE_BOT_ICONS,
+      availableModels:        getAvailableModels(),
+      availableBotIcons:      getAvailableBotIcons(),
       preferSuggestQuestions: pref?.prefer_suggest_questions  ?? 1,
     });
   });
@@ -42,7 +42,7 @@ export function createActivityRouter({ lockManager }) {
     const { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode } = req.body;
     const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode);
     if (validErr) return res.status(400).json({ error: validErr });
-    const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
+    const validModel = (!model || model === '') ? null : (getAvailableModels().includes(model) ? model : null);
     if (model && model !== '' && !validModel) return res.status(400).json({ error: 'Ungültiges Modell' });
     setWidgetConfig(activityId, { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel, mathMode });
     console.log(`[Config] Aktivität ${activityId} aktualisiert von ${userId}`);

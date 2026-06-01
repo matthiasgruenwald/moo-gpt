@@ -60,6 +60,13 @@ export function createStreamResponse({ dashboardRegistry, aiClient }, moduleDeps
     const chatMsg = { end: false, messages: '' };
 
     const effectiveModel = getEffectiveModel(settings.activityId);
+    if (!effectiveModel) {
+      if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({
+        end: true,
+        error: 'Kein Modell konfiguriert. Bitte wende dich an die Lehrkraft oder den Administrator.',
+      }));
+      return;
+    }
     const memoryEntry    = (!ws.isTeacher && settings.userId)
       ? getStudentMemory(settings.userId)
       : null;
