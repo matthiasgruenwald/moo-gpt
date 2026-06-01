@@ -68,8 +68,8 @@ export function createStreamResponse({ dashboardRegistry, aiClient }, moduleDeps
     const instructions   = buildInstructions({
       systemContent:    getCachedConfig().content,
       erfahrungContent: getActiveErfahrungsprompt(settings.activityId)?.content ?? '',
-      hints:            settings.hints,
-      task:             settings.task,
+      aufgabenprompt:   settings.hints,
+      aufgabe:          settings.task,
       date:             new Date(),
       studentMemory:    memoryEntry?.preference_text ?? null,
       mathMode,
