@@ -1413,8 +1413,15 @@ function applySettingsData(data) {
   document.getElementById('admin-personas-card').style.display  = '';
   document.getElementById('system-template-card').style.display = '';
   document.getElementById('admin-models-card').style.display    = '';
+  document.getElementById('admin-bot-icons-card').style.display = '';
   loadAdminPersonas();
   initAdminDebug();
+
+  // Bot-Icons-Textarea vorausfüllen
+  const botIconsTextarea = document.getElementById('bot-icons-textarea');
+  if (botIconsTextarea && Array.isArray(data.availableBotIcons)) {
+    botIconsTextarea.value = data.availableBotIcons.join('\n');
+  }
 
   // Admin-Formular
   document.getElementById('sp-edit').value = data.systemPrompt || '';
@@ -2817,6 +2824,24 @@ document.getElementById('save-models-btn')?.addEventListener('click', async () =
     await apiPost('/api/admin/config', { available_models: selected });
     if (settingsData) settingsData.availableModels = selected;
     setStatus(status, 'Auswahl gespeichert.');
+  } catch (e) {
+    setStatus(status, e.message, true);
+  }
+});
+
+// ── Admin: Bot-Icon-Verwaltung (Issue #180) ───────────────────────────────────
+
+document.getElementById('save-bot-icons-btn')?.addEventListener('click', async () => {
+  const status   = document.getElementById('bot-icons-status');
+  const textarea = document.getElementById('bot-icons-textarea');
+  const icons = textarea.value
+    .split(/[\n,]+/)
+    .map(s => s.trim())
+    .filter(Boolean);
+  try {
+    await apiPost('/api/admin/config', { available_bot_icons: icons });
+    if (settingsData) settingsData.availableBotIcons = icons;
+    setStatus(status, 'Bot-Icons gespeichert.');
   } catch (e) {
     setStatus(status, e.message, true);
   }

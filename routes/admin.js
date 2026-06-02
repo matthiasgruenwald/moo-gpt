@@ -42,15 +42,35 @@ export function createAdminRouter({ dashboardRegistry, oai: oaiOverride } = {}) 
     res.json({ ok: true });
   });
 
-  // POST /admin/config — speichert available_models in admin_config-Tabelle
+  // POST /admin/config — speichert available_models und/oder available_bot_icons in admin_config-Tabelle
   router.post('/admin/config', requireAdminAuth, (req, res) => {
-    const { available_models } = req.body;
-    if (!Array.isArray(available_models)) {
+    const { available_models, available_bot_icons } = req.body;
+
+    if (available_models !== undefined) {
+      if (!Array.isArray(available_models)) {
+        return res.status(400).json({ error: 'available_models muss ein Array sein' });
+      }
+      const models = available_models.map(m => String(m).trim()).filter(Boolean);
+      setAdminConfig('available_models', JSON.stringify(models));
+      console.log(`[Admin] available_models gespeichert: ${models.join(', ')}`);
+    }
+
+    if (available_bot_icons !== undefined) {
+      if (!Array.isArray(available_bot_icons)) {
+        return res.status(400).json({ error: 'available_bot_icons muss ein Array sein' });
+      }
+      const icons = available_bot_icons.map(b => String(b).trim()).filter(Boolean);
+      if (icons.length === 0) {
+        return res.status(400).json({ error: 'Mindestens ein Bot-Icon muss gesetzt sein' });
+      }
+      setAdminConfig('available_bot_icons', JSON.stringify(icons));
+      console.log(`[Admin] available_bot_icons gespeichert: ${icons.join(', ')}`);
+    }
+
+    if (available_models === undefined && available_bot_icons === undefined) {
       return res.status(400).json({ error: 'available_models muss ein Array sein' });
     }
-    const models = available_models.map(m => String(m).trim()).filter(Boolean);
-    setAdminConfig('available_models', JSON.stringify(models));
-    console.log(`[Admin] available_models gespeichert: ${models.join(', ')}`);
+
     res.json({ ok: true });
   });
 

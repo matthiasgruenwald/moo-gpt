@@ -32,7 +32,8 @@ const productionDeps = {
   get MODEL_NAME()       { return process.env.MODEL_NAME ?? ''; },
   get SYSTEM_PROMPT()    { return process.env.SYSTEM_PROMPT ?? ''; },
   get ADMIN_USER_IDS()   { return process.env.ADMIN_USER_IDS ?? ''; },
-  get AVAILABLE_MODELS() { return process.env.AVAILABLE_MODELS ?? ''; },
+  get AVAILABLE_MODELS()    { return process.env.AVAILABLE_MODELS ?? ''; },
+  get AVAILABLE_BOT_ICONS() { return process.env.AVAILABLE_BOT_ICONS ?? ''; },
 };
 
 /**
@@ -40,7 +41,8 @@ const productionDeps = {
  * 1. SQLite-DB anlegen/migrieren
  * 2. Admins aus ADMIN_USER_IDS-Env seeden (idempotent)
  * 3. available_models aus Env in admin_config seeden (idempotent — nur wenn DB leer)
- * 4. System-Prompt + Modell aus DB laden; bei Erststart aus Env migrieren
+ * 4. available_bot_icons aus Env in admin_config seeden (idempotent — nur wenn DB leer)
+ * 5. System-Prompt + Modell aus DB laden; bei Erststart aus Env migrieren
  *
  * @param {object} [deps] — optionale Dependency-Injection für Tests
  */
@@ -58,6 +60,7 @@ export function initApp(deps = productionDeps) {
     SYSTEM_PROMPT,
     ADMIN_USER_IDS,
     AVAILABLE_MODELS,
+    AVAILABLE_BOT_ICONS,
   } = deps;
 
   // 1. SQLite-DB initialisieren
@@ -80,7 +83,17 @@ export function initApp(deps = productionDeps) {
     }
   }
 
-  // 4. Systemprompt + Modell aus DB laden; bei Erststart aus Env migrieren
+  // 4. available_bot_icons aus Env in admin_config seeden (idempotent — nur wenn kein DB-Wert)
+  const existingBotIcons = getAdminConfig('available_bot_icons');
+  if (!existingBotIcons && AVAILABLE_BOT_ICONS) {
+    const icons = AVAILABLE_BOT_ICONS.split(',').map(b => b.trim()).filter(Boolean);
+    if (icons.length > 0) {
+      setAdminConfig('available_bot_icons', JSON.stringify(icons));
+      console.log(`[Config] available_bot_icons aus ENV in admin_config gespeichert: ${icons.join(', ')}`);
+    }
+  }
+
+  // 5. Systemprompt + Modell aus DB laden; bei Erststart aus Env migrieren
   const dbPrompt = getActiveSystemPrompt();
   if (dbPrompt) {
     updateCachedConfig(dbPrompt.content, dbPrompt.model || MODEL_NAME);
