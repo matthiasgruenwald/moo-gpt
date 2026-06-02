@@ -1,5 +1,5 @@
 /**
- * Tests für app-init.js — Issue #79
+ * Tests für app-init.js — Issue #79, bereinigt in Issue #181
  * initApp() — DB-Init + Admin-Seed + Config-Load.
  *
  * Alle DB/Env-Dependencies werden per DI injiziert.
@@ -15,34 +15,26 @@ function makeDeps({
   dbPrompt = null,
   savedSystemPrompt = null,
   ADMIN_USER_IDS = '',
-  SYSTEM_PROMPT = '',
   MODEL_NAME = 'gpt-test',
-  AVAILABLE_MODELS = '',
-  existingAdminConfig = null,
 } = {}) {
   const calls = {
     initDb: 0,
     addAdmin: [],
     saveSystemPrompt: [],
     updateCachedConfig: [],
-    setAdminConfig: [],
   };
 
   return {
     calls,
     deps: {
-      initDb: ()                    => { calls.initDb++; },
-      addAdmin: (uid, src)          => { calls.addAdmin.push({ uid, src }); },
-      getAdminConfig: (_key)        => existingAdminConfig,
-      setAdminConfig: (key, value)  => { calls.setAdminConfig.push({ key, value }); },
-      getActiveSystemPrompt: ()     => dbPrompt,
-      saveSystemPrompt: (...args)   => { calls.saveSystemPrompt.push(args); return savedSystemPrompt; },
+      initDb: ()                   => { calls.initDb++; },
+      addAdmin: (uid, src)         => { calls.addAdmin.push({ uid, src }); },
+      getActiveSystemPrompt: ()    => dbPrompt,
+      saveSystemPrompt: (...args)  => { calls.saveSystemPrompt.push(args); return savedSystemPrompt; },
       updateCachedConfig: (...args) => { calls.updateCachedConfig.push(args); },
-      getCachedConfig: ()           => ({ model: MODEL_NAME }),
+      getCachedConfig: ()          => ({ model: MODEL_NAME }),
       MODEL_NAME,
-      SYSTEM_PROMPT,
       ADMIN_USER_IDS,
-      AVAILABLE_MODELS,
     },
   };
 }
@@ -54,18 +46,24 @@ describe('initApp', () => {
     assert.equal(calls.initDb, 1, 'initDb soll genau einmal aufgerufen werden');
   });
 
-  test('Erststart: kein DB-Prompt → ENV migrieren (saveSystemPrompt + updateCachedConfig)', () => {
+  test('Erststart: kein DB-Prompt → leeren Prompt setzen (saveSystemPrompt + updateCachedConfig)', () => {
     const { calls, deps } = makeDeps({
       dbPrompt: null,
-      SYSTEM_PROMPT: 'Hallo Welt',
       MODEL_NAME: 'gpt-5',
     });
     initApp(deps);
 
     assert.equal(calls.saveSystemPrompt.length, 1, 'saveSystemPrompt soll einmal aufgerufen werden');
-    assert.equal(calls.saveSystemPrompt[0][0], 'Hallo Welt', 'System-Prompt soll aus ENV kommen');
+    assert.equal(calls.saveSystemPrompt[0][0], '', 'Leerer Prompt soll gesetzt werden');
     assert.equal(calls.saveSystemPrompt[0][1], 'gpt-5', 'MODEL_NAME soll aus deps kommen');
     assert.equal(calls.updateCachedConfig.length, 1, 'updateCachedConfig soll einmal aufgerufen werden');
+    assert.equal(calls.updateCachedConfig[0][0], '', 'Leerer Prompt soll gecacht werden');
+  });
+
+  test('Erststart: läuft ohne SYSTEM_PROMPT-Env fehlerfrei', () => {
+    const { calls, deps } = makeDeps({ dbPrompt: null });
+    assert.doesNotThrow(() => initApp(deps));
+    assert.equal(calls.saveSystemPrompt.length, 1);
   });
 
   test('Wiederkehr-Start: DB-Prompt vorhanden → updateCachedConfig, kein saveSystemPrompt', () => {
@@ -108,34 +106,5 @@ describe('initApp', () => {
     });
     initApp(deps);
     assert.equal(calls.updateCachedConfig[0][1], 'gpt-fallback');
-  });
-
-  test('Bootstrap: leere DB + AVAILABLE_MODELS-Env → setAdminConfig aufgerufen', () => {
-    const { calls, deps } = makeDeps({
-      existingAdminConfig: null,
-      AVAILABLE_MODELS: 'gpt-4o,gpt-4.1',
-    });
-    initApp(deps);
-    assert.equal(calls.setAdminConfig.length, 1);
-    assert.equal(calls.setAdminConfig[0].key, 'available_models');
-    assert.deepEqual(JSON.parse(calls.setAdminConfig[0].value), ['gpt-4o', 'gpt-4.1']);
-  });
-
-  test('Bootstrap idempotent: DB hat bereits Wert → kein setAdminConfig', () => {
-    const { calls, deps } = makeDeps({
-      existingAdminConfig: '["gpt-4o"]',
-      AVAILABLE_MODELS: 'gpt-4o,gpt-4.1',
-    });
-    initApp(deps);
-    assert.equal(calls.setAdminConfig.length, 0);
-  });
-
-  test('Bootstrap: leere DB + keine AVAILABLE_MODELS-Env → kein setAdminConfig', () => {
-    const { calls, deps } = makeDeps({
-      existingAdminConfig: null,
-      AVAILABLE_MODELS: '',
-    });
-    initApp(deps);
-    assert.equal(calls.setAdminConfig.length, 0);
   });
 });

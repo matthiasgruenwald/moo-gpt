@@ -4,21 +4,20 @@
  * Löst das effektive Modell für einen AI-Call auf.
  * Priorität: activities.model → prompts.model (globaler Config-Cache) → MODEL_NAME aus Env.
  *
- * Production: _getEnvAvailableModels() liest über getAvailableModels() aus admin_config (DB)
- * mit Fallback auf Env-Variable. Da MODEL_NAME kein process.exit mehr auslöst,
- * kann env-config.js sicher importiert werden.
+ * Production: AVAILABLE_MODELS kommt aus admin_config (DB) via getAvailableModels().
+ * MODEL_NAME bleibt als optionaler Env-Fallback (process.env direkt).
  * Tests: deps-Objekt übergeben.
  */
 
 import { getActivity as _getActivity } from './stores/activity.js';
 import { getCachedConfig as _getCachedConfig } from './stores/prompt.js';
-import { getAvailableModels as _getAvailableModels, MODEL_NAME as _MODEL_NAME } from './env-config.js';
+import { getAvailableModels as _getAvailableModels } from './env-config.js';
 
 const productionDeps = {
   getActivity:     _getActivity,
   getCachedConfig: _getCachedConfig,
   get AVAILABLE_MODELS() { return _getAvailableModels(); },
-  get MODEL_NAME()       { return _MODEL_NAME ?? ''; },
+  get MODEL_NAME()       { return process.env.MODEL_NAME ?? ''; },
 };
 
 /**

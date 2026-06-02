@@ -16,7 +16,6 @@ import { Router } from 'express';
 import { requireDashboardAuth } from '../auth-middleware.js';
 import { getCachedConfig } from '../stores/prompt.js';
 import { recordWerkzeugUsage, sumCostRows } from '../cost-service.js';
-import { getAvailableModels, MODEL_NAME } from '../env-config.js';
 
 // ── System-Prompts ────────────────────────────────────────────────────────────
 
@@ -89,7 +88,7 @@ export function buildPromptCheckHandler({ aiClient: client }) {
     const userMessage = `Aufgabenstellung:\n${taskText || '(keine)'}\n\nAktueller Prompt:\n${currentHints || '(leer)'}`;
 
     const validImages = (taskImages || []).filter(img => img !== null && typeof img === 'string');
-    const model = getCachedConfig().model || MODEL_NAME;
+    const model = getCachedConfig().model || process.env.MODEL_NAME || '';
     const systemPrompt = buildPromptCheckSystem(validImages.length > 0);
 
     const opts = {
@@ -149,11 +148,12 @@ export function buildSuggestPromptHandler({ aiClient: client }) {
     }
 
     try {
-      const { text: raw, usage } = await client.textCall(systemPrompt, '', MODEL_NAME, {
+      const model = getCachedConfig().model || '';
+      const { text: raw, usage } = await client.textCall(systemPrompt, '', model, {
         timeout: 120_000,
         input: history.map(m => ({ role: m.role, content: m.content })),
       });
-      recordWerkzeugUsage(req.activityId, 'prompt-assist', MODEL_NAME, usage);
+      recordWerkzeugUsage(req.activityId, 'prompt-assist', model, usage);
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       let parsed;
       if (jsonMatch) {
@@ -163,7 +163,7 @@ export function buildSuggestPromptHandler({ aiClient: client }) {
       const runCost = await sumCostRows([{
         prompt_tokens:     usage?.input_tokens  ?? 0,
         completion_tokens: usage?.output_tokens ?? 0,
-        model:             MODEL_NAME,
+        model,
       }]);
       const cost = {
         promptTokens:     usage?.input_tokens  ?? null,

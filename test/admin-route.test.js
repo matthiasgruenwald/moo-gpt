@@ -7,9 +7,7 @@
  * Run: DB_PATH=:memory: MODEL_NAME=gpt-test node --test test/admin-route.test.js
  */
 
-// MODEL_NAME muss vor dem Import von env-config.js gesetzt sein
 process.env.MODEL_NAME = process.env.MODEL_NAME || 'gpt-test';
-process.env.AVAILABLE_MODELS = process.env.AVAILABLE_MODELS || 'gpt-test,gpt-4o';
 
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
