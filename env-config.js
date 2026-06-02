@@ -22,10 +22,20 @@ export function getAvailableModels() {
   return MODEL_NAME ? [MODEL_NAME] : [];
 }
 
+/**
+ * Gibt die aktuell verfügbaren Bot-Icons zurück.
+ * Liest zuerst aus admin_config (DB), fällt auf AVAILABLE_BOT_ICONS-Env und dann auf Default zurück.
+ * Sicher auch vor DB-Initialisierung (getDb() gibt null zurück).
+ */
 export function getAvailableBotIcons() {
-  return process.env.AVAILABLE_BOT_ICONS
-    ? process.env.AVAILABLE_BOT_ICONS.split(',').map(b => b.trim()).filter(Boolean)
-    : ['grw', 'grw2', 'weiblich', 'grwdev'];
+  try {
+    const row = getDb()?.prepare('SELECT value FROM admin_config WHERE key = ?').get('available_bot_icons');
+    if (row?.value) return JSON.parse(row.value);
+  } catch (_) {}
+  if (process.env.AVAILABLE_BOT_ICONS) {
+    return process.env.AVAILABLE_BOT_ICONS.split(',').map(b => b.trim()).filter(Boolean);
+  }
+  return ['grw', 'grw2', 'weiblich', 'grwdev'];
 }
 
 export const AVAILABLE_BOT_ICONS = process.env.AVAILABLE_BOT_ICONS

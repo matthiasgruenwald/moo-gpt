@@ -1,12 +1,26 @@
+import { getAvailableBotIcons } from './env-config.js';
+
 export const VALID_UPLOAD_MODES  = ['off', 'images', 'files'];
 export const VALID_BOT_ICONS     = ['grw', 'grw2', 'weiblich'];
 export const VALID_AUDIO_INPUTS  = ['off', 'on'];
 export const VALID_MATH_MODES    = ['on', 'off'];
 
-export function validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode) {
+/**
+ * Validiert eine Widget-Konfiguration.
+ *
+ * @param {string|undefined} uploadMode
+ * @param {string|undefined} botIcon
+ * @param {string|undefined} audioInput
+ * @param {string|undefined} mathMode
+ * @param {string[]|undefined} allowedBotIcons — optionale Liste erlaubter Icons;
+ *   wenn nicht übergeben, wird gegen getAvailableBotIcons() aus env-config validiert
+ * @returns {string|null} Fehlermeldung oder null
+ */
+export function validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode, allowedBotIcons) {
+  const validBotIcons = allowedBotIcons ?? getAvailableBotIcons();
   if (uploadMode  !== undefined && !VALID_UPLOAD_MODES.includes(uploadMode))
     return 'Ungültiger uploadMode';
-  if (botIcon     !== undefined && botIcon !== '' && !VALID_BOT_ICONS.includes(botIcon))
+  if (botIcon     !== undefined && botIcon !== '' && !validBotIcons.includes(botIcon))
     return 'Ungültiges botIcon';
   if (audioInput  !== undefined && audioInput !== '' && !VALID_AUDIO_INPUTS.includes(audioInput))
     return 'Ungültiger audioInput';
