@@ -1,14 +1,16 @@
 import { getDb } from './db.js';
 
-export const MODEL_NAME = process.env.MODEL_NAME;
+export const GEN_MODEL  = process.env.GEN_MODEL || 'gpt-4.1-nano';
 
-if (!MODEL_NAME) {
-  console.warn('[Config] MODEL_NAME ist nicht gesetzt. Chat-Endpoint gibt Fehlermeldung zurück.');
-}
+/**
+ * GEN_MODELS: statische Liste der Generierungs-Modelle.
+ * Enthält immer gpt-4.1-nano und gpt-4.1 als Basis.
+ */
+export const GEN_MODELS = ['gpt-4.1-nano', 'gpt-4.1'];
 
 /**
  * Gibt die aktuell verfügbaren Chat-Modelle zurück.
- * Liest zuerst aus admin_config (DB), fällt auf AVAILABLE_MODELS-Env zurück.
+ * Liest aus admin_config (DB). Gibt leeres Array zurück wenn kein DB-Eintrag.
  * Sicher auch vor DB-Initialisierung (getDb() gibt null zurück).
  */
 export function getAvailableModels() {
@@ -16,15 +18,12 @@ export function getAvailableModels() {
     const row = getDb()?.prepare('SELECT value FROM admin_config WHERE key = ?').get('available_models');
     if (row?.value) return JSON.parse(row.value);
   } catch (_) {}
-  if (process.env.AVAILABLE_MODELS) {
-    return process.env.AVAILABLE_MODELS.split(',').map(m => m.trim()).filter(Boolean);
-  }
-  return MODEL_NAME ? [MODEL_NAME] : [];
+  return [];
 }
 
 /**
  * Gibt die aktuell verfügbaren Bot-Icons zurück.
- * Liest zuerst aus admin_config (DB), fällt auf AVAILABLE_BOT_ICONS-Env und dann auf Default zurück.
+ * Liest aus admin_config (DB), fällt auf eingebauten Default zurück.
  * Sicher auch vor DB-Initialisierung (getDb() gibt null zurück).
  */
 export function getAvailableBotIcons() {
@@ -32,26 +31,5 @@ export function getAvailableBotIcons() {
     const row = getDb()?.prepare('SELECT value FROM admin_config WHERE key = ?').get('available_bot_icons');
     if (row?.value) return JSON.parse(row.value);
   } catch (_) {}
-  if (process.env.AVAILABLE_BOT_ICONS) {
-    return process.env.AVAILABLE_BOT_ICONS.split(',').map(b => b.trim()).filter(Boolean);
-  }
   return ['grw', 'grw2', 'weiblich', 'grwdev'];
 }
-
-export const AVAILABLE_BOT_ICONS = process.env.AVAILABLE_BOT_ICONS
-  ? process.env.AVAILABLE_BOT_ICONS.split(',').map(b => b.trim()).filter(Boolean)
-  : ['grw', 'grw2', 'weiblich', 'grwdev'];
-
-export const GEN_MODEL  = process.env.GEN_MODEL || 'gpt-4.1-nano';
-
-/**
- * GEN_MODELS: statische Liste der Generierungs-Modelle.
- * Enthält immer gpt-4.1-nano und gpt-4.1 als Basis.
- * Wird einmalig beim Modulimport berechnet (nur Env, kein DB-Zugriff).
- */
-export const GEN_MODELS = (() => {
-  const envModels = process.env.AVAILABLE_MODELS
-    ? process.env.AVAILABLE_MODELS.split(',').map(m => m.trim()).filter(Boolean)
-    : (MODEL_NAME ? [MODEL_NAME] : []);
-  return [...new Set(['gpt-4.1-nano', 'gpt-4.1', ...envModels])];
-})();

@@ -7,7 +7,6 @@
  */
 
 process.env.MODEL_NAME = process.env.MODEL_NAME || 'gpt-test';
-process.env.AVAILABLE_MODELS = process.env.AVAILABLE_MODELS || 'gpt-test,gpt-4o';
 
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
