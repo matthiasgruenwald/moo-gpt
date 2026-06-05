@@ -6,7 +6,7 @@ import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { getTeacherPreference, setTeacherSuggestPreference } from '../stores/teacher.js';
 import { getAvailableModels, getAvailableBotIcons } from '../env-config.js';
 import { getEffectiveModel, getEffectiveAssistModel } from '../model-resolver.js';
-import { validateWidgetConfig, validateAssistModel, validateChatTemperature } from '../validators.js';
+import { validateWidgetConfig, validateAssistModel, validateChatTemperature, validateAssistTemperature, normalizeTemperature } from '../validators.js';
 import { resolveWidgetConfig } from '../services/widget-config-resolver.js';
 
 export function createActivityRouter({ lockManager }) {
@@ -56,14 +56,15 @@ export function createActivityRouter({ lockManager }) {
     const assistModelErr = validateAssistModel(assistModel, availableModels);
     if (assistModelErr) return res.status(400).json({ error: assistModelErr });
     const validAssistModel = (!assistModel || assistModel === '') ? null : assistModel;
-    const validTemp = (chatTemperature === null || chatTemperature === undefined || chatTemperature === '') ? null : Number(chatTemperature);
+    if ('assistTemperature' in req.body) {
+      const assistTempErr = validateAssistTemperature(req.body.assistTemperature);
+      if (assistTempErr) return res.status(400).json({ error: assistTempErr });
+    }
+    const validTemp = normalizeTemperature(chatTemperature);
     const configUpdate = { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel, mathMode };
     if ('chatTemperature' in req.body) configUpdate.chatTemperature = validTemp;
     if ('assistModel' in req.body) configUpdate.assistModel = validAssistModel;
-    if ('assistTemperature' in req.body) {
-      const t = req.body.assistTemperature;
-      configUpdate.assistTemperature = (t === null || t === '') ? null : Math.min(1, Math.max(0, Number(t)));
-    }
+    if ('assistTemperature' in req.body) configUpdate.assistTemperature = normalizeTemperature(req.body.assistTemperature);
     setWidgetConfig(activityId, configUpdate);
     console.log(`[Config] Aktivität ${activityId} aktualisiert von ${userId}`);
     res.json({ ok: true });

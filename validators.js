@@ -43,6 +43,17 @@ export function validateAssistModel(assistModel, availableModels) {
 }
 
 /**
+ * Normalisiert einen Temperatur-Wert: Leerwert → null, sonst Number(value).
+ * Klemmt NICHT — Bereichsprüfung obliegt den validate-Funktionen.
+ * @param {*} value
+ * @returns {number|null}
+ */
+export function normalizeTemperature(value) {
+  if (value === null || value === undefined || value === '') return null;
+  return Number(value);
+}
+
+/**
  * Validiert chat_temperature: muss null oder ein Float 0–1 sein.
  * @param {*} value
  * @returns {string|null} Fehlermeldung oder null
@@ -51,5 +62,18 @@ export function validateChatTemperature(value) {
   if (value === null || value === undefined || value === '') return null;
   const n = Number(value);
   if (Number.isNaN(n) || n < 0 || n > 1) return 'Ungültige chat_temperature (0–1)';
+  return null;
+}
+
+/**
+ * Validiert assist_temperature: muss null oder ein Float 0–1 sein.
+ * Konsistent mit validateChatTemperature — kein stilles Clampen.
+ * @param {*} value
+ * @returns {string|null} Fehlermeldung oder null
+ */
+export function validateAssistTemperature(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  if (Number.isNaN(n) || n < 0 || n > 1) return 'Ungültige assist_temperature (0–1)';
   return null;
 }

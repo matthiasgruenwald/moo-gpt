@@ -6,7 +6,7 @@ import {
   deleteTeacherTemplate, setTeacherTemplateDefault,
 } from '../stores/teacher.js';
 import { getAvailableModels } from '../env-config.js';
-import { validateWidgetConfig, validateAssistModel, validateChatTemperature } from '../validators.js';
+import { validateWidgetConfig, validateAssistModel, validateChatTemperature, validateAssistTemperature, normalizeTemperature } from '../validators.js';
 
 const router = Router();
 
@@ -48,10 +48,10 @@ router.post('/teacher/templates', requireTeacherAuth, (req, res) => {
   const assistModelErr = validateAssistModel(assistModel, availableModels);
   if (assistModelErr) return res.status(400).json({ error: assistModelErr });
   const validAssistModel = (!assistModel || assistModel === '') ? null : assistModel;
-  const validAssistTemperature = (assistTemperature === null || assistTemperature === undefined || assistTemperature === '')
-    ? null
-    : Math.min(1, Math.max(0, Number(assistTemperature)));
-  const validTemp = (chatTemperature === null || chatTemperature === undefined || chatTemperature === '') ? null : Number(chatTemperature);
+  const assistTempErr = validateAssistTemperature(assistTemperature);
+  if (assistTempErr) return res.status(400).json({ error: assistTempErr });
+  const validAssistTemperature = normalizeTemperature(assistTemperature);
+  const validTemp = normalizeTemperature(chatTemperature);
   const id = createTeacherTemplate(userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel, mathMode, assistModel: validAssistModel, assistTemperature: validAssistTemperature, chatTemperature: validTemp });
   res.json({ ok: true, id });
 });
@@ -71,10 +71,10 @@ router.put('/teacher/templates/:id', requireTeacherAuth, (req, res) => {
   const assistModelErr = validateAssistModel(assistModel, availableModels2);
   if (assistModelErr) return res.status(400).json({ error: assistModelErr });
   const validAssistModel = (!assistModel || assistModel === '') ? null : assistModel;
-  const validAssistTemperature = (assistTemperature === null || assistTemperature === undefined || assistTemperature === '')
-    ? null
-    : Math.min(1, Math.max(0, Number(assistTemperature)));
-  const validTemp = (chatTemperature === null || chatTemperature === undefined || chatTemperature === '') ? null : Number(chatTemperature);
+  const assistTempErr = validateAssistTemperature(assistTemperature);
+  if (assistTempErr) return res.status(400).json({ error: assistTempErr });
+  const validAssistTemperature = normalizeTemperature(assistTemperature);
+  const validTemp = normalizeTemperature(chatTemperature);
   updateTeacherTemplate(id, userId, { name: name.trim(), title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel, mathMode, assistModel: validAssistModel, assistTemperature: validAssistTemperature, chatTemperature: validTemp });
   res.json({ ok: true });
 });
