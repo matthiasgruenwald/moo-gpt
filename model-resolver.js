@@ -40,3 +40,32 @@ export function getEffectiveModel(activityId, deps = productionDeps) {
   }
   return getCachedConfig().model || MODEL_NAME;
 }
+
+/**
+ * Gibt das effektive Assist-Modell zurück:
+ * activities.assist_model → activities.model → MODEL_NAME.
+ *
+ * Fallback-Kette:
+ * 1. activities.assist_model (wenn gesetzt und in AVAILABLE_MODELS)
+ * 2. activities.model (wenn gesetzt und in AVAILABLE_MODELS)
+ * 3. MODEL_NAME aus Env
+ *
+ * @param {string|null} activityId
+ * @param {object} [deps] - Optionale Dependency-Injection für Tests
+ * @param {Function} deps.getActivity
+ * @param {string[]} deps.AVAILABLE_MODELS
+ * @param {string} deps.MODEL_NAME
+ */
+export function getEffectiveAssistModel(activityId, deps = productionDeps) {
+  const { getActivity, AVAILABLE_MODELS, MODEL_NAME } = deps;
+  if (activityId) {
+    const act = getActivity(activityId);
+    if (act?.assist_model && AVAILABLE_MODELS.includes(act.assist_model)) {
+      return act.assist_model;
+    }
+    if (act?.model && AVAILABLE_MODELS.includes(act.model)) {
+      return act.model;
+    }
+  }
+  return MODEL_NAME;
+}

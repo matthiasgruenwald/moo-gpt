@@ -17,7 +17,7 @@ export function upsertActivity(activity_id, activity_name, opener, upload_mode, 
 
 export function getActivity(activity_id) {
   return getDb().prepare(
-    'SELECT activity_name, opener, upload_mode, audio_input, audio_output, tts_voice, audio_student_options, title, bot_icon, model, math_mode FROM activities WHERE activity_id = ?'
+    'SELECT activity_name, opener, upload_mode, audio_input, audio_output, tts_voice, audio_student_options, title, bot_icon, model, math_mode, assist_model, assist_temperature FROM activities WHERE activity_id = ?'
   ).get(activity_id) || null;
 }
 
