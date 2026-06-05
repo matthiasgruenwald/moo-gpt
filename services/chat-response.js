@@ -16,6 +16,7 @@ import { getActiveErfahrungsprompt as _getActiveErfahrungsprompt } from '../stor
 import { getMessagesAll as _getMessagesAll, saveMessage as _saveMessage } from '../stores/chat.js';
 import { recordUsage as _recordUsage } from '../token-log.js';
 import { resolveWidgetConfig as _resolveWidgetConfig } from './widget-config-resolver.js';
+import { isReasoningModel as _isReasoningModel } from '../validators.js';
 
 const productionModuleDeps = {
   buildInput:                _buildInput,
@@ -27,6 +28,7 @@ const productionModuleDeps = {
   saveMessage:               _saveMessage,
   recordUsage:               _recordUsage,
   resolveWidgetConfig:       _resolveWidgetConfig,
+  isReasoningModel:          _isReasoningModel,
 };
 
 /**
@@ -47,6 +49,7 @@ export function createStreamResponse({ dashboardRegistry, aiClient }, moduleDeps
     saveMessage,
     recordUsage,
     resolveWidgetConfig,
+    isReasoningModel,
   } = moduleDeps;
 
   /**
@@ -84,7 +87,9 @@ export function createStreamResponse({ dashboardRegistry, aiClient }, moduleDeps
     let resContent = '';
 
     try {
-      const streamOpts = chatTemperature != null ? { temperature: chatTemperature } : undefined;
+      const streamOpts = (chatTemperature != null && !isReasoningModel(effectiveModel))
+        ? { temperature: chatTemperature }
+        : undefined;
       const stream = await aiClient.stream(instructions, input, effectiveModel, streamOpts);
 
       let usage = null;

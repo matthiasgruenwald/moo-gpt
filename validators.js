@@ -48,6 +48,10 @@ export function validateAssistModel(assistModel, availableModels) {
  * @param {*} value
  * @returns {number|null}
  */
+export function isReasoningModel(modelName) {
+  return /^(o1|o3|o4-|gpt-5)/.test(modelName || '');
+}
+
 export function normalizeTemperature(value) {
   if (value === null || value === undefined || value === '') return null;
   return Number(value);

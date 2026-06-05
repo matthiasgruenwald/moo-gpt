@@ -16,6 +16,7 @@ import { Router } from 'express';
 import { requireDashboardAuth } from '../auth-middleware.js';
 import { recordWerkzeugUsage, sumCostRows } from '../cost-service.js';
 import { resolveWidgetConfig } from '../services/widget-config-resolver.js';
+import { isReasoningModel } from '../validators.js';
 
 // ── System-Prompts ────────────────────────────────────────────────────────────
 
@@ -156,7 +157,7 @@ export function buildSuggestPromptHandler({ aiClient: client }) {
       timeout: 120_000,
       input: history.map(m => ({ role: m.role, content: m.content })),
     };
-    if (assistTemperature !== null) callOpts.temperature = assistTemperature;
+    if (assistTemperature !== null && !isReasoningModel(assistModel)) callOpts.temperature = assistTemperature;
 
     try {
       const { text: raw, usage } = await client.textCall(systemPrompt, '', assistModel, callOpts);
