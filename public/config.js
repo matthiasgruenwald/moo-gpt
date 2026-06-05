@@ -259,6 +259,10 @@
     } catch (_) {}
   }
 
+  // Slider-Markup muss vor allen DOM-Zugriffen injiziert werden
+  renderTempSlider('assist-', 'Antwort-Stil des Assistenten: 0 = präzise/gleichförmig, 1 = kreativ/variabel · leer = OpenAI-Standard');
+  renderTempSlider('',        'Antwort-Stil des Bots: 0 = präzise/gleichförmig, 1 = kreativ/variabel · leer = OpenAI-Standard');
+
   document.getElementById('cfg-template-select').addEventListener('change', function () {
     const id = this.value ? parseInt(this.value, 10) : null;
     loadedTemplateId = id;
@@ -874,10 +878,6 @@
     document.getElementById('cfg-audio-student-options-field').style.display = isOn ? '' : 'none';
     updateAudioSummary();
   }
-
-  // Slider-Markup einmalig per JS rendern (ersetzt dupliziertes HTML)
-  renderTempSlider('assist-', 'Antwort-Stil des Assistenten: 0 = präzise/gleichförmig, 1 = kreativ/variabel · leer = OpenAI-Standard');
-  renderTempSlider('',        'Antwort-Stil des Bots: 0 = präzise/gleichförmig, 1 = kreativ/variabel · leer = OpenAI-Standard');
 
   // Change-Events für Summary-Aktualisierung
   document.getElementById('cfg-opener').addEventListener('input',  updateOpenerSummary);
