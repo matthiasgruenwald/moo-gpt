@@ -157,8 +157,10 @@ function applySettingsData(data) {
   document.getElementById('sp-history-details').style.display   = '';
   document.getElementById('admin-personas-card').style.display  = '';
   document.getElementById('system-template-card').style.display = '';
+  document.getElementById('tool-models-card').style.display     = '';
   loadAdminPersonas();
   initAdminDebug();
+  loadToolModels();
 
   document.getElementById('sp-edit').value = data.systemPrompt || '';
   const glbSel = document.getElementById('global-model-select');
@@ -316,6 +318,31 @@ document.getElementById('st-save-btn').addEventListener('click', async () => {
   try {
     await apiPut('/api/admin/system-template', body);
     setStatus(status, '✓ Systemvorlage gespeichert');
+  } catch (e) { setStatus(status, e.message, true); }
+});
+
+// ── Werkzeug-Modelle (Issue #188) ────────────────────────────────────────────
+async function loadToolModels() {
+  try {
+    const data = await apiGet('/api/admin/config/tool-models');
+    document.getElementById('toolModel_gen_model').value           = data.genModel           ?? '';
+    document.getElementById('toolModel_tts_prep_model').value      = data.ttsPrepModel       ?? '';
+    document.getElementById('toolModel_tts_model').value           = data.ttsModel           ?? '';
+    document.getElementById('toolModel_transcription_model').value = data.transcriptionModel ?? '';
+  } catch (e) { console.warn('[Settings] Werkzeug-Modelle Ladefehler:', e); }
+}
+
+document.getElementById('tool-models-save-btn').addEventListener('click', async () => {
+  const status = document.getElementById('tool-models-status');
+  const body = {
+    genModel:           document.getElementById('toolModel_gen_model').value.trim(),
+    ttsPrepModel:       document.getElementById('toolModel_tts_prep_model').value.trim(),
+    ttsModel:           document.getElementById('toolModel_tts_model').value.trim(),
+    transcriptionModel: document.getElementById('toolModel_transcription_model').value.trim(),
+  };
+  try {
+    await apiPut('/api/admin/config/tool-models', body);
+    setStatus(status, 'Werkzeug-Modelle gespeichert.');
   } catch (e) { setStatus(status, e.message, true); }
 });
 

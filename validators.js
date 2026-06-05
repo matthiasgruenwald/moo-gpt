@@ -28,3 +28,18 @@ export function validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode, 
     return 'Ungültiger mathMode';
   return null;
 }
+
+/**
+ * Validiert assist_model gegen die Liste erlaubter Modelle.
+ * null/'' bedeutet "kein explizites Modell gesetzt" — ist erlaubt.
+ * @param {string|null|undefined} assistModel
+ * @param {string[]} availableModels
+ * @returns {string|null} Fehlermeldung oder null wenn valide
+ */
+export function validateAssistModel(assistModel, availableModels) {
+  if (assistModel === undefined || assistModel === null || assistModel === '')
+    return null;
+  if (!availableModels.includes(assistModel))
+    return 'Ungültiges assist_model';
+  return null;
+}
