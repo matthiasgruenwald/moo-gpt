@@ -7,6 +7,7 @@ import { getTeacherPreference, setTeacherSuggestPreference } from '../stores/tea
 import { getAvailableModels, getAvailableBotIcons } from '../env-config.js';
 import { getEffectiveModel, getEffectiveAssistModel } from '../model-resolver.js';
 import { validateWidgetConfig, validateAssistModel, validateChatTemperature } from '../validators.js';
+import { resolveWidgetConfig } from '../services/widget-config-resolver.js';
 
 export function createActivityRouter({ lockManager }) {
   const router = Router();
@@ -14,23 +15,24 @@ export function createActivityRouter({ lockManager }) {
   router.get('/activity-config/:activityId', requireDashboardAuth, (req, res) => {
     const { activityId, userId } = req;
     const act  = getActivity(activityId);
+    const cfg  = resolveWidgetConfig(activityId, userId);
     const erf  = getActiveErfahrungsprompt(activityId);
     const pref = getTeacherPreference(userId);
     res.json({
       activityId,
       activityName:           act?.activity_name              || '',
-      title:                  act?.title                      ?? '',
-      botIcon:                act?.bot_icon                   ?? 'grwdev',
-      opener:                 act?.opener                     || '',
-      uploadMode:             act?.upload_mode                || 'off',
-      audioInput:             act?.audio_input                || 'off',
-      audioOutput:            act?.audio_output               || 'off',
-      ttsVoice:               act?.tts_voice                  || 'nova',
-      audioStudentOptions:    act?.audio_student_options      || 'off',
-      mathMode:               act?.math_mode                  ?? 'off',
+      title:                  cfg.title                       ?? '',
+      botIcon:                cfg.botIcon,
+      opener:                 cfg.opener                      || '',
+      uploadMode:             cfg.uploadMode,
+      audioInput:             cfg.audioInput,
+      audioOutput:            cfg.audioOutput,
+      ttsVoice:               cfg.ttsVoice,
+      audioStudentOptions:    cfg.audioStudentOptions,
+      mathMode:               cfg.mathMode,
       chatTemperature:        act?.chat_temperature           ?? null,
       erfahrungsprompt:       erf?.content                    || '',
-      model:                  act?.model                      ?? null,
+      model:                  cfg.model,
       effectiveModel:         getEffectiveModel(activityId),
       assistModel:            act?.assist_model               ?? null,
       assistTemperature:      act?.assist_temperature         ?? null,
@@ -44,7 +46,7 @@ export function createActivityRouter({ lockManager }) {
   router.put('/activity-config/:activityId', requireDashboardAuth, (req, res) => {
     const { activityId, userId } = req;
     const { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode, assistModel, assistTemperature, chatTemperature } = req.body;
-    const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode);
+    const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode, audioOutput, ttsVoice, audioStudentOptions);
     if (validErr) return res.status(400).json({ error: validErr });
     const tempErr = validateChatTemperature(chatTemperature);
     if (tempErr) return res.status(400).json({ error: tempErr });
