@@ -17,10 +17,13 @@ process.env.AVAILABLE_MODELS = 'gpt-5,gpt-4.1,gpt-4.1-mini';
 const { initDb } = await import('../db.js');
 const { upsertActivity } = await import('../stores/activity.js');
 const { setWidgetConfig } = await import('../stores/widget-config.js');
+const { setAdminConfig } = await import('../stores/admin-config.js');
 const { buildSuggestPromptHandler, buildPromptCheckHandler } = await import('../routes/prompt-assist.js');
 
 before(() => {
   initDb();
+  // Verfügbare Modelle in admin_config eintragen, damit resolveWidgetConfig sie validieren kann
+  setAdminConfig('available_models', JSON.stringify(['gpt-5', 'gpt-4.1', 'gpt-4.1-mini']));
 });
 
 function makeReqRes(body = {}, activityId = 'test-act') {

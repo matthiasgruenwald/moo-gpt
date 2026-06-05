@@ -15,8 +15,7 @@
 import { Router } from 'express';
 import { requireDashboardAuth } from '../auth-middleware.js';
 import { recordWerkzeugUsage, sumCostRows } from '../cost-service.js';
-import { getEffectiveAssistModel } from '../model-resolver.js';
-import { getActivity } from '../stores/activity.js';
+import { resolveWidgetConfig } from '../services/widget-config-resolver.js';
 
 // ── System-Prompts ────────────────────────────────────────────────────────────
 
@@ -89,7 +88,8 @@ export function buildPromptCheckHandler({ aiClient: client }) {
     const userMessage = `Aufgabenstellung:\n${taskText || '(keine)'}\n\nAktueller Prompt:\n${currentHints || '(leer)'}`;
 
     const validImages = (taskImages || []).filter(img => img !== null && typeof img === 'string');
-    const model = getEffectiveAssistModel(req.activityId);
+    const widgetCfg = resolveWidgetConfig(req.activityId, null);
+    const model = widgetCfg.assistModel;
     const systemPrompt = buildPromptCheckSystem(validImages.length > 0);
 
     const opts = {
@@ -148,9 +148,9 @@ export function buildSuggestPromptHandler({ aiClient: client }) {
         : [initialMsg];
     }
 
-    const assistModel = getEffectiveAssistModel(req.activityId);
-    const act = req.activityId ? getActivity(req.activityId) : null;
-    const assistTemperature = act?.assist_temperature ?? null;
+    const widgetCfg = resolveWidgetConfig(req.activityId, null);
+    const assistModel = widgetCfg.assistModel;
+    const assistTemperature = widgetCfg.assistTemperature;
 
     const callOpts = {
       timeout: 120_000,

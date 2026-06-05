@@ -61,7 +61,6 @@ function makeFactory({
     dashboardRegistry,
     // Module-level deps injected via the module's DI params:
     buildInput:              (msgs) => msgs,
-    getEffectiveModel:       () => 'gpt-5',
     buildInstructions:       () => 'sys',
     getStudentMemory:        () => null,
     getCachedConfig:         () => ({ content: 'prompt', model: 'gpt-5' }),
@@ -69,7 +68,7 @@ function makeFactory({
     getMessagesAll:          () => [{ role: 'user', content: 'hi' }],
     saveMessage:             (m) => { saveMessageCalls.push(m); return 42; },
     recordUsage:             async (...args) => { recordUsageCalls.push(args); return { runCost: 1, threadCost: 2, activityCost: 3 }; },
-    resolveWidgetConfig:     () => ({ mathMode: 'off' }),
+    resolveWidgetConfig:     () => ({ model: 'gpt-5', mathMode: 'off', chatTemperature: null, assistModel: 'gpt-5', assistTemperature: null }),
   };
 
   return {

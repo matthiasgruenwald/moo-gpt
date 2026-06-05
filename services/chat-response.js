@@ -9,7 +9,6 @@
  */
 
 import { buildInput as _buildInput } from '../message-formatter.js';
-import { getEffectiveModel as _getEffectiveModel } from '../model-resolver.js';
 import { buildInstructions as _buildInstructions } from '../prompt-builder.js';
 import { getStudentMemory as _getStudentMemory } from '../stores/student-memory.js';
 import { getCachedConfig as _getCachedConfig } from '../stores/prompt.js';
@@ -17,11 +16,9 @@ import { getActiveErfahrungsprompt as _getActiveErfahrungsprompt } from '../stor
 import { getMessagesAll as _getMessagesAll, saveMessage as _saveMessage } from '../stores/chat.js';
 import { recordUsage as _recordUsage } from '../token-log.js';
 import { resolveWidgetConfig as _resolveWidgetConfig } from './widget-config-resolver.js';
-import { getWidgetConfig as _getWidgetConfig } from '../stores/widget-config.js';
 
 const productionModuleDeps = {
   buildInput:                _buildInput,
-  getEffectiveModel:         _getEffectiveModel,
   buildInstructions:         _buildInstructions,
   getStudentMemory:          _getStudentMemory,
   getCachedConfig:           _getCachedConfig,
@@ -30,7 +27,6 @@ const productionModuleDeps = {
   saveMessage:               _saveMessage,
   recordUsage:               _recordUsage,
   resolveWidgetConfig:       _resolveWidgetConfig,
-  getWidgetConfig:           _getWidgetConfig,
 };
 
 /**
@@ -43,7 +39,6 @@ const productionModuleDeps = {
 export function createStreamResponse({ dashboardRegistry, aiClient }, moduleDeps = productionModuleDeps) {
   const {
     buildInput,
-    getEffectiveModel,
     buildInstructions,
     getStudentMemory,
     getCachedConfig,
@@ -52,7 +47,6 @@ export function createStreamResponse({ dashboardRegistry, aiClient }, moduleDeps
     saveMessage,
     recordUsage,
     resolveWidgetConfig,
-    getWidgetConfig,
   } = moduleDeps;
 
   /**
@@ -62,7 +56,8 @@ export function createStreamResponse({ dashboardRegistry, aiClient }, moduleDeps
   return async function streamResponse(ws, settings, threadDbId) {
     const chatMsg = { end: false, messages: '' };
 
-    const effectiveModel = getEffectiveModel(settings.activityId);
+    const widgetCfg       = resolveWidgetConfig(settings.activityId, null);
+    const effectiveModel  = widgetCfg.model;
     if (!effectiveModel) {
       if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({
         end: true,
@@ -73,9 +68,8 @@ export function createStreamResponse({ dashboardRegistry, aiClient }, moduleDeps
     const memoryEntry    = (!ws.isTeacher && settings.userId)
       ? getStudentMemory(settings.userId)
       : null;
-    const widgetCfg         = resolveWidgetConfig(settings.activityId, null);
-    const mathMode          = widgetCfg.mathMode;
-    const chatTemperature   = getWidgetConfig(settings.activityId)?.chat_temperature ?? null;
+    const mathMode         = widgetCfg.mathMode;
+    const chatTemperature  = widgetCfg.chatTemperature;
     const instructions      = buildInstructions({
       systemContent:    getCachedConfig().content,
       erfahrungContent: getActiveErfahrungsprompt(settings.activityId)?.content ?? '',
