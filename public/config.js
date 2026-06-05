@@ -80,12 +80,19 @@
     defaultCb.disabled = reasoning;
 
     if (reasoning) {
-      tempHint.textContent = 'Für dieses Modell nicht einstellbar.';
+      tempHint.textContent = 'nicht verfügbar (Reasoning-Modell)';
     } else {
-      tempHint.textContent = 'Bestimmt wie gleichförmig der Assistent antwortet — von präzise/vorhersehbar bis kreativ/variabel. Standard: 1';
+      tempHint.textContent = 'Antwort-Stil: 0 = präzise/gleichförmig, 1 = kreativ/variabel · leer = OpenAI-Standard';
     }
     const display = document.getElementById('cfg-assist-temperature-display');
-    if (display) display.textContent = useDefault ? 'Standard' : Number(tempInput.value).toFixed(1);
+    if (display) {
+      display.style.visibility = useDefault ? 'hidden' : '';
+      if (!useDefault) {
+        const val = Number(tempInput.value);
+        display.textContent = val.toFixed(1);
+        document.getElementById('cfg-assist-temperature-wrapper')?.style.setProperty('--val', val);
+      }
+    }
   }
 
   function updateTemperatureField() {
@@ -103,9 +110,9 @@
     defaultCb.disabled = reasoning;
 
     if (reasoning) {
-      tempHint.textContent = 'Für dieses Modell nicht einstellbar.';
+      tempHint.textContent = 'nicht verfügbar (Reasoning-Modell)';
     } else {
-      tempHint.textContent = 'Bestimmt wie gleichförmig der Bot antwortet — von präzise/vorhersehbar bis kreativ/variabel. Standard: 1';
+      tempHint.textContent = '0–1, Standard = OpenAI-Vorgabe';
     }
     updateTemperatureDisplay();
   }
@@ -116,7 +123,12 @@
     const defaultCb = document.getElementById('cfg-temperature-default');
     if (!el || !display) return;
     const isDefault = (defaultCb && defaultCb.checked) || el.disabled;
-    display.textContent = isDefault ? 'Standard' : Number(el.value).toFixed(1);
+    display.style.visibility = isDefault ? 'hidden' : '';
+    if (!isDefault) {
+      const val = Number(el.value);
+      display.textContent = val.toFixed(1);
+      document.getElementById('cfg-temperature-wrapper')?.style.setProperty('--val', val);
+    }
   }
 
   function getFields() {
@@ -535,6 +547,7 @@
       updateTemperatureField();
       updateAssistTemperatureField();
       updateAdvancedSummary();
+      updateAssistSummary();
       updateSubjectSummary();
 
       await loadTemplates();
@@ -632,6 +645,7 @@
         status.className   = 'cfg-status err';
         status.textContent = errors.join(' ');
       } else {
+        showStatus('Gespeichert!', 'ok');
         captureOpenSnapshot();
         window.parent.postMessage({ type: 'moogpt:configSaved' }, '*');
       }
@@ -822,6 +836,15 @@
     document.querySelector('#cfg-advanced-details summary').textContent = 'Erweitert — ' + parts.join(' | ');
   }
 
+  function updateAssistSummary() {
+    const model = document.getElementById('cfg-assist-model')?.value || '';
+    const temp  = getAssistTemperatureValue();
+    const parts = ['Modell: ' + (model || 'Standard')];
+    if (temp != null) parts.push('Temp: ' + temp.toFixed(1));
+    const el = document.querySelector('#cfg-assist-details summary');
+    if (el) el.textContent = 'Prompt-Assistent — ' + parts.join(' | ');
+  }
+
   function updateSubjectSummary() {
     const mathMode = document.getElementById('cfg-math-mode').value;
     const el = document.querySelector('#cfg-subject-details summary');
@@ -860,18 +883,25 @@
     updateAdvancedSummary();
   });
   document.getElementById('cfg-temperature-default').addEventListener('change', () => {
+    const cb = document.getElementById('cfg-temperature-default');
+    if (!cb.checked) document.getElementById('cfg-temperature').value = 0.5;
     updateTemperatureField();
     updateAdvancedSummary();
   });
 
   document.getElementById('cfg-assist-model')?.addEventListener('change', () => {
     updateAssistTemperatureField();
+    updateAssistSummary();
   });
   document.getElementById('cfg-assist-temperature')?.addEventListener('input', () => {
     updateAssistTemperatureField();
+    updateAssistSummary();
   });
   document.getElementById('cfg-assist-temperature-default')?.addEventListener('change', () => {
+    const cb = document.getElementById('cfg-assist-temperature-default');
+    if (!cb.checked) document.getElementById('cfg-assist-temperature').value = 0.5;
     updateAssistTemperatureField();
+    updateAssistSummary();
   });
 
   document.getElementById('cfg-close-warn-confirm').addEventListener('click', () => {

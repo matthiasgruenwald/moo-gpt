@@ -157,7 +157,6 @@ function applySettingsData(data) {
   document.getElementById('sp-history-details').style.display   = '';
   document.getElementById('admin-personas-card').style.display  = '';
   document.getElementById('system-template-card').style.display = '';
-  document.getElementById('tool-models-card').style.display     = '';
   document.getElementById('admin-models-card').style.display    = '';
   document.getElementById('admin-bot-icons-card').style.display = '';
   const botIconsTextarea = document.getElementById('bot-icons-textarea');
@@ -166,7 +165,6 @@ function applySettingsData(data) {
   }
   loadAdminPersonas();
   initAdminDebug();
-  loadToolModels();
 
   document.getElementById('sp-edit').value = data.systemPrompt || '';
   const glbSel = document.getElementById('global-model-select');
@@ -329,14 +327,42 @@ document.getElementById('st-save-btn').addEventListener('click', async () => {
 
 // ── Werkzeug-Modelle (Issue #188) ────────────────────────────────────────────
 async function loadToolModels() {
+  const fetchInfo = document.getElementById('tool-models-fetch-info');
   try {
-    const data = await apiGet('/api/admin/config/tool-models');
-    document.getElementById('toolModel_gen_model').value           = data.genModel           ?? '';
-    document.getElementById('toolModel_tts_prep_model').value      = data.ttsPrepModel       ?? '';
-    document.getElementById('toolModel_tts_model').value           = data.ttsModel           ?? '';
-    document.getElementById('toolModel_transcription_model').value = data.transcriptionModel ?? '';
-  } catch (e) { console.warn('[Settings] Werkzeug-Modelle Ladefehler:', e); }
+    const [openaiData, saved] = await Promise.all([
+      apiGet('/api/admin/openai-models'),
+      apiGet('/api/admin/config/tool-models'),
+    ]);
+    const models = openaiData.models ?? [];
+    for (const selId of ['toolModel_gen_model', 'toolModel_tts_prep_model', 'toolModel_tts_model', 'toolModel_transcription_model']) {
+      const sel = document.getElementById(selId);
+      if (!sel) continue;
+      const defaultOpt = sel.options[0];
+      sel.innerHTML = '';
+      sel.appendChild(defaultOpt);
+      for (const m of models) {
+        const opt = document.createElement('option');
+        opt.value = m; opt.textContent = m;
+        sel.appendChild(opt);
+      }
+    }
+    document.getElementById('toolModel_gen_model').value           = saved.genModel           ?? '';
+    document.getElementById('toolModel_tts_prep_model').value      = saved.ttsPrepModel       ?? '';
+    document.getElementById('toolModel_tts_model').value           = saved.ttsModel           ?? '';
+    document.getElementById('toolModel_transcription_model').value = saved.transcriptionModel ?? '';
+    if (fetchInfo) {
+      const now = new Date();
+      fetchInfo.textContent = `abgerufen am ${now.toLocaleDateString('de-DE')} ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} · ${models.length} Modelle${openaiData.cached ? ' (gecacht)' : ''}`;
+    }
+  } catch (e) {
+    if (fetchInfo) fetchInfo.textContent = 'Fehler beim Laden';
+    console.warn('[Settings] Werkzeug-Modelle Ladefehler:', e);
+  }
 }
+
+document.getElementById('tool-models-details').addEventListener('toggle', async (e) => {
+  if (e.target.open) await loadToolModels();
+});
 
 document.getElementById('tool-models-save-btn').addEventListener('click', async () => {
   const status = document.getElementById('tool-models-status');

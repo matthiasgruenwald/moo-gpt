@@ -83,3 +83,4 @@ export function getTranscriptionModel() {
   } catch (_) {}
   return 'whisper-1';
 }
+

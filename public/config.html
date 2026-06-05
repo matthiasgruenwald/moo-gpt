@@ -375,15 +375,21 @@
         <div class="cfg-hint">leer = Modell des Schüler-Chats wird verwendet</div>
       </div>
       <div class="cfg-field" id="cfg-assist-temperature-field">
-        <label class="cfg-label">Temperatur</label>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-          <input class="cfg-input" type="range" id="cfg-assist-temperature" min="0" max="1" step="0.1" value="1" style="flex:1;margin:0;">
-          <span id="cfg-assist-temperature-display" style="min-width:48px;font-size:13px;color:#333;text-align:right;">Standard</span>
+        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px">
+          <label class="cfg-label" style="margin-bottom:0">Temperatur</label>
+          <span style="font-size:10px;color:#bbb" id="cfg-assist-temperature-hint">Antwort-Stil des Assistenten: 0&nbsp;=&nbsp;präzise/gleichförmig, 1&nbsp;=&nbsp;kreativ/variabel · leer&nbsp;=&nbsp;OpenAI-Standard</span>
         </div>
-        <label style="font-size:11px;color:#888;display:flex;align-items:center;gap:5px;cursor:pointer;">
-          <input type="checkbox" id="cfg-assist-temperature-default"> Standard (OpenAI-Default verwenden)
-        </label>
-        <div class="cfg-hint" id="cfg-assist-temperature-hint">Bestimmt wie gleichförmig der Assistent antwortet &mdash; von präzise/vorhersehbar bis kreativ/variabel. Standard: 1</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:10px;color:#aaa;flex-shrink:0">Präzise</span>
+          <div id="cfg-assist-temperature-wrapper" style="position:relative;width:140px;flex-shrink:0;--val:0.5">
+            <span id="cfg-assist-temperature-display" style="position:absolute;bottom:calc(100% + 4px);font-size:11px;background:#003366;color:white;padding:1px 6px;border-radius:3px;transform:translateX(-50%);pointer-events:none;left:calc(var(--val) * 124px + 8px);white-space:nowrap;visibility:hidden">0.5</span>
+            <input class="cfg-input" type="range" id="cfg-assist-temperature" min="0" max="1" step="0.1" value="0.5" style="width:100%;margin:0;display:block">
+          </div>
+          <span style="font-size:10px;color:#aaa;flex-shrink:0">Kreativ</span>
+          <label style="font-size:11px;color:#888;display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;flex-shrink:0">
+            <input type="checkbox" id="cfg-assist-temperature-default">Standard
+          </label>
+        </div>
       </div>
     </details>
 
@@ -464,15 +470,21 @@
         <div class="cfg-hint">Gilt für diese Aktivität; leer = globales Standardmodell (Admin)</div>
       </div>
       <div class="cfg-field" id="cfg-temperature-field">
-        <label class="cfg-label">Temperatur</label>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-          <input class="cfg-input" type="range" id="cfg-temperature" min="0" max="1" step="0.1" value="1" style="flex:1;margin:0;">
-          <span id="cfg-temperature-display" style="min-width:48px;font-size:13px;color:#333;text-align:right;">Standard</span>
+        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px">
+          <label class="cfg-label" style="margin-bottom:0">Temperatur</label>
+          <span style="font-size:10px;color:#bbb" id="cfg-temperature-hint">Antwort-Stil des Bots: 0&nbsp;=&nbsp;präzise/gleichförmig, 1&nbsp;=&nbsp;kreativ/variabel · leer&nbsp;=&nbsp;OpenAI-Standard</span>
         </div>
-        <label style="font-size:11px;color:#888;display:flex;align-items:center;gap:5px;cursor:pointer;">
-          <input type="checkbox" id="cfg-temperature-default"> Standard (OpenAI-Default verwenden)
-        </label>
-        <div class="cfg-hint" id="cfg-temperature-hint">Bestimmt wie gleichförmig der Bot antwortet &mdash; von präzise/vorhersehbar bis kreativ/variabel. Standard: 1</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:10px;color:#aaa;flex-shrink:0">Präzise</span>
+          <div id="cfg-temperature-wrapper" style="position:relative;width:140px;flex-shrink:0;--val:0.5">
+            <span id="cfg-temperature-display" style="position:absolute;bottom:calc(100% + 4px);font-size:11px;background:#003366;color:white;padding:1px 6px;border-radius:3px;transform:translateX(-50%);pointer-events:none;left:calc(var(--val) * 124px + 8px);white-space:nowrap;visibility:hidden">0.5</span>
+            <input class="cfg-input" type="range" id="cfg-temperature" min="0" max="1" step="0.1" value="0.5" style="width:100%;margin:0;display:block">
+          </div>
+          <span style="font-size:10px;color:#aaa;flex-shrink:0">Kreativ</span>
+          <label style="font-size:11px;color:#888;display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;flex-shrink:0">
+            <input type="checkbox" id="cfg-temperature-default">Standard
+          </label>
+        </div>
       </div>
     </details>
 

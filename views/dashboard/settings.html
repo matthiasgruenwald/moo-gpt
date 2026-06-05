@@ -504,38 +504,6 @@
     </details>
   </div>
 
-  <!-- Werkzeug-Modelle (nur Admins, Issue #188) -->
-  <div class="settings-card" id="tool-models-card" style="display:none">
-    <h3>Werkzeug-Modelle</h3>
-    <p style="font-size:12px;color:#888;margin:0 0 8px">Modelle f&uuml;r interne Hilfsfunktionen. Leer lassen = Fallback-Wert wird verwendet.</p>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <div>
-        <label class="st-label">Simulations-Modell</label>
-        <input type="text" id="toolModel_gen_model" placeholder="gpt-4.1-nano" style="width:100%;font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
-        <span style="font-size:11px;color:#999">Kriterien, Personas, &Auml;u&szlig;erungen, Evaluation</span>
-      </div>
-      <div>
-        <label class="st-label">TTS-Vorverarbeitung</label>
-        <input type="text" id="toolModel_tts_prep_model" placeholder="gpt-4o-mini" style="width:100%;font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
-        <span style="font-size:11px;color:#999">Markdown/LaTeX-Bereinigung vor Sprachausgabe</span>
-      </div>
-      <div>
-        <label class="st-label">TTS-Ausgabe</label>
-        <input type="text" id="toolModel_tts_model" placeholder="tts-1-hd" style="width:100%;font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
-        <span style="font-size:11px;color:#999">Sprachausgabe-Modell (z.&nbsp;B. tts-1, tts-1-hd)</span>
-      </div>
-      <div>
-        <label class="st-label">Transkription</label>
-        <input type="text" id="toolModel_transcription_model" placeholder="whisper-1" style="width:100%;font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
-        <span style="font-size:11px;color:#999">Whisper-Modell f&uuml;r Spracheingabe</span>
-      </div>
-    </div>
-    <div class="settings-row" style="margin-top:4px">
-      <button class="settings-btn" id="tool-models-save-btn">Werkzeug-Modelle speichern</button>
-    </div>
-    <div class="status-msg" id="tool-models-status"></div>
-  </div>
-
   <!-- Admin-Personas (nur Admins) -->
   <div class="settings-card" id="admin-personas-card" style="display:none">
     <h3>Lehrer-Personas verwalten</h3>
@@ -668,6 +636,89 @@ sequenceDiagram
 <!-- Admin-Panel -->
 <div id="admin-panel">
 
+  <!-- Verfügbare Bot-Icons (Issue #180) -->
+  <div class="settings-card" id="admin-bot-icons-card" style="display:none">
+    <h3>Verfügbare Bot-Icons</h3>
+    <p style="font-size:12px;color:#888;margin:0 0 8px">Ein Icon-Name pro Zeile. Mindestens ein Icon muss gesetzt sein.</p>
+    <textarea id="bot-icons-textarea"
+              rows="6"
+              style="width:100%;box-sizing:border-box;font-size:13px;font-family:monospace;
+                     padding:6px 8px;border:1px solid #ccd3db;border-radius:4px;resize:vertical"></textarea>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+      <button class="settings-btn" id="save-bot-icons-btn">Speichern</button>
+      <span class="status-msg" id="bot-icons-status"></span>
+    </div>
+  </div>
+
+  <!-- Verfügbare Modelle (Issue #179) -->
+  <div class="settings-card" id="admin-models-card" style="display:none">
+    <h3>Verfügbare Chat-Modelle (Lehrkräfte &amp; Schüler)</h3>
+    <p style="font-size:12px;color:#888;margin:0 0 8px">Welche Modelle Lehrkräfte im Config-Overlay auswählen können. Chat-Modelle erkennst du an Präfixen wie <code>gpt-</code>, <code>o1</code>, <code>o3</code>, <code>o4</code>, <code>chatgpt-</code>.</p>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="settings-btn" id="refresh-models-btn">Modellliste laden</button>
+    </div>
+    <div id="models-checkbox-list" style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto;font-size:13px"></div>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+      <button class="settings-btn" id="save-models-btn">Auswahl speichern</button>
+      <span class="status-msg" id="models-status"></span>
+    </div>
+  </div>
+
+  <div class="settings-card">
+    <details id="tool-models-details">
+      <summary style="font-size:15px;font-weight:700;color:#003366;cursor:pointer">
+        Werkzeug-Modelle <span id="tool-models-fetch-info" style="font-size:11px;font-weight:normal;color:#888;margin-left:6px"></span>
+      </summary>
+      <p style="font-size:12px;color:#888;margin:8px 0 12px">Modelle f&uuml;r interne Hilfsfunktionen. Leer lassen = Fallback-Wert wird verwendet.</p>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <div class="settings-row" style="margin-bottom:2px">
+            <label for="toolModel_gen_model">Simulations-Modell</label>
+            <select id="toolModel_gen_model"><option value="">Standard (gpt-4.1-nano)</option></select>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:2px">
+            <span style="min-width:120px"></span>
+            <span style="font-size:11px;color:#999">Kriterien, Personas, &Auml;u&szlig;erungen, Evaluation &middot; Fallback: gpt-4.1-nano</span>
+          </div>
+        </div>
+        <div>
+          <div class="settings-row" style="margin-bottom:2px">
+            <label for="toolModel_tts_prep_model">TTS-Vorverarbeitung</label>
+            <select id="toolModel_tts_prep_model"><option value="">Standard (gpt-4o-mini)</option></select>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:2px">
+            <span style="min-width:120px"></span>
+            <span style="font-size:11px;color:#999">Markdown/LaTeX-Bereinigung vor Sprachausgabe &middot; Fallback: gpt-4o-mini</span>
+          </div>
+        </div>
+        <div>
+          <div class="settings-row" style="margin-bottom:2px">
+            <label for="toolModel_tts_model">TTS-Ausgabe</label>
+            <select id="toolModel_tts_model"><option value="">Standard (tts-1-hd)</option></select>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:2px">
+            <span style="min-width:120px"></span>
+            <span style="font-size:11px;color:#999">Sprachausgabe-Modell &middot; Fallback: tts-1-hd</span>
+          </div>
+        </div>
+        <div>
+          <div class="settings-row" style="margin-bottom:2px">
+            <label for="toolModel_transcription_model">Transkription</label>
+            <select id="toolModel_transcription_model"><option value="">Standard (whisper-1)</option></select>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:2px">
+            <span style="min-width:120px"></span>
+            <span style="font-size:11px;color:#999">Spracheingabe-Modell &middot; Fallback: whisper-1</span>
+          </div>
+        </div>
+      </div>
+      <div class="settings-row" style="margin-top:12px">
+        <button class="settings-btn" id="tool-models-save-btn">Werkzeug-Modelle speichern</button>
+      </div>
+      <div class="status-msg" id="tool-models-status"></div>
+    </details>
+  </div>
+
   <div class="settings-card" id="admin-mgmt-card">
     <h3>Admin-Verwaltung</h3>
     <div id="admin-list"></div>
@@ -700,33 +751,6 @@ sequenceDiagram
     <div class="status-msg" id="debug-status"></div>
   </div>
 
-  <!-- Verfügbare Modelle (Issue #179) -->
-  <div class="settings-card" id="admin-models-card" style="display:none">
-    <h3>Verfügbare Modelle</h3>
-    <p style="font-size:12px;color:#888;margin:0 0 8px">Chat-fähige Modelle erkennst du meist an Präfixen wie <code>gpt-</code>, <code>o1</code>, <code>o3</code>, <code>o4</code>, <code>chatgpt-</code>. Neuere Modelle können abweichende Namen haben.</p>
-    <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button class="settings-btn" id="refresh-models-btn">Modellliste laden</button>
-    </div>
-    <div id="models-checkbox-list" style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto;font-size:13px"></div>
-    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
-      <button class="settings-btn" id="save-models-btn">Auswahl speichern</button>
-      <span class="status-msg" id="models-status"></span>
-    </div>
-  </div>
-
-  <!-- Verfügbare Bot-Icons (Issue #180) -->
-  <div class="settings-card" id="admin-bot-icons-card" style="display:none">
-    <h3>Verfügbare Bot-Icons</h3>
-    <p style="font-size:12px;color:#888;margin:0 0 8px">Ein Icon-Name pro Zeile. Mindestens ein Icon muss gesetzt sein.</p>
-    <textarea id="bot-icons-textarea"
-              rows="6"
-              style="width:100%;box-sizing:border-box;font-size:13px;font-family:monospace;
-                     padding:6px 8px;border:1px solid #ccd3db;border-radius:4px;resize:vertical"></textarea>
-    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
-      <button class="settings-btn" id="save-bot-icons-btn">Speichern</button>
-      <span class="status-msg" id="bot-icons-status"></span>
-    </div>
-  </div>
 
 </div>
 
