@@ -374,23 +374,8 @@
         </select>
         <div class="cfg-hint">leer = Modell des Schüler-Chats wird verwendet</div>
       </div>
-      <div class="cfg-field" id="cfg-assist-temperature-field">
-        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px">
-          <label class="cfg-label" style="margin-bottom:0">Temperatur</label>
-          <span style="font-size:10px;color:#bbb" id="cfg-assist-temperature-hint">Antwort-Stil des Assistenten: 0&nbsp;=&nbsp;präzise/gleichförmig, 1&nbsp;=&nbsp;kreativ/variabel · leer&nbsp;=&nbsp;OpenAI-Standard</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:10px;color:#aaa;flex-shrink:0">Präzise</span>
-          <div id="cfg-assist-temperature-wrapper" style="position:relative;width:140px;flex-shrink:0;--val:0.5">
-            <span id="cfg-assist-temperature-display" style="position:absolute;bottom:calc(100% + 4px);font-size:11px;background:#003366;color:white;padding:1px 6px;border-radius:3px;transform:translateX(-50%);pointer-events:none;left:calc(var(--val) * 124px + 8px);white-space:nowrap;visibility:hidden">0.5</span>
-            <input class="cfg-input" type="range" id="cfg-assist-temperature" min="0" max="1" step="0.1" value="0.5" style="width:100%;margin:0;display:block">
-          </div>
-          <span style="font-size:10px;color:#aaa;flex-shrink:0">Kreativ</span>
-          <label style="font-size:11px;color:#888;display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;flex-shrink:0">
-            <input type="checkbox" id="cfg-assist-temperature-default">Standard
-          </label>
-        </div>
-      </div>
+      <!-- Slider-Markup wird per JS renderTempSlider('assist-', ...) injiziert -->
+      <div class="cfg-field" id="cfg-assist-temperature-field"></div>
     </details>
 
     <details class="cfg-section-details" id="cfg-opener-details">
@@ -469,23 +454,8 @@
         </select>
         <div class="cfg-hint">Gilt für diese Aktivität; leer = globales Standardmodell (Admin)</div>
       </div>
-      <div class="cfg-field" id="cfg-temperature-field">
-        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px">
-          <label class="cfg-label" style="margin-bottom:0">Temperatur</label>
-          <span style="font-size:10px;color:#bbb" id="cfg-temperature-hint">Antwort-Stil des Bots: 0&nbsp;=&nbsp;präzise/gleichförmig, 1&nbsp;=&nbsp;kreativ/variabel · leer&nbsp;=&nbsp;OpenAI-Standard</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:10px;color:#aaa;flex-shrink:0">Präzise</span>
-          <div id="cfg-temperature-wrapper" style="position:relative;width:140px;flex-shrink:0;--val:0.5">
-            <span id="cfg-temperature-display" style="position:absolute;bottom:calc(100% + 4px);font-size:11px;background:#003366;color:white;padding:1px 6px;border-radius:3px;transform:translateX(-50%);pointer-events:none;left:calc(var(--val) * 124px + 8px);white-space:nowrap;visibility:hidden">0.5</span>
-            <input class="cfg-input" type="range" id="cfg-temperature" min="0" max="1" step="0.1" value="0.5" style="width:100%;margin:0;display:block">
-          </div>
-          <span style="font-size:10px;color:#aaa;flex-shrink:0">Kreativ</span>
-          <label style="font-size:11px;color:#888;display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;flex-shrink:0">
-            <input type="checkbox" id="cfg-temperature-default">Standard
-          </label>
-        </div>
-      </div>
+      <!-- Slider-Markup wird per JS renderTempSlider('', ...) injiziert -->
+      <div class="cfg-field" id="cfg-temperature-field"></div>
     </details>
 
     <details class="cfg-section-details" id="cfg-subject-details">

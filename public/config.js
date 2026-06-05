@@ -46,90 +46,103 @@
     if (cls === 'ok') setTimeout(() => { status.textContent = ''; status.className = 'cfg-status'; }, 3000);
   }
 
-  function getTemperatureValue() {
-    const defaultCb = document.getElementById('cfg-temperature-default');
-    if (!defaultCb || defaultCb.checked) return null;
-    const el = document.getElementById('cfg-temperature');
-    if (!el || el.disabled) return null;
-    return Number(el.value);
-  }
+  // Effektive Spurbreite des Sliders: Wrapper (140px) minus halber Thumb (16px)
+  const SLIDER_TRACK_WIDTH_PX = 124;
 
   function isReasoningModel(modelName) {
     return /^(o1|o3|o4-)/.test(modelName || '');
   }
 
-  function getAssistTemperatureValue() {
-    const defaultCb = document.getElementById('cfg-assist-temperature-default');
+  /**
+   * Gibt den Temperaturwert zurück oder null wenn Standard/disabled.
+   * @param {string} prefix - 'assist-' oder '' (leer für Chat-Slider)
+   */
+  function getTempValue(prefix) {
+    const defaultCb = document.getElementById(`cfg-${prefix}temperature-default`);
     if (!defaultCb || defaultCb.checked) return null;
-    const el = document.getElementById('cfg-assist-temperature');
+    const el = document.getElementById(`cfg-${prefix}temperature`);
     if (!el || el.disabled) return null;
     return Number(el.value);
   }
 
-  function updateAssistTemperatureField() {
-    const modelSel  = document.getElementById('cfg-assist-model');
-    const tempInput = document.getElementById('cfg-assist-temperature');
-    const tempHint  = document.getElementById('cfg-assist-temperature-hint');
-    const defaultCb = document.getElementById('cfg-assist-temperature-default');
-    if (!modelSel || !tempInput || !defaultCb) return;
+  /**
+   * Aktualisiert Bubble-Position und Sichtbarkeit eines Temperatur-Sliders.
+   * @param {string} prefix - 'assist-' oder ''
+   * @param {number|null} value - Schiebereglerwert (0–1) oder null = Standard (versteckt)
+   */
+  function setTempSlider(prefix, value) {
+    const display = document.getElementById(`cfg-${prefix}temperature-display`);
+    const wrapper = document.getElementById(`cfg-${prefix}temperature-wrapper`);
+    if (!display || !wrapper) return;
 
-    const selectedModel = modelSel.value || document.getElementById('cfg-model')?.value || '';
-    const reasoning = isReasoningModel(selectedModel);
-    const useDefault = defaultCb.checked || reasoning;
-    tempInput.disabled = useDefault;
-    defaultCb.disabled = reasoning;
-
-    if (reasoning) {
-      tempHint.textContent = 'nicht verfügbar (Reasoning-Modell)';
-    } else {
-      tempHint.textContent = 'Antwort-Stil: 0 = präzise/gleichförmig, 1 = kreativ/variabel · leer = OpenAI-Standard';
-    }
-    const display = document.getElementById('cfg-assist-temperature-display');
-    if (display) {
-      display.style.visibility = useDefault ? 'hidden' : '';
-      if (!useDefault) {
-        const val = Number(tempInput.value);
-        display.textContent = val.toFixed(1);
-        document.getElementById('cfg-assist-temperature-wrapper')?.style.setProperty('--val', val);
-      }
-    }
-  }
-
-  function updateTemperatureField() {
-    const modelSel  = document.getElementById('cfg-model');
-    const tempInput = document.getElementById('cfg-temperature');
-    const tempHint  = document.getElementById('cfg-temperature-hint');
-    const defaultCb = document.getElementById('cfg-temperature-default');
-    if (!modelSel || !tempInput || !defaultCb) return;
-
-    const selectedModel = modelSel.value;
-    const reasoning = isReasoningModel(selectedModel);
-
-    const useDefault = defaultCb.checked || reasoning;
-    tempInput.disabled = useDefault;
-    defaultCb.disabled = reasoning;
-
-    if (reasoning) {
-      tempHint.textContent = 'nicht verfügbar (Reasoning-Modell)';
-    } else {
-      tempHint.textContent = '0–1, Standard = OpenAI-Vorgabe';
-    }
-    updateTemperatureDisplay();
-  }
-
-  function updateTemperatureDisplay() {
-    const el        = document.getElementById('cfg-temperature');
-    const display   = document.getElementById('cfg-temperature-display');
-    const defaultCb = document.getElementById('cfg-temperature-default');
-    if (!el || !display) return;
-    const isDefault = (defaultCb && defaultCb.checked) || el.disabled;
+    const isDefault = value === null;
     display.style.visibility = isDefault ? 'hidden' : '';
     if (!isDefault) {
-      const val = Number(el.value);
-      display.textContent = val.toFixed(1);
-      document.getElementById('cfg-temperature-wrapper')?.style.setProperty('--val', val);
+      display.textContent = Number(value).toFixed(1);
+      wrapper.style.setProperty('--val', value);
     }
   }
+
+  /**
+   * Rendert das Slider-Markup in den Platzhalter-Container.
+   * Einmaliger Aufruf pro Prefix beim Start – ersetzt das duplizierte HTML.
+   * @param {string} prefix - 'assist-' oder ''
+   * @param {string} hintText - Initialer Hint-Text
+   */
+  function renderTempSlider(prefix, hintText) {
+    const field = document.getElementById(`cfg-${prefix}temperature-field`);
+    if (!field) return;
+    field.innerHTML = `
+      <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px">
+        <label class="cfg-label" style="margin-bottom:0">Temperatur</label>
+        <span style="font-size:10px;color:#bbb" id="cfg-${prefix}temperature-hint">${hintText}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:10px;color:#aaa;flex-shrink:0">Pr&auml;zise</span>
+        <div id="cfg-${prefix}temperature-wrapper" style="position:relative;width:140px;flex-shrink:0;--val:0.5">
+          <span id="cfg-${prefix}temperature-display" style="position:absolute;bottom:calc(100% + 4px);font-size:11px;background:#003366;color:white;padding:1px 6px;border-radius:3px;transform:translateX(-50%);pointer-events:none;left:calc(var(--val) * ${SLIDER_TRACK_WIDTH_PX}px + 8px);white-space:nowrap;visibility:hidden">0.5</span>
+          <input class="cfg-input" type="range" id="cfg-${prefix}temperature" min="0" max="1" step="0.1" value="0.5" style="width:100%;margin:0;display:block">
+        </div>
+        <span style="font-size:10px;color:#aaa;flex-shrink:0">Kreativ</span>
+        <label style="font-size:11px;color:#888;display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;flex-shrink:0">
+          <input type="checkbox" id="cfg-${prefix}temperature-default">Standard
+        </label>
+      </div>`;
+  }
+
+  /**
+   * Synchronisiert Slider-Status (disabled, hint, bubble) mit Modellwahl und Checkbox.
+   * Einheitliche Funktion für chat- (prefix='') und assist-Slider (prefix='assist-').
+   * @param {string} prefix - 'assist-' oder ''
+   */
+  function updateTempField(prefix) {
+    const modelSelId = prefix === 'assist-' ? 'cfg-assist-model' : 'cfg-model';
+    const modelSel   = document.getElementById(modelSelId);
+    const tempInput  = document.getElementById(`cfg-${prefix}temperature`);
+    const tempHint   = document.getElementById(`cfg-${prefix}temperature-hint`);
+    const defaultCb  = document.getElementById(`cfg-${prefix}temperature-default`);
+    if (!modelSel || !tempInput || !defaultCb) return;
+
+    const selectedModel = modelSel.value
+      || (prefix === 'assist-' ? document.getElementById('cfg-model')?.value : '')
+      || '';
+    const reasoning  = isReasoningModel(selectedModel);
+    const useDefault = defaultCb.checked || reasoning;
+
+    tempInput.disabled = useDefault;
+    defaultCb.disabled = reasoning;
+
+    if (tempHint) {
+      tempHint.textContent = reasoning
+        ? 'nicht verfügbar (Reasoning-Modell)'
+        : prefix === 'assist-'
+          ? 'Antwort-Stil: 0 = präzise/gleichförmig, 1 = kreativ/variabel · leer = OpenAI-Standard'
+          : '0–1, Standard = OpenAI-Vorgabe';
+    }
+
+    setTempSlider(prefix, useDefault ? null : Number(tempInput.value));
+  }
+
 
   function getFields() {
     return {
@@ -144,9 +157,9 @@
       model:               document.getElementById('cfg-model').value,
       hintsTemplate:       document.getElementById('cfg-hints').value,
       mathMode:            document.getElementById('cfg-math-mode').value,
-      chatTemperature:     getTemperatureValue(),
+      chatTemperature:     getTempValue(''),
       assistModel:         document.getElementById('cfg-assist-model')?.value ?? '',
-      assistTemperature:   getAssistTemperatureValue(),
+      assistTemperature:   getTempValue('assist-'),
     };
   }
 
@@ -274,7 +287,7 @@
     }
     this.style.fontStyle = '';
     updateAudioOutputDependents();   // ruft intern updateAudioSummary()
-    updateTemperatureField();
+    updateTempField('');
     updateOpenerSummary();
     updateAppearanceSummary();
     updateAdvancedSummary();
@@ -544,8 +557,8 @@
       updateAudioOutputDependents();
       updateOpenerSummary();
       updateAppearanceSummary();
-      updateTemperatureField();
-      updateAssistTemperatureField();
+      updateTempField('');
+      updateTempField('assist-');
       updateAdvancedSummary();
       updateAssistSummary();
       updateSubjectSummary();
@@ -572,9 +585,9 @@
     const hints               = document.getElementById('cfg-hints').value;
     const model               = document.getElementById('cfg-model').value;
     const mathMode            = document.getElementById('cfg-math-mode').value;
-    const chatTemperature     = getTemperatureValue();
+    const chatTemperature     = getTempValue('');
     const assistModel         = document.getElementById('cfg-assist-model')?.value ?? '';
-    const assistTemperature   = getAssistTemperatureValue();
+    const assistTemperature   = getTempValue('assist-');
 
     btn.disabled       = true;
     status.className   = 'cfg-status';
@@ -828,7 +841,7 @@
   function updateAdvancedSummary() {
     const upload = document.getElementById('cfg-upload-mode').value || '';
     const model  = document.getElementById('cfg-model').value || 'Standard';
-    const temp   = getTemperatureValue();
+    const temp   = getTempValue('');
     const parts  = [];
     if (upload) parts.push('Upload: ' + upload);
     parts.push('Modell: ' + model);
@@ -838,7 +851,7 @@
 
   function updateAssistSummary() {
     const model = document.getElementById('cfg-assist-model')?.value || '';
-    const temp  = getAssistTemperatureValue();
+    const temp  = getTempValue('assist-');
     const parts = ['Modell: ' + (model || 'Standard')];
     if (temp != null) parts.push('Temp: ' + temp.toFixed(1));
     const el = document.querySelector('#cfg-assist-details summary');
@@ -862,6 +875,10 @@
     updateAudioSummary();
   }
 
+  // Slider-Markup einmalig per JS rendern (ersetzt dupliziertes HTML)
+  renderTempSlider('assist-', 'Antwort-Stil des Assistenten: 0 = präzise/gleichförmig, 1 = kreativ/variabel · leer = OpenAI-Standard');
+  renderTempSlider('',        'Antwort-Stil des Bots: 0 = präzise/gleichförmig, 1 = kreativ/variabel · leer = OpenAI-Standard');
+
   // Change-Events für Summary-Aktualisierung
   document.getElementById('cfg-opener').addEventListener('input',  updateOpenerSummary);
   document.getElementById('cfg-title').addEventListener('input',   updateAppearanceSummary);
@@ -875,32 +892,32 @@
   document.getElementById('cfg-audio-student-options').addEventListener('change', updateAudioSummary);
 
   document.getElementById('cfg-model').addEventListener('change', () => {
-    updateTemperatureField();
+    updateTempField('');
     updateAdvancedSummary();
   });
   document.getElementById('cfg-temperature').addEventListener('input', () => {
-    updateTemperatureDisplay();
+    updateTempField('');
     updateAdvancedSummary();
   });
   document.getElementById('cfg-temperature-default').addEventListener('change', () => {
     const cb = document.getElementById('cfg-temperature-default');
     if (!cb.checked) document.getElementById('cfg-temperature').value = 0.5;
-    updateTemperatureField();
+    updateTempField('');
     updateAdvancedSummary();
   });
 
   document.getElementById('cfg-assist-model')?.addEventListener('change', () => {
-    updateAssistTemperatureField();
+    updateTempField('assist-');
     updateAssistSummary();
   });
   document.getElementById('cfg-assist-temperature')?.addEventListener('input', () => {
-    updateAssistTemperatureField();
+    updateTempField('assist-');
     updateAssistSummary();
   });
   document.getElementById('cfg-assist-temperature-default')?.addEventListener('change', () => {
     const cb = document.getElementById('cfg-assist-temperature-default');
     if (!cb.checked) document.getElementById('cfg-assist-temperature').value = 0.5;
-    updateAssistTemperatureField();
+    updateTempField('assist-');
     updateAssistSummary();
   });
 
