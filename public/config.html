@@ -62,6 +62,13 @@
 
     .cfg-hint { font-size: 11px; color: #888; margin-top: 3px; }
 
+    input[type="range"].cfg-input {
+      padding: 0;
+      height: 28px;
+      accent-color: #003366;
+    }
+    input[type="range"].cfg-input:disabled { opacity: 0.4; cursor: not-allowed; }
+
     .cfg-divider {
       border: none;
       border-top: 1px solid #e0e0e0;
@@ -433,6 +440,17 @@
           <option value="">Globales Standardmodell</option>
         </select>
         <div class="cfg-hint">Gilt für diese Aktivität; leer = globales Standardmodell (Admin)</div>
+      </div>
+      <div class="cfg-field" id="cfg-temperature-field">
+        <label class="cfg-label">Temperatur</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <input class="cfg-input" type="range" id="cfg-temperature" min="0" max="1" step="0.1" value="1" style="flex:1;margin:0;">
+          <span id="cfg-temperature-display" style="min-width:48px;font-size:13px;color:#333;text-align:right;">Standard</span>
+        </div>
+        <label style="font-size:11px;color:#888;display:flex;align-items:center;gap:5px;cursor:pointer;">
+          <input type="checkbox" id="cfg-temperature-default"> Standard (OpenAI-Default verwenden)
+        </label>
+        <div class="cfg-hint" id="cfg-temperature-hint">Bestimmt wie gleichförmig der Bot antwortet &mdash; von präzise/vorhersehbar bis kreativ/variabel. Standard: 1</div>
       </div>
     </details>
 

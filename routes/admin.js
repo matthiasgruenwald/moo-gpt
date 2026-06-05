@@ -7,7 +7,7 @@ import { getSystemTemplate, setSystemTemplate } from '../stores/teacher.js';
 import { getCachedConfig, updateCachedConfig } from '../stores/prompt.js';
 import { getAvailableModels, getAvailableBotIcons, GEN_MODELS } from '../env-config.js';
 import { getAdminConfig, setAdminConfig, deleteAdminConfig } from '../stores/admin-config.js';
-import { validateWidgetConfig, validateAssistModel } from '../validators.js';
+import { validateWidgetConfig, validateAssistModel, validateChatTemperature } from '../validators.js';
 
 // 1-Stunden-Cache für die OpenAI-Modellliste
 let openaiModelsCache = null;
@@ -146,14 +146,17 @@ export function createAdminRouter({ dashboardRegistry, oai: oaiOverride } = {}) 
       model:               tpl?.model               ?? null,
       assistModel:         tpl?.assist_model         ?? null,
       assistTemperature:   tpl?.assist_temperature   ?? null,
+      chatTemperature:     tpl?.chat_temperature     ?? null,
     });
   });
 
   router.put('/admin/system-template', requireAdminAuth, (req, res) => {
     const { userId } = req;
-    const { title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode, assistModel, assistTemperature } = req.body;
+    const { title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode, assistModel, assistTemperature, chatTemperature } = req.body;
     const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode);
     if (validErr) return res.status(400).json({ error: validErr });
+    const tempErr = validateChatTemperature(chatTemperature);
+    if (tempErr) return res.status(400).json({ error: tempErr });
     const availableModels = getAvailableModels();
     const validModel = (!model || model === '') ? null : (availableModels.includes(model) ? model : null);
     const assistModelErr = validateAssistModel(assistModel, availableModels);
@@ -162,7 +165,8 @@ export function createAdminRouter({ dashboardRegistry, oai: oaiOverride } = {}) 
     const validAssistTemperature = (assistTemperature === null || assistTemperature === undefined || assistTemperature === '')
       ? null
       : Math.min(1, Math.max(0, Number(assistTemperature)));
-    setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel, mathMode, assistModel: validAssistModel, assistTemperature: validAssistTemperature });
+    const validTemp = (chatTemperature === null || chatTemperature === undefined || chatTemperature === '') ? null : Number(chatTemperature);
+    setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel, mathMode, assistModel: validAssistModel, assistTemperature: validAssistTemperature, chatTemperature: validTemp });
     console.log(`[P5b] Systemvorlage gespeichert von ${userId}`);
     res.json({ ok: true });
   });

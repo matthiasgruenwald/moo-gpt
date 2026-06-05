@@ -68,11 +68,11 @@ export class AIClient {
   }
 
   // Streaming: 60s Timeout, kein Retry — gibt den rohen Stream zurück
-  async stream(instructions, input, model) {
+  async stream(instructions, input, model, opts = {}) {
     const controller = new AbortController();
     setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
     return this._provider.responses.create(
-      { model, instructions, input, stream: true },
+      { model, instructions, input, stream: true, ...opts },
       { signal: controller.signal },
     );
   }

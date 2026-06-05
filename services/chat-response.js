@@ -70,9 +70,10 @@ export function createStreamResponse({ dashboardRegistry, aiClient }, moduleDeps
     const memoryEntry    = (!ws.isTeacher && settings.userId)
       ? getStudentMemory(settings.userId)
       : null;
-    const widgetCfg      = getWidgetConfig(settings.activityId);
-    const mathMode       = widgetCfg?.math_mode ?? 'off';
-    const instructions   = buildInstructions({
+    const widgetCfg         = getWidgetConfig(settings.activityId);
+    const mathMode          = widgetCfg?.math_mode ?? 'off';
+    const chatTemperature   = widgetCfg?.chat_temperature ?? null;
+    const instructions      = buildInstructions({
       systemContent:    getCachedConfig().content,
       erfahrungContent: getActiveErfahrungsprompt(settings.activityId)?.content ?? '',
       hints:            settings.hints,
@@ -86,7 +87,8 @@ export function createStreamResponse({ dashboardRegistry, aiClient }, moduleDeps
     let resContent = '';
 
     try {
-      const stream = await aiClient.stream(instructions, input, effectiveModel);
+      const streamOpts = chatTemperature != null ? { temperature: chatTemperature } : undefined;
+      const stream = await aiClient.stream(instructions, input, effectiveModel, streamOpts);
 
       let usage = null;
       for await (const event of stream) {

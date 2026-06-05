@@ -6,7 +6,7 @@ import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { getTeacherPreference, setTeacherSuggestPreference } from '../stores/teacher.js';
 import { getAvailableModels, getAvailableBotIcons } from '../env-config.js';
 import { getEffectiveModel, getEffectiveAssistModel } from '../model-resolver.js';
-import { validateWidgetConfig, validateAssistModel } from '../validators.js';
+import { validateWidgetConfig, validateAssistModel, validateChatTemperature } from '../validators.js';
 
 export function createActivityRouter({ lockManager }) {
   const router = Router();
@@ -28,6 +28,7 @@ export function createActivityRouter({ lockManager }) {
       ttsVoice:               act?.tts_voice                  || 'nova',
       audioStudentOptions:    act?.audio_student_options      || 'off',
       mathMode:               act?.math_mode                  ?? 'off',
+      chatTemperature:        act?.chat_temperature           ?? null,
       erfahrungsprompt:       erf?.content                    || '',
       model:                  act?.model                      ?? null,
       effectiveModel:         getEffectiveModel(activityId),
@@ -42,15 +43,20 @@ export function createActivityRouter({ lockManager }) {
 
   router.put('/activity-config/:activityId', requireDashboardAuth, (req, res) => {
     const { activityId, userId } = req;
-    const { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode, assistModel, assistTemperature } = req.body;
+    const { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode, assistModel, assistTemperature, chatTemperature } = req.body;
     const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode);
     if (validErr) return res.status(400).json({ error: validErr });
-    const validModel = (!model || model === '') ? null : (getAvailableModels().includes(model) ? model : null);
+    const tempErr = validateChatTemperature(chatTemperature);
+    if (tempErr) return res.status(400).json({ error: tempErr });
+    const availableModels = getAvailableModels();
+    const validModel = (!model || model === '') ? null : (availableModels.includes(model) ? model : null);
     if (model && model !== '' && !validModel) return res.status(400).json({ error: 'Ungültiges Modell' });
-    const assistModelErr = validateAssistModel(assistModel, getAvailableModels());
+    const assistModelErr = validateAssistModel(assistModel, availableModels);
     if (assistModelErr) return res.status(400).json({ error: assistModelErr });
     const validAssistModel = (!assistModel || assistModel === '') ? null : assistModel;
+    const validTemp = (chatTemperature === null || chatTemperature === undefined || chatTemperature === '') ? null : Number(chatTemperature);
     const configUpdate = { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel, mathMode };
+    if ('chatTemperature' in req.body) configUpdate.chatTemperature = validTemp;
     if ('assistModel' in req.body) configUpdate.assistModel = validAssistModel;
     if ('assistTemperature' in req.body) {
       const t = req.body.assistTemperature;

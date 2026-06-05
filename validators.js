@@ -43,3 +43,15 @@ export function validateAssistModel(assistModel, availableModels) {
     return 'Ungültiges assist_model';
   return null;
 }
+
+/**
+ * Validiert chat_temperature: muss null oder ein Float 0–1 sein.
+ * @param {*} value
+ * @returns {string|null} Fehlermeldung oder null
+ */
+export function validateChatTemperature(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  if (Number.isNaN(n) || n < 0 || n > 1) return 'Ungültige chat_temperature (0–1)';
+  return null;
+}
