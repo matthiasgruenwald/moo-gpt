@@ -166,3 +166,82 @@ describe('setSystemTemplate / getSystemTemplate — Audio-Felder + Modell (Issue
     assert.equal(tpl.model, null);
   });
 });
+
+describe('createTeacherTemplate — assist_model, chat_temperature, assist_temperature (Issue #183)', () => {
+  test('speichert assistModel korrekt', () => {
+    createTeacherTemplate('user-10', { name: 'N1', assistModel: 'gpt-4o-mini' });
+    const templates = getTeacherTemplates('user-10');
+    assert.equal(templates[0].assist_model, 'gpt-4o-mini');
+  });
+
+  test('speichert chatTemperature und assistTemperature korrekt', () => {
+    createTeacherTemplate('user-10', { name: 'N2', chatTemperature: 0.6, assistTemperature: 0.2 });
+    const templates = getTeacherTemplates('user-10');
+    const t = templates.find(t => t.name === 'N2');
+    assert.equal(t.chat_temperature,   0.6);
+    assert.equal(t.assist_temperature, 0.2);
+  });
+
+  test('neue Felder sind null wenn nicht gesetzt', () => {
+    createTeacherTemplate('user-10', { name: 'N3' });
+    const templates = getTeacherTemplates('user-10');
+    const t = templates.find(t => t.name === 'N3');
+    assert.equal(t.assist_model,       null);
+    assert.equal(t.chat_temperature,   null);
+    assert.equal(t.assist_temperature, null);
+  });
+});
+
+describe('updateTeacherTemplate — assist_model, chat_temperature, assist_temperature (Issue #183)', () => {
+  test('überschreibt neue Felder korrekt', () => {
+    const id = createTeacherTemplate('user-11', {
+      name: 'UpN',
+      assistModel: 'gpt-4o', chatTemperature: 0.5, assistTemperature: 0.5,
+    });
+    updateTeacherTemplate(id, 'user-11', {
+      name: 'UpN',
+      assistModel: 'gpt-4.1-nano', chatTemperature: 0.1, assistTemperature: 0.9,
+    });
+    const templates = getTeacherTemplates('user-11');
+    const t = templates[0];
+    assert.equal(t.assist_model,       'gpt-4.1-nano');
+    assert.equal(t.chat_temperature,   0.1);
+    assert.equal(t.assist_temperature, 0.9);
+  });
+
+  test('setzt neue Felder auf null zurück wenn nicht übergeben', () => {
+    const id = createTeacherTemplate('user-12', {
+      name: 'NullBack',
+      assistModel: 'gpt-4o', chatTemperature: 0.7, assistTemperature: 0.3,
+    });
+    updateTeacherTemplate(id, 'user-12', { name: 'NullBack' });
+    const templates = getTeacherTemplates('user-12');
+    const t = templates[0];
+    assert.equal(t.assist_model,       null);
+    assert.equal(t.chat_temperature,   null);
+    assert.equal(t.assist_temperature, null);
+  });
+});
+
+describe('setSystemTemplate / getSystemTemplate — assist_model, chat_temperature, assist_temperature (Issue #183)', () => {
+  test('speichert und liest assistModel korrekt', () => {
+    setSystemTemplate({ assistModel: 'gpt-4o-mini' });
+    const tpl = getSystemTemplate();
+    assert.equal(tpl.assist_model, 'gpt-4o-mini');
+  });
+
+  test('speichert und liest chatTemperature und assistTemperature korrekt', () => {
+    setSystemTemplate({ chatTemperature: 0.4, assistTemperature: 0.8 });
+    const tpl = getSystemTemplate();
+    assert.equal(tpl.chat_temperature,   0.4);
+    assert.equal(tpl.assist_temperature, 0.8);
+  });
+
+  test('neue Felder sind null wenn nicht gesetzt', () => {
+    setSystemTemplate({ title: 'NullTest', assistModel: null, chatTemperature: null, assistTemperature: null });
+    const tpl = getSystemTemplate();
+    assert.equal(tpl.assist_model,       null);
+    assert.equal(tpl.chat_temperature,   null);
+    assert.equal(tpl.assist_temperature, null);
+  });
+});
