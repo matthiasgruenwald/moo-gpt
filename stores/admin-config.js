@@ -23,3 +23,11 @@ export function getAdminConfig(key) {
 export function setAdminConfig(key, value) {
   getDb().prepare('INSERT OR REPLACE INTO admin_config (key, value) VALUES (?, ?)').run(key, value);
 }
+
+/**
+ * Löscht einen Konfigurationswert aus admin_config.
+ * @param {string} key
+ */
+export function deleteAdminConfig(key) {
+  getDb().prepare('DELETE FROM admin_config WHERE key = ?').run(key);
+}

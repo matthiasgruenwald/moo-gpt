@@ -6,7 +6,7 @@ import { saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry } from '..
 import { getSystemTemplate, setSystemTemplate } from '../stores/teacher.js';
 import { getCachedConfig, updateCachedConfig } from '../stores/prompt.js';
 import { getAvailableModels, getAvailableBotIcons, GEN_MODELS } from '../env-config.js';
-import { getAdminConfig, setAdminConfig } from '../stores/admin-config.js';
+import { getAdminConfig, setAdminConfig, deleteAdminConfig } from '../stores/admin-config.js';
 import { validateWidgetConfig } from '../validators.js';
 
 // 1-Stunden-Cache für die OpenAI-Modellliste
@@ -176,6 +176,41 @@ export function createAdminRouter({ dashboardRegistry, oai: oaiOverride } = {}) 
   router.post('/admin/restart', requireAdminAuth, (req, res) => {
     res.json({ ok: true });
     setTimeout(() => execFile('systemctl', ['restart', 'moo-gpt'], () => {}), 500);
+  });
+
+  // GET /admin/config/tool-models — liest die vier Werkzeug-Modell-Schlüssel aus admin_config
+  router.get('/admin/config/tool-models', requireAdminAuth, (req, res) => {
+    const KEYS = {
+      genModel:           'gen_model',
+      ttsPrepModel:       'tts_prep_model',
+      ttsModel:           'tts_model',
+      transcriptionModel: 'transcription_model',
+    };
+    const result = {};
+    for (const [field, key] of Object.entries(KEYS)) {
+      result[field] = getAdminConfig(key) ?? '';
+    }
+    res.json(result);
+  });
+
+  // PUT /admin/config/tool-models — speichert / löscht die vier Werkzeug-Modell-Schlüssel
+  router.put('/admin/config/tool-models', requireAdminAuth, (req, res) => {
+    const KEYS = {
+      genModel:           'gen_model',
+      ttsPrepModel:       'tts_prep_model',
+      ttsModel:           'tts_model',
+      transcriptionModel: 'transcription_model',
+    };
+    for (const [field, key] of Object.entries(KEYS)) {
+      if (!(field in req.body)) continue;
+      const value = String(req.body[field] ?? '').trim();
+      if (value === '') {
+        deleteAdminConfig(key);
+      } else {
+        setAdminConfig(key, value);
+      }
+    }
+    res.json({ ok: true });
   });
 
   return router;

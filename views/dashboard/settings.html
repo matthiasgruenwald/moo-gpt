@@ -504,6 +504,38 @@
     </details>
   </div>
 
+  <!-- Werkzeug-Modelle (nur Admins, Issue #188) -->
+  <div class="settings-card" id="tool-models-card" style="display:none">
+    <h3>Werkzeug-Modelle</h3>
+    <p style="font-size:12px;color:#888;margin:0 0 8px">Modelle f&uuml;r interne Hilfsfunktionen. Leer lassen = Fallback-Wert wird verwendet.</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div>
+        <label class="st-label">Simulations-Modell</label>
+        <input type="text" id="toolModel_gen_model" placeholder="gpt-4.1-nano" style="width:100%;font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
+        <span style="font-size:11px;color:#999">Kriterien, Personas, &Auml;u&szlig;erungen, Evaluation</span>
+      </div>
+      <div>
+        <label class="st-label">TTS-Vorverarbeitung</label>
+        <input type="text" id="toolModel_tts_prep_model" placeholder="gpt-4o-mini" style="width:100%;font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
+        <span style="font-size:11px;color:#999">Markdown/LaTeX-Bereinigung vor Sprachausgabe</span>
+      </div>
+      <div>
+        <label class="st-label">TTS-Ausgabe</label>
+        <input type="text" id="toolModel_tts_model" placeholder="tts-1-hd" style="width:100%;font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
+        <span style="font-size:11px;color:#999">Sprachausgabe-Modell (z.&nbsp;B. tts-1, tts-1-hd)</span>
+      </div>
+      <div>
+        <label class="st-label">Transkription</label>
+        <input type="text" id="toolModel_transcription_model" placeholder="whisper-1" style="width:100%;font-size:13px;padding:5px 8px;border:1px solid #ccd3db;border-radius:4px">
+        <span style="font-size:11px;color:#999">Whisper-Modell f&uuml;r Spracheingabe</span>
+      </div>
+    </div>
+    <div class="settings-row" style="margin-top:4px">
+      <button class="settings-btn" id="tool-models-save-btn">Werkzeug-Modelle speichern</button>
+    </div>
+    <div class="status-msg" id="tool-models-status"></div>
+  </div>
+
   <!-- Admin-Personas (nur Admins) -->
   <div class="settings-card" id="admin-personas-card" style="display:none">
     <h3>Lehrer-Personas verwalten</h3>
