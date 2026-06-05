@@ -35,21 +35,22 @@ export function getTeacherDefaultTemplate(userId) {
   ).get(userId) || null;
 }
 
-export function createTeacherTemplate(userId, { name, title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode } = {}) {
+export function createTeacherTemplate(userId, { name, title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode, assistModel, chatTemperature, assistTemperature } = {}) {
   const result = getDb().prepare(`
-    INSERT INTO teacher_templates (moodle_user_id, name, title, bot_icon, opener, upload_mode, hints_template, audio_input, audio_output, tts_voice, audio_student_options, model, math_mode)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(userId, name, title ?? null, botIcon ?? 'grw', opener ?? null, uploadMode ?? 'off', hintsTemplate ?? null, audioInput ?? 'off', audioOutput ?? 'off', ttsVoice ?? 'nova', audioStudentOptions ?? 'off', model ?? null, mathMode ?? 'off');
+    INSERT INTO teacher_templates (moodle_user_id, name, title, bot_icon, opener, upload_mode, hints_template, audio_input, audio_output, tts_voice, audio_student_options, model, math_mode, assist_model, chat_temperature, assist_temperature)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(userId, name, title ?? null, botIcon ?? 'grw', opener ?? null, uploadMode ?? 'off', hintsTemplate ?? null, audioInput ?? 'off', audioOutput ?? 'off', ttsVoice ?? 'nova', audioStudentOptions ?? 'off', model ?? null, mathMode ?? 'off', assistModel ?? null, chatTemperature ?? null, assistTemperature ?? null);
   return result.lastInsertRowid;
 }
 
-export function updateTeacherTemplate(id, userId, { name, title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode } = {}) {
+export function updateTeacherTemplate(id, userId, { name, title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode, assistModel, chatTemperature, assistTemperature } = {}) {
   getDb().prepare(`
     UPDATE teacher_templates
     SET name = ?, title = ?, bot_icon = ?, opener = ?, upload_mode = ?, hints_template = ?,
-        audio_input = ?, audio_output = ?, tts_voice = ?, audio_student_options = ?, model = ?, math_mode = ?
+        audio_input = ?, audio_output = ?, tts_voice = ?, audio_student_options = ?, model = ?, math_mode = ?,
+        assist_model = ?, chat_temperature = ?, assist_temperature = ?
     WHERE id = ? AND moodle_user_id = ?
-  `).run(name, title ?? null, botIcon ?? 'grw', opener ?? null, uploadMode ?? 'off', hintsTemplate ?? null, audioInput ?? 'off', audioOutput ?? 'off', ttsVoice ?? 'nova', audioStudentOptions ?? 'off', model ?? null, mathMode ?? 'off', id, userId);
+  `).run(name, title ?? null, botIcon ?? 'grw', opener ?? null, uploadMode ?? 'off', hintsTemplate ?? null, audioInput ?? 'off', audioOutput ?? 'off', ttsVoice ?? 'nova', audioStudentOptions ?? 'off', model ?? null, mathMode ?? 'off', assistModel ?? null, chatTemperature ?? null, assistTemperature ?? null, id, userId);
 }
 
 export function deleteTeacherTemplate(id, userId) {
@@ -69,10 +70,10 @@ export function getSystemTemplate() {
   return getDb().prepare('SELECT * FROM system_template WHERE id = 1').get() || null;
 }
 
-export function setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode } = {}) {
+export function setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode, assistModel, chatTemperature, assistTemperature } = {}) {
   getDb().prepare(`
-    INSERT INTO system_template (id, title, bot_icon, opener, upload_mode, hints_template, audio_input, audio_output, tts_voice, audio_student_options, model, math_mode, updated_at)
-    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    INSERT INTO system_template (id, title, bot_icon, opener, upload_mode, hints_template, audio_input, audio_output, tts_voice, audio_student_options, model, math_mode, assist_model, chat_temperature, assist_temperature, updated_at)
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(id) DO UPDATE SET
       title                = excluded.title,
       bot_icon             = excluded.bot_icon,
@@ -85,6 +86,9 @@ export function setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTem
       audio_student_options = excluded.audio_student_options,
       model                = excluded.model,
       math_mode            = excluded.math_mode,
+      assist_model         = excluded.assist_model,
+      chat_temperature     = excluded.chat_temperature,
+      assist_temperature   = excluded.assist_temperature,
       updated_at           = CURRENT_TIMESTAMP
-  `).run(title ?? null, botIcon ?? 'grw', opener ?? null, uploadMode ?? 'off', hintsTemplate ?? null, audioInput ?? 'off', audioOutput ?? 'off', ttsVoice ?? 'nova', audioStudentOptions ?? 'off', model ?? null, mathMode ?? 'off');
+  `).run(title ?? null, botIcon ?? 'grw', opener ?? null, uploadMode ?? 'off', hintsTemplate ?? null, audioInput ?? 'off', audioOutput ?? 'off', ttsVoice ?? 'nova', audioStudentOptions ?? 'off', model ?? null, mathMode ?? 'off', assistModel ?? null, chatTemperature ?? null, assistTemperature ?? null);
 }

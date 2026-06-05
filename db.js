@@ -272,6 +272,17 @@ export function initDb() {
   try { db.exec(`ALTER TABLE teacher_templates ADD COLUMN math_mode TEXT DEFAULT 'off'`); } catch (_) {}
   try { db.exec(`ALTER TABLE system_template ADD COLUMN math_mode TEXT DEFAULT 'off'`); } catch (_) {}
 
+  // Issue #183: assist_model, chat_temperature, assist_temperature
+  try { db.exec(`ALTER TABLE activities ADD COLUMN assist_model TEXT`); } catch (_) {}
+  try { db.exec(`ALTER TABLE activities ADD COLUMN chat_temperature REAL`); } catch (_) {}
+  try { db.exec(`ALTER TABLE activities ADD COLUMN assist_temperature REAL`); } catch (_) {}
+  try { db.exec(`ALTER TABLE teacher_templates ADD COLUMN assist_model TEXT`); } catch (_) {}
+  try { db.exec(`ALTER TABLE teacher_templates ADD COLUMN chat_temperature REAL`); } catch (_) {}
+  try { db.exec(`ALTER TABLE teacher_templates ADD COLUMN assist_temperature REAL`); } catch (_) {}
+  try { db.exec(`ALTER TABLE system_template ADD COLUMN assist_model TEXT`); } catch (_) {}
+  try { db.exec(`ALTER TABLE system_template ADD COLUMN chat_temperature REAL`); } catch (_) {}
+  try { db.exec(`ALTER TABLE system_template ADD COLUMN assist_temperature REAL`); } catch (_) {}
+
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;
 }
