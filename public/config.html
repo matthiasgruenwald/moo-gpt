@@ -365,6 +365,28 @@
       </div>
     </div>
 
+    <details class="cfg-section-details" id="cfg-assist-details">
+      <summary>Prompt-Assistent</summary>
+      <div class="cfg-field">
+        <label class="cfg-label" for="cfg-assist-model">Modell</label>
+        <select class="cfg-select" id="cfg-assist-model">
+          <option value="">Standard (wie Chat-Modell)</option>
+        </select>
+        <div class="cfg-hint">leer = Modell des Schüler-Chats wird verwendet</div>
+      </div>
+      <div class="cfg-field" id="cfg-assist-temperature-field">
+        <label class="cfg-label">Temperatur</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <input class="cfg-input" type="range" id="cfg-assist-temperature" min="0" max="1" step="0.1" value="1" style="flex:1;margin:0;">
+          <span id="cfg-assist-temperature-display" style="min-width:48px;font-size:13px;color:#333;text-align:right;">Standard</span>
+        </div>
+        <label style="font-size:11px;color:#888;display:flex;align-items:center;gap:5px;cursor:pointer;">
+          <input type="checkbox" id="cfg-assist-temperature-default"> Standard (OpenAI-Default verwenden)
+        </label>
+        <div class="cfg-hint" id="cfg-assist-temperature-hint">Bestimmt wie gleichförmig der Assistent antwortet &mdash; von präzise/vorhersehbar bis kreativ/variabel. Standard: 1</div>
+      </div>
+    </details>
+
     <details class="cfg-section-details" id="cfg-opener-details">
       <summary>Begrüßung</summary>
       <div class="cfg-field">

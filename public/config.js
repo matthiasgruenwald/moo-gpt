@@ -58,6 +58,36 @@
     return /^(o1|o3|o4-)/.test(modelName || '');
   }
 
+  function getAssistTemperatureValue() {
+    const defaultCb = document.getElementById('cfg-assist-temperature-default');
+    if (!defaultCb || defaultCb.checked) return null;
+    const el = document.getElementById('cfg-assist-temperature');
+    if (!el || el.disabled) return null;
+    return Number(el.value);
+  }
+
+  function updateAssistTemperatureField() {
+    const modelSel  = document.getElementById('cfg-assist-model');
+    const tempInput = document.getElementById('cfg-assist-temperature');
+    const tempHint  = document.getElementById('cfg-assist-temperature-hint');
+    const defaultCb = document.getElementById('cfg-assist-temperature-default');
+    if (!modelSel || !tempInput || !defaultCb) return;
+
+    const selectedModel = modelSel.value || document.getElementById('cfg-model')?.value || '';
+    const reasoning = isReasoningModel(selectedModel);
+    const useDefault = defaultCb.checked || reasoning;
+    tempInput.disabled = useDefault;
+    defaultCb.disabled = reasoning;
+
+    if (reasoning) {
+      tempHint.textContent = 'Für dieses Modell nicht einstellbar.';
+    } else {
+      tempHint.textContent = 'Bestimmt wie gleichförmig der Assistent antwortet — von präzise/vorhersehbar bis kreativ/variabel. Standard: 1';
+    }
+    const display = document.getElementById('cfg-assist-temperature-display');
+    if (display) display.textContent = useDefault ? 'Standard' : Number(tempInput.value).toFixed(1);
+  }
+
   function updateTemperatureField() {
     const modelSel  = document.getElementById('cfg-model');
     const tempInput = document.getElementById('cfg-temperature');
@@ -103,6 +133,8 @@
       hintsTemplate:       document.getElementById('cfg-hints').value,
       mathMode:            document.getElementById('cfg-math-mode').value,
       chatTemperature:     getTemperatureValue(),
+      assistModel:         document.getElementById('cfg-assist-model')?.value ?? '',
+      assistTemperature:   getAssistTemperatureValue(),
     };
   }
 
@@ -146,7 +178,9 @@
       f.model               !== (tpl.model               ?? '') ||
       f.hintsTemplate       !== (tpl.hints_template       ?? '') ||
       f.mathMode            !== (tpl.math_mode            ?? 'off') ||
-      f.chatTemperature     !== (tpl.chat_temperature     ?? null)
+      f.chatTemperature     !== (tpl.chat_temperature     ?? null) ||
+      f.assistModel         !== (tpl.assist_model         ?? '') ||
+      f.assistTemperature   !== (tpl.assist_temperature   ?? null)
     );
   }
 
@@ -169,7 +203,9 @@
       f.model               !== openSnapshot.model               ||
       f.hintsTemplate       !== openSnapshot.hintsTemplate       ||
       f.mathMode            !== openSnapshot.mathMode            ||
-      f.chatTemperature     !== openSnapshot.chatTemperature
+      f.chatTemperature     !== openSnapshot.chatTemperature     ||
+      f.assistModel         !== openSnapshot.assistModel         ||
+      f.assistTemperature   !== openSnapshot.assistTemperature
     );
   }
 
@@ -449,13 +485,29 @@
       }
 
       const modelSel = document.getElementById('cfg-model');
+      const assistModelSel = document.getElementById('cfg-assist-model');
       for (const m of (data.availableModels || [])) {
         const opt       = document.createElement('option');
         opt.value       = m;
         opt.textContent = m;
         modelSel.appendChild(opt);
+        const opt2       = document.createElement('option');
+        opt2.value       = m;
+        opt2.textContent = m;
+        assistModelSel.appendChild(opt2);
       }
-      modelSel.value = data.model || '';
+      modelSel.value      = data.model      || '';
+      assistModelSel.value = data.assistModel || '';
+
+      const assistTempEl        = document.getElementById('cfg-assist-temperature');
+      const assistTempDefaultCb = document.getElementById('cfg-assist-temperature-default');
+      if (data.assistTemperature != null) {
+        assistTempEl.value          = data.assistTemperature;
+        assistTempDefaultCb.checked = false;
+      } else {
+        assistTempEl.value          = 1;
+        assistTempDefaultCb.checked = true;
+      }
 
       initial = {
         title:               data.title               || '',
@@ -470,6 +522,8 @@
         model:               data.model               || '',
         mathMode:            data.mathMode            || 'off',
         chatTemperature:     data.chatTemperature     ?? null,
+        assistModel:         data.assistModel         ?? '',
+        assistTemperature:   data.assistTemperature   ?? null,
       };
 
       elLoading.style.display = 'none';
@@ -479,6 +533,7 @@
       updateOpenerSummary();
       updateAppearanceSummary();
       updateTemperatureField();
+      updateAssistTemperatureField();
       updateAdvancedSummary();
       updateSubjectSummary();
 
@@ -505,6 +560,8 @@
     const model               = document.getElementById('cfg-model').value;
     const mathMode            = document.getElementById('cfg-math-mode').value;
     const chatTemperature     = getTemperatureValue();
+    const assistModel         = document.getElementById('cfg-assist-model')?.value ?? '';
+    const assistTemperature   = getAssistTemperatureValue();
 
     btn.disabled       = true;
     status.className   = 'cfg-status';
@@ -524,14 +581,16 @@
         audioStudentOptions !== initial.audioStudentOptions ||
         model               !== initial.model               ||
         mathMode            !== initial.mathMode            ||
-        chatTemperature     !== initial.chatTemperature
+        chatTemperature     !== initial.chatTemperature     ||
+        assistModel         !== initial.assistModel         ||
+        assistTemperature   !== initial.assistTemperature
       ) {
         const res = await fetch(
           `/api/activity-config/${encodeURIComponent(activityId)}?token=${encodeURIComponent(token)}`,
           {
             method:  'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ title, botIcon, opener, uploadMode, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode, chatTemperature }),
+            body:    JSON.stringify({ title, botIcon, opener, uploadMode, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode, chatTemperature, assistModel: assistModel || null, assistTemperature }),
           }
         );
         if (res.ok) {
@@ -546,6 +605,8 @@
           initial.model               = model;
           initial.mathMode            = mathMode;
           initial.chatTemperature     = chatTemperature;
+          initial.assistModel         = assistModel;
+          initial.assistTemperature   = assistTemperature;
         } else {
           errors.push('Einstellungen konnten nicht gespeichert werden.');
         }
@@ -801,6 +862,16 @@
   document.getElementById('cfg-temperature-default').addEventListener('change', () => {
     updateTemperatureField();
     updateAdvancedSummary();
+  });
+
+  document.getElementById('cfg-assist-model')?.addEventListener('change', () => {
+    updateAssistTemperatureField();
+  });
+  document.getElementById('cfg-assist-temperature')?.addEventListener('input', () => {
+    updateAssistTemperatureField();
+  });
+  document.getElementById('cfg-assist-temperature-default')?.addEventListener('change', () => {
+    updateAssistTemperatureField();
   });
 
   document.getElementById('cfg-close-warn-confirm').addEventListener('click', () => {
