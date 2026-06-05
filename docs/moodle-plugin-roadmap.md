@@ -49,7 +49,7 @@ Moodle Aktivität mod_moogpt
 | `server.js` | PHP-Controller, External Functions, ggf. kleine Service-Klassen |
 | `db.js` | Moodle-Tabellen via XMLDB + Zugriff über Moodle-DB-API |
 | `public/moo-bot.js` | Moodle-JavaScript-Modul für Chat-UI |
-| `public/dashboard.html` / `dashboard.js` | Lehreransicht innerhalb des Plugins |
+| `views/dashboard/*.html` / `public/dashboard.js`, `settings.js` u.a. | Lehreransicht innerhalb des Plugins |
 | `public/config.html` / `config.js` | Aktivitäts- oder Einstellungsseite im Plugin |
 | SQLite-Dateien und Token-Caches | Moodle-Datenbank und Moodle-Session-/Capability-Modell |
 
@@ -149,7 +149,7 @@ Pragmatische Empfehlung:
 ## Phase 4 — Lehreransicht und Konfiguration
 
 Ziel:
-- Externe Seiten `dashboard.html` und `config.html` ablösen
+- Externe Seiten `views/dashboard/*.html` und `public/config.html` ablösen
 
 Umsetzung:
 - Lehreransicht als Plugin-Seite oder Reiter innerhalb der Aktivität

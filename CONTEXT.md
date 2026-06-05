@@ -10,7 +10,15 @@ Eine Moodle-Aktivität (Textseite oder Aufgabe), in die ein Chat-Widget eingebet
 
 ## Widget-Konfiguration
 
-Die konfigurierbaren Felder, die das Verhalten und Erscheinungsbild des Chat-Bots für eine Aktivität festlegen: `botTitle`, `botIcon`, `uploadMode`, `opener`, `audioInput`, `audioOutput`, `ttsVoice`, `audioStudentOptions`, `model`, `hints`, `mathMode`. Wird auf drei Ebenen definiert — Systemvorlage → Lehrer-Vorlage → Aktivitätskonfiguration — wobei jede Ebene die darüber überschreibt. Das GPT-Modell wird **pro Aktivität** gespeichert (Spalte `model` in `activities`), nicht mehr als Lehrer-weite Präferenz. Priorität: Aktivitäts-Modell → System-Prompt-Modell (Admin) → `MODEL_NAME`-Env. Die `teacher_preferences.preferred_model`-Spalte entfällt.
+Die konfigurierbaren Felder, die das Verhalten und Erscheinungsbild des Chat-Bots für eine Aktivität festlegen: `botTitle`, `botIcon`, `uploadMode`, `opener`, `audioInput`, `audioOutput`, `ttsVoice`, `audioStudentOptions`, `model`, `chat_temperature`, `assist_model`, `assist_temperature`, `hints`, `mathMode`. Wird auf drei Ebenen definiert — Systemvorlage → Lehrer-Vorlage → Aktivitätskonfiguration — wobei jede Ebene die darüber überschreibt. Die `teacher_preferences.preferred_model`-Spalte entfällt.
+
+**Chat-Modell (`model`):** GPT-Modell für den Schüler-Chat. Priorität: `activities.model` → Admin-Systemprompt-Modell (`prompts.model`) → `MODEL_NAME` (Env). Dropdown zeigt `AVAILABLE_MODELS`. UI: im `<details>`-Block „Erweitert" im Config-Overlay.
+
+**Chat-Temperatur (`chat_temperature`):** Steuerung wie gleichförmig der Chat-Bot antwortet. Werte 0–1 (Schritte 0,1); 0 = präzise/vorhersehbar, 1 = kreativ/variabel. Standard: 1. Gleiche Template-Hierarchie wie `model`. UI: Slider mit Label „Temperatur" im Block „Erweitert", Hint: „Bestimmt wie gleichförmig der Bot antwortet — von präzise/vorhersehbar bis kreativ/variabel. Standard: 1". Zahlen erscheinen nur als Slider-Endpunkte, nicht als erklärungsbedürftige Mathematik.
+
+**Assistent-Modell (`assist_model`):** GPT-Modell für den Prompt-Assistenten (Interaktiv erstellen / Prüfen & verbessern). Eigenständiges Feld, damit Chat- und Assistent-Modell unabhängig getestet werden können. Priorität: `activities.assist_model` → `activities.model` (Fallback auf Chat-Modell) → `MODEL_NAME` (Env). Dropdown zeigt `AVAILABLE_MODELS` (Admin-gepflegt). UI: im `<details>`-Block „Prompt-Assistent" im Config-Overlay, direkt unter den Assistent-Buttons, vor „Begrüßung".
+
+**Assistent-Temperatur (`assist_temperature`):** Temperatur für Prompt-Assistent-Calls. Gleiche Skala wie `chat_temperature`. Priorität: `activities.assist_temperature` → `assist_model`-Fallback-Kette. UI: Slider im Block „Prompt-Assistent" unter dem Modell-Dropdown.
 
 **Config-Overlay-Öffnungsverhalten:** Das Config-Overlay öffnet sich immer auf der **gegenüberliegenden Seite** des Chat-Fensters. Ist das Chat-Fenster rechts → Overlay links angedockt (`left-side`). Ist das Chat-Fenster links → Overlay rechts. Ist das Chat-Fenster geschlossen, öffnet es sich im Standard-Modus (rechts). Der ⇔-Button im Overlay-Header erlaubt jederzeit das Umschalten.
 
@@ -23,6 +31,19 @@ Fachbezogene Verhaltensoptionen der Widget-Konfiguration, die abhängig vom Unte
 ## Systemvorlage
 
 Vom Admin festgelegte Standardwerte für die Widget-Konfiguration. Gilt für Lehrkräfte, die noch keine eigene Lehrer-Vorlage gesetzt haben.
+
+## Werkzeug-Modelle
+
+Modelle für serverseitige Hintergrund-Werkzeuge, die nicht aktivitätsbezogen konfiguriert werden. Gespeichert in `admin_config` (DB), konfigurierbar im Admin-Dashboard als eigene Karte „Werkzeug-Modelle" in der Nähe von „Verfügbare Modelle". Textfelder mit Hinweis zum Verwendungszweck. Jedes Feld hat einen hardkodierten Safety-Net-Wert falls die DB keinen Eintrag enthält.
+
+| `admin_config`-Key | Verwendungszweck | Hinweis in UI | Fallback-Kette |
+|---|---|---|---|
+| `gen_model` | Kriterien, Personas, Äußerungen, Evaluation, Bugreport-Analyse | Kleines, schnelles Modell für Simulations-Infrastruktur | DB → `GEN_MODEL` (Env) → `'gpt-4.1-nano'` |
+| `tts_prep_model` | GPT-Preprocessing vor TTS (Markdown/LaTeX bereinigen) | OpenAI-Modell, selten ändern | DB → `'gpt-4o-mini'` |
+| `tts_model` | TTS-Ausgabe (Text → Sprache) | OpenAI TTS-Modell, selten ändern | DB → `'tts-1-hd'` |
+| `transcription_model` | Audio-Transkription (Whisper) | OpenAI Whisper-Modell, selten ändern | DB → `'whisper-1'` |
+
+`GEN_MODEL`-Env bleibt als Installations-Default für `gen_model` (vor erster Admin-Konfiguration). Die anderen drei brauchen keinen Env-Eintrag.
 
 ## Lehrer-Vorlage
 
@@ -64,7 +85,7 @@ Schülerspezifische Präferenzen und Wünsche, die als unsichtbare Instruktion i
 
 ## Prompt-Assistent
 
-Workflow zur Erstellung eines Aufgabenprompts vor dem Unterricht. KI analysiert die Aufgabe, stellt bei aktiver Option Rückfragen (grill-me-Muster), und generiert daraus einen fertigen Aufgabenprompt-Vorschlag. Option „Rückfragen erwünscht" ist standardmäßig aktiv, wird aber nutzerspezifisch gespeichert. Ersetzt die Simulation als primären Weg zu einem guten Prompt vor dem Unterricht.
+Workflow zur Erstellung eines Aufgabenprompts vor dem Unterricht. KI analysiert die Aufgabe, stellt bei aktiver Option Rückfragen (grill-me-Muster), und generiert daraus einen fertigen Aufgabenprompt-Vorschlag. Option „Rückfragen erwünscht" ist standardmäßig aktiv, wird aber nutzerspezifisch gespeichert. Ersetzt die Simulation als primären Weg zu einem guten Prompt vor dem Unterricht. Nutzt das **Assistent-Modell** (`assist_model`) der Aktivität, nicht das Chat-Modell — damit kann getestet werden ob ein Modell bessere Prompts für sich selbst erstellt.
 
 **Aufgabenkontext-Übertragung:** `moo-bot.js` extrahiert beim Öffnen des Config-Overlays die Aufgabenbeschreibung (`.activity-description`) aus dem Moodle-DOM und lädt alle `<img>`-Tags als Base64. Beides wird per `postMessage` (`moogpt:taskContext`) an das Config-Iframe übertragen. `config.js` hält diesen Kontext in `taskContext = { task, images }`.
 

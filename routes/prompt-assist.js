@@ -14,14 +14,9 @@
 
 import { Router } from 'express';
 import { requireDashboardAuth } from '../auth-middleware.js';
-import { getCachedConfig } from '../stores/prompt.js';
 import { recordWerkzeugUsage, sumCostRows } from '../cost-service.js';
-<<<<<<< HEAD
-=======
-import { AVAILABLE_MODELS, MODEL_NAME } from '../env-config.js';
 import { getEffectiveAssistModel } from '../model-resolver.js';
 import { getActivity } from '../stores/activity.js';
->>>>>>> 5741e0b (feat: assist_model Resolver und Routen-Durchreichung (#185))
 
 // ── System-Prompts ────────────────────────────────────────────────────────────
 
@@ -94,11 +89,7 @@ export function buildPromptCheckHandler({ aiClient: client }) {
     const userMessage = `Aufgabenstellung:\n${taskText || '(keine)'}\n\nAktueller Prompt:\n${currentHints || '(leer)'}`;
 
     const validImages = (taskImages || []).filter(img => img !== null && typeof img === 'string');
-<<<<<<< HEAD
-    const model = getCachedConfig().model || process.env.MODEL_NAME || '';
-=======
     const model = getEffectiveAssistModel(req.activityId);
->>>>>>> 5741e0b (feat: assist_model Resolver und Routen-Durchreichung (#185))
     const systemPrompt = buildPromptCheckSystem(validImages.length > 0);
 
     const opts = {
@@ -168,17 +159,8 @@ export function buildSuggestPromptHandler({ aiClient: client }) {
     if (assistTemperature !== null) callOpts.temperature = assistTemperature;
 
     try {
-<<<<<<< HEAD
-      const model = getCachedConfig().model || '';
-      const { text: raw, usage } = await client.textCall(systemPrompt, '', model, {
-        timeout: 120_000,
-        input: history.map(m => ({ role: m.role, content: m.content })),
-      });
-      recordWerkzeugUsage(req.activityId, 'prompt-assist', model, usage);
-=======
       const { text: raw, usage } = await client.textCall(systemPrompt, '', assistModel, callOpts);
       recordWerkzeugUsage(req.activityId, 'prompt-assist', assistModel, usage);
->>>>>>> 5741e0b (feat: assist_model Resolver und Routen-Durchreichung (#185))
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       let parsed;
       if (jsonMatch) {
@@ -188,11 +170,7 @@ export function buildSuggestPromptHandler({ aiClient: client }) {
       const runCost = await sumCostRows([{
         prompt_tokens:     usage?.input_tokens  ?? 0,
         completion_tokens: usage?.output_tokens ?? 0,
-<<<<<<< HEAD
-        model,
-=======
         model:             assistModel,
->>>>>>> 5741e0b (feat: assist_model Resolver und Routen-Durchreichung (#185))
       }]);
       const cost = {
         promptTokens:     usage?.input_tokens  ?? null,

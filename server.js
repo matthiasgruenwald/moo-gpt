@@ -68,7 +68,13 @@ const lockManager = new LockManager(chatRegistry, dashboardRegistry);
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(express.static("public"));
+app.use(express.static("public", {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-store');
+    }
+  }
+}));
 app.use('/graphify', express.static("graphify-out"));
 
 // DB-Init + Admin-Seed + Config-Load (→ app-init.js)

@@ -151,7 +151,7 @@ All threads migrated from the deprecated Assistants API (EOL August 2026) to
 | `GET /api/messages/:id/versions` | Message version history |
 | `POST /api/activity/:id/lock` | Classroom lock with optional timer |
 | `DELETE /api/activity/:id/lock` | Classroom unlock |
-| `GET /dashboard/chats` | Chat page (replaces /dashboard.html) |
+| `GET /dashboard/chats` | Chat page |
 | `GET /dashboard/overview` | Live class overview |
 | `GET /dashboard/settings` | Settings page |
 | `GET /dashboard/costs` | Tool cost breakdown per activity |
@@ -165,7 +165,7 @@ All threads migrated from the deprecated Assistants API (EOL August 2026) to
 
 - `db.js` no longer exports domain functions — import from `stores/*.js`
 - `config-cache.js` deleted — absorbed into `stores/prompt.js`; import from there
-- Dashboard entry point: `/dashboard.html` redirects to `/dashboard/chats`
+- Dashboard entry point: `/dashboard` redirects to `/dashboard/chats`
 - `textCall` / `jsonCall` in `ai-client.js` now return `{ text, usage }` instead of
   plain string — callers must destructure
 

@@ -5,14 +5,9 @@ import { isAdmin, addAdmin, removeAdmin, getAdmins } from '../stores/admin.js';
 import { saveSystemPrompt, getPromptHistory, deletePromptHistoryEntry } from '../stores/prompt.js';
 import { getSystemTemplate, setSystemTemplate } from '../stores/teacher.js';
 import { getCachedConfig, updateCachedConfig } from '../stores/prompt.js';
-<<<<<<< HEAD
 import { getAvailableModels, getAvailableBotIcons, GEN_MODELS } from '../env-config.js';
 import { getAdminConfig, setAdminConfig, deleteAdminConfig } from '../stores/admin-config.js';
-import { validateWidgetConfig } from '../validators.js';
-=======
-import { AVAILABLE_MODELS, GEN_MODELS } from '../env-config.js';
 import { validateWidgetConfig, validateAssistModel } from '../validators.js';
->>>>>>> 5741e0b (feat: assist_model Resolver und Routen-Durchreichung (#185))
 
 // 1-Stunden-Cache für die OpenAI-Modellliste
 let openaiModelsCache = null;
@@ -159,20 +154,15 @@ export function createAdminRouter({ dashboardRegistry, oai: oaiOverride } = {}) 
     const { title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode, assistModel, assistTemperature } = req.body;
     const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode);
     if (validErr) return res.status(400).json({ error: validErr });
-<<<<<<< HEAD
     const availableModels = getAvailableModels();
     const validModel = (!model || model === '') ? null : (availableModels.includes(model) ? model : null);
-    setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel, mathMode });
-=======
-    const validModel = (!model || model === '') ? null : (AVAILABLE_MODELS.includes(model) ? model : null);
-    const assistModelErr = validateAssistModel(assistModel, AVAILABLE_MODELS);
+    const assistModelErr = validateAssistModel(assistModel, availableModels);
     if (assistModelErr) return res.status(400).json({ error: assistModelErr });
     const validAssistModel = (!assistModel || assistModel === '') ? null : assistModel;
     const validAssistTemperature = (assistTemperature === null || assistTemperature === undefined || assistTemperature === '')
       ? null
       : Math.min(1, Math.max(0, Number(assistTemperature)));
     setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel, mathMode, assistModel: validAssistModel, assistTemperature: validAssistTemperature });
->>>>>>> 5741e0b (feat: assist_model Resolver und Routen-Durchreichung (#185))
     console.log(`[P5b] Systemvorlage gespeichert von ${userId}`);
     res.json({ ok: true });
   });

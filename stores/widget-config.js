@@ -40,7 +40,7 @@ export function setWidgetConfig(activity_id, config) {
   getDb().prepare(`
     INSERT INTO activities (activity_id, opener, upload_mode, title, bot_icon, audio_input, audio_output, tts_voice, audio_student_options, model, math_mode, assist_model, chat_temperature, assist_temperature, updated_at)
     VALUES (@activity_id, @opener, @upload_mode, @title,
-            COALESCE(@bot_icon, 'grw'), @audio_input,
+            COALESCE(@bot_icon, 'grwdev'), @audio_input,
             COALESCE(@audio_output, 'off'), COALESCE(@tts_voice, 'nova'), COALESCE(@audio_student_options, 'off'),
             @model, COALESCE(@math_mode, 'off'),
             @assist_model, @chat_temperature, @assist_temperature,
@@ -51,7 +51,7 @@ export function setWidgetConfig(activity_id, config) {
       title                 = COALESCE(@title, activities.title),
       bot_icon              = CASE WHEN @bot_icon IS NOT NULL
                                    THEN @bot_icon
-                                   ELSE COALESCE(activities.bot_icon, 'grw') END,
+                                   ELSE COALESCE(activities.bot_icon, 'grwdev') END,
       audio_input           = COALESCE(@audio_input, activities.audio_input, 'off'),
       audio_output          = CASE WHEN @audio_output IS NOT NULL
                                    THEN @audio_output

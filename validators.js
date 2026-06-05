@@ -1,7 +1,7 @@
 import { getAvailableBotIcons } from './env-config.js';
 
 export const VALID_UPLOAD_MODES  = ['off', 'images', 'files'];
-export const VALID_BOT_ICONS     = ['grw', 'grw2', 'weiblich'];
+export const VALID_BOT_ICONS     = ['grw', 'grw2', 'weiblich', 'grwdev'];
 export const VALID_AUDIO_INPUTS  = ['off', 'on'];
 export const VALID_MATH_MODES    = ['on', 'off'];
 

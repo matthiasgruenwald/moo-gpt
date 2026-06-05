@@ -158,6 +158,12 @@ function applySettingsData(data) {
   document.getElementById('admin-personas-card').style.display  = '';
   document.getElementById('system-template-card').style.display = '';
   document.getElementById('tool-models-card').style.display     = '';
+  document.getElementById('admin-models-card').style.display    = '';
+  document.getElementById('admin-bot-icons-card').style.display = '';
+  const botIconsTextarea = document.getElementById('bot-icons-textarea');
+  if (botIconsTextarea && Array.isArray(data.availableBotIcons)) {
+    botIconsTextarea.value = data.availableBotIcons.join('\n');
+  }
   loadAdminPersonas();
   initAdminDebug();
   loadToolModels();
@@ -547,6 +553,64 @@ function initAdminDebug() {
 
   loadLogs();
 }
+
+// ── Admin: Modell-Verwaltung (Issue #179) ─────────────────────────────────────
+
+document.getElementById('refresh-models-btn')?.addEventListener('click', async () => {
+  const status = document.getElementById('models-status');
+  const list   = document.getElementById('models-checkbox-list');
+  setStatus(status, 'Lade Modellliste…');
+  try {
+    const data = await apiGet('/api/admin/openai-models');
+    const selectedModels = new Set(settingsData?.availableModels ?? []);
+    list.innerHTML = '';
+    for (const modelId of data.models) {
+      const label = document.createElement('label');
+      label.style.cssText = 'display:flex;align-items:center;gap:6px;cursor:pointer';
+      const cb = document.createElement('input');
+      cb.type    = 'checkbox';
+      cb.value   = modelId;
+      cb.checked = selectedModels.has(modelId);
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(modelId));
+      list.appendChild(label);
+    }
+    setStatus(status, data.cached ? 'Gecachte Liste geladen.' : 'Modellliste geladen.');
+  } catch (e) {
+    setStatus(status, e.message, true);
+  }
+});
+
+document.getElementById('save-models-btn')?.addEventListener('click', async () => {
+  const status   = document.getElementById('models-status');
+  const list     = document.getElementById('models-checkbox-list');
+  const selected = [...list.querySelectorAll('input[type=checkbox]:checked')].map(cb => cb.value);
+  try {
+    await apiPost('/api/admin/config', { available_models: selected });
+    if (settingsData) settingsData.availableModels = selected;
+    setStatus(status, 'Auswahl gespeichert.');
+  } catch (e) {
+    setStatus(status, e.message, true);
+  }
+});
+
+// ── Admin: Bot-Icon-Verwaltung (Issue #180) ───────────────────────────────────
+
+document.getElementById('save-bot-icons-btn')?.addEventListener('click', async () => {
+  const status   = document.getElementById('bot-icons-status');
+  const textarea = document.getElementById('bot-icons-textarea');
+  const icons = textarea.value
+    .split(/[\n,]+/)
+    .map(s => s.trim())
+    .filter(Boolean);
+  try {
+    await apiPost('/api/admin/config', { available_bot_icons: icons });
+    if (settingsData) settingsData.availableBotIcons = icons;
+    setStatus(status, 'Bot-Icons gespeichert.');
+  } catch (e) {
+    setStatus(status, e.message, true);
+  }
+});
 
 // ── Initialisierung ───────────────────────────────────────────────────────────
 document.querySelectorAll('.settings-textarea').forEach(ta => attachExpandBtn(ta));

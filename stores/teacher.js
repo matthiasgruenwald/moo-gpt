@@ -39,7 +39,7 @@ export function createTeacherTemplate(userId, { name, title, botIcon, opener, up
   const result = getDb().prepare(`
     INSERT INTO teacher_templates (moodle_user_id, name, title, bot_icon, opener, upload_mode, hints_template, audio_input, audio_output, tts_voice, audio_student_options, model, math_mode, assist_model, chat_temperature, assist_temperature)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(userId, name, title ?? null, botIcon ?? 'grw', opener ?? null, uploadMode ?? 'off', hintsTemplate ?? null, audioInput ?? 'off', audioOutput ?? 'off', ttsVoice ?? 'nova', audioStudentOptions ?? 'off', model ?? null, mathMode ?? 'off', assistModel ?? null, chatTemperature ?? null, assistTemperature ?? null);
+  `).run(userId, name, title ?? null, botIcon ?? 'grwdev', opener ?? null, uploadMode ?? 'off', hintsTemplate ?? null, audioInput ?? 'off', audioOutput ?? 'off', ttsVoice ?? 'nova', audioStudentOptions ?? 'off', model ?? null, mathMode ?? 'off', assistModel ?? null, chatTemperature ?? null, assistTemperature ?? null);
   return result.lastInsertRowid;
 }
 
@@ -50,7 +50,7 @@ export function updateTeacherTemplate(id, userId, { name, title, botIcon, opener
         audio_input = ?, audio_output = ?, tts_voice = ?, audio_student_options = ?, model = ?, math_mode = ?,
         assist_model = ?, chat_temperature = ?, assist_temperature = ?
     WHERE id = ? AND moodle_user_id = ?
-  `).run(name, title ?? null, botIcon ?? 'grw', opener ?? null, uploadMode ?? 'off', hintsTemplate ?? null, audioInput ?? 'off', audioOutput ?? 'off', ttsVoice ?? 'nova', audioStudentOptions ?? 'off', model ?? null, mathMode ?? 'off', assistModel ?? null, chatTemperature ?? null, assistTemperature ?? null, id, userId);
+  `).run(name, title ?? null, botIcon ?? 'grwdev', opener ?? null, uploadMode ?? 'off', hintsTemplate ?? null, audioInput ?? 'off', audioOutput ?? 'off', ttsVoice ?? 'nova', audioStudentOptions ?? 'off', model ?? null, mathMode ?? 'off', assistModel ?? null, chatTemperature ?? null, assistTemperature ?? null, id, userId);
 }
 
 export function deleteTeacherTemplate(id, userId) {
@@ -90,5 +90,5 @@ export function setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTem
       chat_temperature     = excluded.chat_temperature,
       assist_temperature   = excluded.assist_temperature,
       updated_at           = CURRENT_TIMESTAMP
-  `).run(title ?? null, botIcon ?? 'grw', opener ?? null, uploadMode ?? 'off', hintsTemplate ?? null, audioInput ?? 'off', audioOutput ?? 'off', ttsVoice ?? 'nova', audioStudentOptions ?? 'off', model ?? null, mathMode ?? 'off', assistModel ?? null, chatTemperature ?? null, assistTemperature ?? null);
+  `).run(title ?? null, botIcon ?? 'grwdev', opener ?? null, uploadMode ?? 'off', hintsTemplate ?? null, audioInput ?? 'off', audioOutput ?? 'off', ttsVoice ?? 'nova', audioStudentOptions ?? 'off', model ?? null, mathMode ?? 'off', assistModel ?? null, chatTemperature ?? null, assistTemperature ?? null);
 }

@@ -1371,7 +1371,7 @@ async function loadSettings() {
       loadPromptHistory();
       apiGet('/api/admin/system-template').then(st => {
         document.getElementById('st-title').value       = st.title         || '';
-        document.getElementById('st-bot-icon').value    = st.botIcon       || 'grw';
+        document.getElementById('st-bot-icon').value    = st.botIcon       || 'grwdev';
         document.getElementById('st-opener').value      = st.opener        || '';
         document.getElementById('st-upload-mode').value = st.uploadMode    || 'off';
         document.getElementById('st-hints').value       = st.hintsTemplate || '';

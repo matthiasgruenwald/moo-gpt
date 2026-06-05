@@ -23,7 +23,7 @@ async function resolveActivity(activityId, activityName, isTeacher, userId, hint
       defaults?.opener      ?? null,
       defaults?.upload_mode ?? 'off',
       defaults?.title       ?? null,
-      defaults?.bot_icon    ?? 'grw',
+      defaults?.bot_icon    ?? 'grwdev',
     );
     act = getActivity(activityId);
   } else if (activityName && activityName !== act.activity_name) {
@@ -37,7 +37,7 @@ async function resolveActivity(activityId, activityName, isTeacher, userId, hint
 
   return {
     title:               act?.title                ?? null,
-    botIcon:             act?.bot_icon             ?? 'grw',
+    botIcon:             act?.bot_icon             ?? 'grwdev',
     opener:              act?.opener               ?? null,
     uploadMode:          act?.upload_mode          ?? 'off',
     audioInput:          act?.audio_input          ?? 'off',

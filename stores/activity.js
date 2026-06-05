@@ -10,7 +10,7 @@ export function upsertActivity(activity_id, activity_name, opener, upload_mode, 
       opener        = COALESCE(excluded.opener, activities.opener),
       upload_mode   = COALESCE(excluded.upload_mode, activities.upload_mode, 'off'),
       title         = COALESCE(excluded.title, activities.title),
-      bot_icon      = COALESCE(excluded.bot_icon, activities.bot_icon, 'grw'),
+      bot_icon      = COALESCE(excluded.bot_icon, activities.bot_icon, 'grwdev'),
       updated_at    = CURRENT_TIMESTAMP
   `).run(activity_id, activity_name, opener ?? null, upload_mode ?? null, title ?? null, botIcon ?? null);
 }

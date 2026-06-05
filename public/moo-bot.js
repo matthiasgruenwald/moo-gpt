@@ -107,9 +107,9 @@ export class MOOBOT {
     const isTeacher = hasEditMode && !isSwitchedRole;
     this.settings.isTeacher = isTeacher;
 
-    // Create chat icon — P5a: Dateiname kommt via _applyConfig, Fallback grw.png
+    // Create chat icon — P5a: Dateiname kommt via _applyConfig, Fallback grwdev.png
     const chatIcon = document.createElement("div");
-    const icon = this._iconUrl('grw');
+    const icon = this._iconUrl('grwdev');
     chatIcon.id = "chat-icon";
     chatIcon.className = "chat-icon";
     chatIcon.innerHTML = '<img src="' + icon + '" alt="Chat Icon">';
@@ -693,7 +693,7 @@ export class MOOBOT {
   }
 
   _iconUrl(name) {
-    return `${this._baseUrl()}/${name || 'grw'}.png`;
+    return `${this._baseUrl()}/${name || 'grwdev'}.png`;
   }
 
   // ── P5a: Config vom Server anwenden ──────────────────────────────────────
@@ -702,7 +702,7 @@ export class MOOBOT {
     const { title, botIcon, opener, uploadMode, audioInput, audioOutput, ttsVoice, audioStudentOptions, needsConfig } = config;
 
     this.settings.title               = title               ?? null;
-    this.settings.botIcon             = botIcon             ?? 'grw';
+    this.settings.botIcon             = botIcon             ?? 'grwdev';
     this.settings.opener              = opener              ?? null;
     this.settings.uploadMode          = uploadMode          ?? 'off';
     this.settings.audioInput          = audioInput          ?? 'off';
@@ -730,7 +730,7 @@ export class MOOBOT {
       existingWaveBtn.remove();
     }
 
-    const iconUrl = this._iconUrl(botIcon || 'grw');
+    const iconUrl = this._iconUrl(botIcon || 'grwdev');
     document.querySelectorAll('#chat-icon img, .chat-header-icon').forEach(img => { img.src = iconUrl; });
 
     const h1 = document.querySelector('#chat-container .chat-header h1');
