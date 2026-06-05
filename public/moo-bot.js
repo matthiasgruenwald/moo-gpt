@@ -957,7 +957,7 @@ class ChatCore {
 
     bot.ws.onopen = async () => {
       console.log("WebSocket connection established");
-      bot.ui.restoreInputContainer();
+      bot.restoreInputContainer();
       const userId = window.M?.cfg?.userId?.toString() || null;
       let userName = window.M?.cfg?.fullname
         || document.querySelector('img.userpicture')?.getAttribute('alt')?.trim()
@@ -989,10 +989,22 @@ class ChatCore {
       bot.settings.isTeacher = isTeacher;
       console.log(`[Bot] isTeacher=${isTeacher} (editmode=${hasEditMode}, switched=${isSwitchedRole})`);
       if (!isTeacher) bot.tts._loadTtsPreferences();
+
+      // Settings sofort senden — vor extractImagesFromTask (das kann dauern).
+      // Bilder werden danach per zweitem settings-Update nachgeliefert falls vorhanden.
+      try {
+        bot.ws.send(JSON.stringify({ type: "settings", data: bot.settings }));
+        console.log("Settings sent successfully!");
+      } catch (error) { console.error("Send error:", error); }
+
       const { images, failedCount } = await bot.audio.extractImagesFromTask();
       if (images.length > 0) {
         bot.settings.images = images;
         console.log(`${images.length} Bild(er) aus Aufgabenstellung extrahiert`);
+        // Zweites settings-Update mit Bildern
+        try {
+          bot.ws.send(JSON.stringify({ type: "settings", data: bot.settings }));
+        } catch (error) { console.error("Send error (images):", error); }
       }
       if (failedCount > 0) {
         bot.ui._showChatError(
@@ -1002,11 +1014,6 @@ class ChatCore {
           `dann direkt als Datei in Moodle einfügen (nicht via Zwischenablage).`
         );
       }
-      const obj = { type: "settings", data: bot.settings };
-      try {
-        bot.ws.send(JSON.stringify(obj));
-        console.log("Settings sent successfully!");
-      } catch (error) { console.error("Send error:", error); }
     };
 
     bot.ws.onerror = (error) => {
