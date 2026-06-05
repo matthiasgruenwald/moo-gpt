@@ -16,6 +16,7 @@ import { getStudents } from '../stores/dashboard.js';
 import { getMessages } from '../stores/chat.js';
 import { getCachedConfig } from '../stores/prompt.js';
 import { recordWerkzeugUsage } from '../cost-service.js';
+import { getGenModel } from '../env-config.js';
 
 // Maximale Anzahl Chat-Nachrichten pro Thread die beigefügt werden
 const MAX_CHAT_MESSAGES = 20;
@@ -142,8 +143,7 @@ export function createBugReportRouter({ aiClient }) {
 
     // ── KI-Aufruf ─────────────────────────────────────────────────────────────
 
-    const config = getCachedConfig();
-    const model = config.model || 'gpt-4.1-nano';
+    const model = getGenModel();
 
     const userMessage = `Fehlerbeschreibung der Lehrkraft:\n${description.trim()}`;
 

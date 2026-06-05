@@ -9,7 +9,7 @@ import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { suggestCriteriaList } from '../criteria.js';
 import { getCachedConfig } from '../stores/prompt.js';
 import { recordWerkzeugUsage } from '../cost-service.js';
-import { GEN_MODEL } from '../env-config.js';
+import { getGenModel } from '../env-config.js';
 
 export function createCriteriaRouter({ aiClient }) {
 const router = Router();
@@ -23,7 +23,7 @@ router.post('/criteria-suggest/:activityId', requireDashboardAuth, async (req, r
   const { activityId } = req;
   try {
     const erf       = getActiveErfahrungsprompt(activityId);
-    const genModel  = req.body.genModel || GEN_MODEL;
+    const genModel  = req.body.genModel || getGenModel();
     const { suggestions, usage } = await suggestCriteriaList({ config: getCachedConfig(), erfahrungsprompt: erf?.content || null, genModel, aiClient });
     recordWerkzeugUsage(activityId, 'criteria', genModel, usage);
     res.json({

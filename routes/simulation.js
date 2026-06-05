@@ -8,7 +8,7 @@ import { generateOptimizeProposal } from '../optimize.js';
 import { getFeedbackByActivity } from '../stores/feedback.js';
 import { aiClient } from '../ai-instance.js';
 import { getCachedConfig } from '../stores/prompt.js';
-import { GEN_MODEL } from '../env-config.js';
+import { getGenModel } from '../env-config.js';
 import { recordWerkzeugUsage } from '../cost-service.js';
 
 const router = Router();
@@ -33,8 +33,8 @@ router.post('/simulate', requireDashboardAuth, async (req, res) => {
   const sendEvent = (type, data = {}) => res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`);
 
   try {
-    const uModel = utteranceModel || GEN_MODEL;
-    const eModel = evalModel      || GEN_MODEL;
+    const uModel = utteranceModel || getGenModel();
+    const eModel = evalModel      || getGenModel();
     const total  = 4;
     console.log(`[Simulate] Start für ${activityId}, Persona: ${persona.name}, utteranceModel: ${uModel}, evalModel: ${eModel}`);
 
@@ -51,7 +51,7 @@ router.post('/simulate', requireDashboardAuth, async (req, res) => {
       onPair: (pair, index) => sendEvent('pair', { index, pair, personaName: persona.name }),
     });
 
-    recordWerkzeugUsage(activityId, 'simulation', GEN_MODEL, totalUsage);
+    recordWerkzeugUsage(activityId, 'simulation', uModel, totalUsage);
     console.log(`[Simulate] ${pairs.length} Paare abgeschlossen, generiere Erfahrungsprompt-Vorschlag`);
 
     sendEvent('progress', { label: 'Generiere Erfahrungsprompt-Vorschlag…' });
@@ -99,7 +99,7 @@ router.post('/one-click-optimize', requireDashboardAuth, async (req, res) => {
       userId,
       aiClient,
       onProgress: sendEvent,
-      genModel: GEN_MODEL,
+      genModel: getGenModel(),
     });
   } catch (e) {
     console.error('[OneClick] Fehler:', e);

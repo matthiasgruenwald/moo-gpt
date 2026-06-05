@@ -8,6 +8,7 @@ import { generateOptimizeProposal } from './optimize.js';
 import { getCachedConfig } from './stores/prompt.js';
 import { recordWerkzeugUsage } from './cost-service.js';
 import { getWidgetConfig } from './stores/widget-config.js';
+import { getGenModel } from './env-config.js';
 
 const SIMULATION_TIMEOUT_MS = 90_000;
 
@@ -161,7 +162,8 @@ export async function runSimulation({ persona, config, erfahrungsprompt, criteri
  * genModel — Modell für Äußerungs- und Evaluierungscalls (default: gpt-4.1-nano).
  * Wirft Error wenn alle Simulationen fehlschlagen oder keine Personas verfügbar.
  */
-export async function runOneClickOptimization({ activityId, userId, aiClient, onProgress, genModel = 'gpt-4.1-nano' }) {
+export async function runOneClickOptimization({ activityId, userId, aiClient, onProgress, genModel }) {
+  genModel = genModel ?? getGenModel();
   const existing    = getCriteria(activityId);
   const erf         = getActiveErfahrungsprompt(activityId);
   const mathMode    = getWidgetConfig(activityId)?.math_mode ?? 'off';

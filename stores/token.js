@@ -1,4 +1,5 @@
 import { getDb } from '../db.js';
+import { getTtsPrepModel, getTtsModel } from '../env-config.js';
 
 export function saveTokenUsage(threadId, activityId, model, usage, messageId = null) {
   if (!usage) return;
@@ -93,10 +94,11 @@ export function getActivityAudioSeconds(activityId) {
 export function saveTtsPrepUsage(threadId, activityId, promptTokens, completionTokens) {
   getDb().prepare(`
     INSERT INTO token_log (thread_id, activity_id, call_type, model, prompt_tokens, completion_tokens)
-    VALUES (?, ?, 'tts-prep', 'gpt-4o-mini', ?, ?)
+    VALUES (?, ?, 'tts-prep', ?, ?, ?)
   `).run(
     threadId   || null,
     activityId || null,
+    getTtsPrepModel(),
     promptTokens      ?? null,
     completionTokens  ?? null
   );
@@ -113,8 +115,8 @@ export function saveTtsUsage(threadId, activityId, ttsCharacters) {
   if (ttsCharacters == null) return;
   getDb().prepare(`
     INSERT INTO token_log (thread_id, activity_id, call_type, model, tts_characters)
-    VALUES (?, ?, 'tts', 'tts-1-hd', ?)
-  `).run(threadId || null, activityId || null, ttsCharacters);
+    VALUES (?, ?, 'tts', ?, ?)
+  `).run(threadId || null, activityId || null, getTtsModel(), ttsCharacters);
 }
 
 /**

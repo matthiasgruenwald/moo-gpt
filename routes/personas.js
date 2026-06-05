@@ -7,7 +7,7 @@ import {
   createPersona, deletePersona, promotePersonaToGlobal, getAllTeacherPersonasGrouped,
   getStudentMessages,
 } from '../stores/persona.js';
-import { GEN_MODEL } from '../env-config.js';
+import { getGenModel } from '../env-config.js';
 import { recordWerkzeugUsage } from '../cost-service.js';
 
 export function createPersonasRouter({ aiClient }) {
@@ -37,7 +37,7 @@ router.post('/personas-suggest', requireDashboardAuth, async (req, res) => {
   const { activityId } = req;
   try {
     const { genModel } = req.body;
-    const model  = genModel || GEN_MODEL;
+    const model  = genModel || getGenModel();
     const msgs   = getStudentMessages(activityId);
     const sample = msgs.slice(0, 60).map(m => m.content).join('\n---\n');
     const { text: result, usage } = await aiClient.jsonCall(

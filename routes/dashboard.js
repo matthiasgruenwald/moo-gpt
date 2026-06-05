@@ -6,7 +6,7 @@ import { getStudents, enrichStudentsWithCost } from '../stores/dashboard.js';
 import { enrichMessagesWithCost } from '../token-log.js';
 import { recordWerkzeugUsage, computeThreadCost, sumCostRows } from '../cost-service.js';
 import { aiClient } from '../ai-instance.js';
-import { GEN_MODEL } from '../env-config.js';
+import { getGenModel } from '../env-config.js';
 import { getDb } from '../db.js';
 import { generateLiveSummary } from '../services/live-summary.js';
 
@@ -79,20 +79,21 @@ router.post('/activity/:activityId/overview-summary', requireDashboardAuth, asyn
       });
     }
 
+    const genModel = getGenModel();
     const { summary, usage } = await generateLiveSummary({
       activityId,
       aiClient,
-      model: GEN_MODEL,
+      model: genModel,
       db: getDb(),
     });
 
     // ADR 0005: recordWerkzeugUsage verbleibt in der Route
-    recordWerkzeugUsage(activityId, 'live-summary', GEN_MODEL, usage);
+    recordWerkzeugUsage(activityId, 'live-summary', genModel, usage);
 
     const runCost = await sumCostRows([{
       prompt_tokens:     usage.input_tokens,
       completion_tokens: usage.output_tokens,
-      model:             GEN_MODEL,
+      model:             genModel,
     }]);
 
     res.json({
