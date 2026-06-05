@@ -50,7 +50,7 @@
   const SLIDER_TRACK_WIDTH_PX = 124;
 
   function isReasoningModel(modelName) {
-    return /^(o1|o3|o4-)/.test(modelName || '');
+    return /^(o1|o3|o4-|gpt-5)/.test(modelName || '');
   }
 
   /**
@@ -100,7 +100,7 @@
       <div style="display:flex;align-items:center;gap:6px">
         <span style="font-size:10px;color:#aaa;flex-shrink:0">Pr&auml;zise</span>
         <div id="cfg-${prefix}temperature-wrapper" style="position:relative;width:140px;flex-shrink:0;--val:0.5">
-          <span id="cfg-${prefix}temperature-display" style="position:absolute;bottom:calc(100% + 4px);font-size:11px;background:#003366;color:white;padding:1px 6px;border-radius:3px;transform:translateX(-50%);pointer-events:none;left:calc(var(--val) * ${SLIDER_TRACK_WIDTH_PX}px + 8px);white-space:nowrap;visibility:hidden">0.5</span>
+          <span id="cfg-${prefix}temperature-display" style="position:absolute;top:50%;font-size:11px;background:#003366;color:white;padding:1px 6px;border-radius:3px;transform:translate(-50%,-50%);pointer-events:none;left:calc(var(--val) * ${SLIDER_TRACK_WIDTH_PX}px + 8px);white-space:nowrap;visibility:hidden">0.5</span>
           <input class="cfg-input" type="range" id="cfg-${prefix}temperature" min="0" max="1" step="0.1" value="0.5" style="width:100%;margin:0;display:block">
         </div>
         <span style="font-size:10px;color:#aaa;flex-shrink:0">Kreativ</span>
@@ -121,26 +121,27 @@
     const tempInput  = document.getElementById(`cfg-${prefix}temperature`);
     const tempHint   = document.getElementById(`cfg-${prefix}temperature-hint`);
     const defaultCb  = document.getElementById(`cfg-${prefix}temperature-default`);
+    const field      = document.getElementById(`cfg-${prefix}temperature-field`);
     if (!modelSel || !tempInput || !defaultCb) return;
 
     const selectedModel = modelSel.value
       || (prefix === 'assist-' ? document.getElementById('cfg-model')?.value : '')
       || '';
     const reasoning  = isReasoningModel(selectedModel);
-    const useDefault = defaultCb.checked || reasoning;
+    const useDefault = defaultCb.checked;
 
-    tempInput.disabled = useDefault;
-    defaultCb.disabled = reasoning;
+    if (field) field.style.display = reasoning ? 'none' : '';
+
+    tempInput.disabled = reasoning || useDefault;
+    defaultCb.disabled = false;
 
     if (tempHint) {
-      tempHint.textContent = reasoning
-        ? 'nicht verfügbar (Reasoning-Modell)'
-        : prefix === 'assist-'
-          ? 'Antwort-Stil: 0 = präzise/gleichförmig, 1 = kreativ/variabel · leer = OpenAI-Standard'
-          : '0–1, Standard = OpenAI-Vorgabe';
+      tempHint.textContent = prefix === 'assist-'
+        ? 'Antwort-Stil: 0 = präzise/gleichförmig, 1 = kreativ/variabel · leer = OpenAI-Standard'
+        : '0–1, Standard = OpenAI-Vorgabe';
     }
 
-    setTempSlider(prefix, useDefault ? null : Number(tempInput.value));
+    setTempSlider(prefix, (reasoning || useDefault) ? null : Number(tempInput.value));
   }
 
 
