@@ -33,3 +33,53 @@ export function getAvailableBotIcons() {
   } catch (_) {}
   return ['grw', 'grw2', 'weiblich', 'grwdev'];
 }
+
+// ── Issue #184: Werkzeug-Modell-Getter ───────────────────────────────────────
+
+/**
+ * Modell für Generierungs-Calls (Kriterien, Personas, Äußerungen, Evaluation, Bugreport).
+ * Fallback-Kette: admin_config(gen_model) → GEN_MODEL-Env → 'gpt-4.1-nano'
+ */
+export function getGenModel() {
+  try {
+    const row = getDb()?.prepare('SELECT value FROM admin_config WHERE key = ?').get('gen_model');
+    if (row?.value) return row.value;
+  } catch (_) {}
+  return process.env.GEN_MODEL || 'gpt-4.1-nano';
+}
+
+/**
+ * Modell für GPT-Preprocessing vor TTS (Markdown/LaTeX bereinigen).
+ * Fallback-Kette: admin_config(tts_prep_model) → 'gpt-4o-mini'
+ */
+export function getTtsPrepModel() {
+  try {
+    const row = getDb()?.prepare('SELECT value FROM admin_config WHERE key = ?').get('tts_prep_model');
+    if (row?.value) return row.value;
+  } catch (_) {}
+  return 'gpt-4o-mini';
+}
+
+/**
+ * Modell für TTS-Ausgabe.
+ * Fallback-Kette: admin_config(tts_model) → 'tts-1-hd'
+ */
+export function getTtsModel() {
+  try {
+    const row = getDb()?.prepare('SELECT value FROM admin_config WHERE key = ?').get('tts_model');
+    if (row?.value) return row.value;
+  } catch (_) {}
+  return 'tts-1-hd';
+}
+
+/**
+ * Modell für Whisper-Transkription.
+ * Fallback-Kette: admin_config(transcription_model) → 'whisper-1'
+ */
+export function getTranscriptionModel() {
+  try {
+    const row = getDb()?.prepare('SELECT value FROM admin_config WHERE key = ?').get('transcription_model');
+    if (row?.value) return row.value;
+  } catch (_) {}
+  return 'whisper-1';
+}

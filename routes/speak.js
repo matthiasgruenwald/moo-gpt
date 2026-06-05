@@ -14,6 +14,7 @@ import { Router } from 'express';
 import { Readable } from 'node:stream';
 import { isOriginAllowed } from '../auth-middleware.js';
 import { saveTtsPrepUsage, saveTtsUsage } from '../stores/token.js';
+import { getTtsPrepModel, getTtsModel } from '../env-config.js';
 
 const PREPROCESS_INSTRUCTIONS =
   'Bereinige den folgenden Text für Sprachausgabe.\n' +
@@ -77,7 +78,7 @@ export function createSpeakRouter({ aiClient, fetchFn = globalThis.fetch }) {
       const { text: prepText, usage } = await aiClient.textCall(
         PREPROCESS_INSTRUCTIONS,
         rawText,
-        'gpt-4o-mini',
+        getTtsPrepModel(),
         { timeout: 20_000 },
       );
       if (prepText?.trim()) cleanedText = prepText.trim();
@@ -103,7 +104,7 @@ export function createSpeakRouter({ aiClient, fetchFn = globalThis.fetch }) {
           'Authorization': `Bearer ${process.env.APIKEY}`,
           'Content-Type':  'application/json',
         },
-        body: JSON.stringify({ model: 'tts-1-hd', voice, input: cleanedText, speed }),
+        body: JSON.stringify({ model: getTtsModel(), voice, input: cleanedText, speed }),
         signal: AbortSignal.timeout(30_000),
       });
 

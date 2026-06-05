@@ -16,6 +16,7 @@ import multer from 'multer';
 import { toFile } from 'openai';
 import { isOriginAllowed } from '../auth-middleware.js';
 import { saveAudioUsage } from '../stores/token.js';
+import { getTranscriptionModel } from '../env-config.js';
 
 // Erlaubte Audio-MIME-Types (Whitelist)
 const ALLOWED_AUDIO_TYPES = new Set([
@@ -102,7 +103,7 @@ export function createTranscribeRouter({ oai }) {
 
       const response = await oai.audio.transcriptions.create({
         file:            audioFile,
-        model:           'whisper-1',
+        model:           getTranscriptionModel(),
         response_format: 'verbose_json',
         // language nicht gesetzt → auto-detection
       });
