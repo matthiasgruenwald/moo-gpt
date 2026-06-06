@@ -7,7 +7,7 @@ import { getSystemTemplate, setSystemTemplate } from '../stores/teacher.js';
 import { getCachedConfig, updateCachedConfig } from '../stores/prompt.js';
 import { getAvailableModels, getAvailableBotIcons, GEN_MODELS } from '../env-config.js';
 import { getAdminConfig, setAdminConfig, deleteAdminConfig } from '../stores/admin-config.js';
-import { validateWidgetConfig, validateAssistModel, validateChatTemperature, validateAssistTemperature, normalizeTemperature } from '../validators.js';
+import { validateWidgetConfig, sanitizeWidgetConfig, validateChatTemperature, validateAssistTemperature } from '../validators.js';
 
 // 1-Stunden-Cache für die OpenAI-Modellliste
 let openaiModelsCache = null;
@@ -152,21 +152,26 @@ export function createAdminRouter({ dashboardRegistry, oai: oaiOverride } = {}) 
 
   router.put('/admin/system-template', requireAdminAuth, (req, res) => {
     const { userId } = req;
-    const { title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode, assistModel, assistTemperature, chatTemperature } = req.body;
-    const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode);
+    const { title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput,
+      ttsVoice, audioStudentOptions, model, mathMode, assistModel, assistTemperature, chatTemperature } = req.body;
+
+    const availableModels = getAvailableModels();
+    const validErr = validateWidgetConfig(req.body, { availableModels });
     if (validErr) return res.status(400).json({ error: validErr });
+
     const tempErr = validateChatTemperature(chatTemperature);
     if (tempErr) return res.status(400).json({ error: tempErr });
-    const availableModels = getAvailableModels();
-    const validModel = (!model || model === '') ? null : (availableModels.includes(model) ? model : null);
-    const assistModelErr = validateAssistModel(assistModel, availableModels);
-    if (assistModelErr) return res.status(400).json({ error: assistModelErr });
-    const validAssistModel = (!assistModel || assistModel === '') ? null : assistModel;
+
     const assistTempErr = validateAssistTemperature(assistTemperature);
     if (assistTempErr) return res.status(400).json({ error: assistTempErr });
-    const validAssistTemperature = normalizeTemperature(assistTemperature);
-    const validTemp = normalizeTemperature(chatTemperature);
-    setSystemTemplate({ title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel, mathMode, assistModel: validAssistModel, assistTemperature: validAssistTemperature, chatTemperature: validTemp });
+
+    const sanitized = sanitizeWidgetConfig(
+      { title, botIcon, opener, uploadMode, hintsTemplate, audioInput, audioOutput,
+        ttsVoice, audioStudentOptions, model, mathMode, assistModel, assistTemperature, chatTemperature },
+      { availableModels }
+    );
+
+    setSystemTemplate(sanitized);
     console.log(`[P5b] Systemvorlage gespeichert von ${userId}`);
     res.json({ ok: true });
   });

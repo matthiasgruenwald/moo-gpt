@@ -1,4 +1,4 @@
-import { getAvailableBotIcons } from './env-config.js';
+import { getAvailableBotIcons, getAvailableModels } from './env-config.js';
 
 export const VALID_UPLOAD_MODES          = ['off', 'images', 'files'];
 export const VALID_BOT_ICONS             = ['grw', 'grw2', 'weiblich', 'grwdev'];
@@ -8,8 +8,45 @@ export const VALID_TTS_VOICES            = ['nova', 'shimmer', 'echo', 'onyx', '
 export const VALID_AUDIO_STUDENT_OPTIONS = ['off', 'on'];
 export const VALID_MATH_MODES            = ['on', 'off'];
 
-export function validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode, audioOutput, ttsVoice, audioStudentOptions, allowedBotIcons) {
-  const validBotIcons = allowedBotIcons ?? getAvailableBotIcons();
+/**
+ * Kanonische Präfix-Liste für Reasoning-Modelle.
+ * Frontend-Kopie: public/temp-slider.js → isReasoningModel (kann das Node-Modul nicht importieren).
+ * Beide Listen müssen synchron gehalten werden (VS2 / Issue #198).
+ */
+export const REASONING_MODEL_PREFIXES = ['o1', 'o3', 'o4-', 'gpt-5'];
+
+/**
+ * Prüft, ob ein Modellname ein Reasoning-Modell bezeichnet.
+ * Nutzt REASONING_MODEL_PREFIXES als kanonische Quelle.
+ * @param {string|null|undefined} modelName
+ * @returns {boolean}
+ */
+export function isReasoningModel(modelName) {
+  if (!modelName) return false;
+  return REASONING_MODEL_PREFIXES.some(prefix => modelName.startsWith(prefix));
+}
+
+/**
+ * Validiert ein Widget-Konfig-Objekt gegen den einheitlichen Contract (ADR 0008).
+ *
+ * Nimmt ein Konfig-Objekt (cfg) statt Positionsargumenten, damit kein Feld beim
+ * Aufruf vergessen werden kann. Prüft nur Felder, die im cfg-Objekt vorhanden sind
+ * (undefined wird als "nicht gesetzt" behandelt).
+ *
+ * @param {object} cfg - Konfig-Felder (alle optional)
+ * @param {object} [options]
+ * @param {string[]} [options.availableModels] - Erlaubte Modell-IDs
+ * @param {string[]} [options.allowedBotIcons] - Erlaubte Bot-Icons
+ * @returns {string|null} Fehlermeldung oder null wenn valide
+ */
+export function validateWidgetConfig(cfg, { availableModels, allowedBotIcons } = {}) {
+  const validBotIcons    = allowedBotIcons  ?? getAvailableBotIcons();
+  const validModels      = availableModels  ?? getAvailableModels();
+  const {
+    uploadMode, botIcon, audioInput, audioOutput,
+    ttsVoice, audioStudentOptions, mathMode, model,
+  } = cfg;
+
   if (uploadMode          !== undefined && !VALID_UPLOAD_MODES.includes(uploadMode))
     return 'Ungültiger uploadMode';
   if (botIcon             !== undefined && botIcon !== '' && !validBotIcons.includes(botIcon))
@@ -24,7 +61,42 @@ export function validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode, 
     return 'Ungültige audioStudentOptions';
   if (mathMode            !== undefined && mathMode !== '' && !VALID_MATH_MODES.includes(mathMode))
     return 'Ungültiger mathMode';
+  if (model               !== undefined && model !== null && model !== '' && !validModels.includes(model))
+    return 'Ungültiges Modell';
   return null;
+}
+
+/**
+ * Normalisiert und bereinigt ein Widget-Konfig-Objekt für das Persistieren.
+ * Gibt ein neues Objekt zurück (keine Mutation).
+ *
+ * - model / assistModel: ungültig oder leer → null
+ * - chatTemperature / assistTemperature: normalizeTemperature anwenden
+ * - alle anderen Felder: unverändert durchgereicht
+ *
+ * Setzt voraus, dass validateWidgetConfig bereits aufgerufen wurde.
+ *
+ * @param {object} cfg - Rohe Konfig-Felder aus dem Request-Body
+ * @param {object} [options]
+ * @param {string[]} [options.availableModels] - Erlaubte Modell-IDs
+ * @returns {object} Bereinigtes Konfig-Objekt
+ */
+export function sanitizeWidgetConfig(cfg, { availableModels } = {}) {
+  const validModels = availableModels ?? getAvailableModels();
+  const { model, assistModel, chatTemperature, assistTemperature, ...rest } = cfg;
+
+  const sanitizedModel      = (model       && model !== ''       && validModels.includes(model))
+    ? model : null;
+  const sanitizedAssistModel = (assistModel && assistModel !== '' && validModels.includes(assistModel))
+    ? assistModel : null;
+
+  return {
+    ...rest,
+    model:             sanitizedModel,
+    assistModel:       sanitizedAssistModel,
+    chatTemperature:   normalizeTemperature(chatTemperature),
+    assistTemperature: normalizeTemperature(assistTemperature),
+  };
 }
 
 /**
@@ -40,16 +112,6 @@ export function validateAssistModel(assistModel, availableModels) {
   if (!availableModels.includes(assistModel))
     return 'Ungültiges assist_model';
   return null;
-}
-
-/**
- * Normalisiert einen Temperatur-Wert: Leerwert → null, sonst Number(value).
- * Klemmt NICHT — Bereichsprüfung obliegt den validate-Funktionen.
- * @param {*} value
- * @returns {number|null}
- */
-export function isReasoningModel(modelName) {
-  return /^(o1|o3|o4-|gpt-5)/.test(modelName || '');
 }
 
 export function normalizeTemperature(value) {
