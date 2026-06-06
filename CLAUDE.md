@@ -46,6 +46,8 @@ Git-Workflow-Details: [`docs/git-workflow.md`](docs/git-workflow.md)
 
 ## Aufgabenhandling
 
+**Code-Sprache:** Bezeichner (Variablen, Funktionen, Kommentare, Logs) auf Englisch. Deutsch **nur** in UI-sichtbaren Strings (Labels, Buttons, Meldungen für Schüler/Lehrer). Commit-Messages/Docs bleiben wie gehabt.
+
 Before editing any file, read it first. Before modifying a function, grep for all callers.
 
 Pläne gehören nach `docs/plans/` (versioniert, auf LXC verfügbar — nicht `~/.claude/plans/`).
