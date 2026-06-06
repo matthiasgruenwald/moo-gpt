@@ -13,6 +13,10 @@ const renderTempSlider = (prefix, hintText) => _renderTempSlider(document, prefi
 const updateTempField  = (prefix)           => _updateTempField(document, prefix);
 const loadTempState    = (prefix, value)    => _loadTempState(document, prefix, value);
 
+// Fields compared against initial snapshot on save (excludes hints — saved via separate endpoint)
+const CONFIG_KEYS = ['title','botIcon','opener','uploadMode','audioInput','audioOutput',
+  'ttsVoice','audioStudentOptions','model','mathMode','chatTemperature','assistModel','assistTemperature'];
+
 const params     = new URLSearchParams(window.location.search);
 const activityId = params.get('activityId');
 const token      = params.get('token');
@@ -477,9 +481,6 @@ async function saveConfig() {
   status.textContent = 'Speichert…';
 
   const errors = [];
-
-  const CONFIG_KEYS = ['title','botIcon','opener','uploadMode','audioInput','audioOutput',
-    'ttsVoice','audioStudentOptions','model','mathMode','chatTemperature','assistModel','assistTemperature'];
 
   try {
     if (CONFIG_KEYS.some(k => f[k] !== initial[k])) {
