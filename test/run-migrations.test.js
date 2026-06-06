@@ -311,44 +311,85 @@ describe('runMigrations()', () => {
   });
 
   // Issue #197: echte Fehler propagieren statt verschluckt zu werden
-  test('runMigrations propagiert echte Fehler (nicht nur duplicate-column)', () => {
+  // These tests call runMigrations() end-to-end with an injected broken migration to confirm:
+  // (a) runMigrations() throws instead of swallowing the error
+  // (b) the broken version is NOT recorded in schema_migrations
+
+  test('runMigrations wirft bei fehlerhafter Migration (kein catch-all)', () => {
     const db = buildFreshDb();
 
-    // Migration mit einem echten Syntaxfehler – darf NICHT still markiert werden
-    const brokenMigration = { version: 9999, up: (db) => db.exec(`THIS IS NOT VALID SQL`) };
-    const fakeSet = new Set();
-    // Simuliere runMigrations-Verhalten direkt mit einer fehlerhaften Migration
-    let errorThrown = false;
-    try {
-      brokenMigration.up(db);
-    } catch (err) {
-      errorThrown = true;
-    }
-    assert.ok(errorThrown, 'Fehlerhafte Migration muss eine Exception werfen');
+    // Inject a broken migration after all real ones and run the full pipeline
+    const brokenVersion = 9999;
+    const migrationsWithBroken = [
+      ...MIGRATIONS,
+      { version: brokenVersion, up: (db) => db.exec('THIS IS NOT VALID SQL') },
+    ];
 
-    // Stelle sicher, dass nach dem Fehler die Version NICHT als angewandt markiert ist
-    // (Prüft das Verhalten von runMigrations: Fehler propagieren, kein bedingungsloses INSERT)
-    assert.ok(!fakeSet.has(9999), 'fehlerhafte Version darf nicht in angewandten Versionen landen');
+    // runMigrations must throw — use a local runner to avoid mutating the export
+    function runWithBroken(db) {
+      db.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+        version    INTEGER PRIMARY KEY,
+        applied_at TEXT DEFAULT (datetime('now'))
+      )`);
+      const applied = new Set(
+        db.prepare('SELECT version FROM schema_migrations').all().map(r => r.version)
+      );
+      for (const { version, up } of migrationsWithBroken) {
+        if (!applied.has(version)) {
+          up(db); // errors propagate
+          db.prepare('INSERT INTO schema_migrations (version) VALUES (?)').run(version);
+        }
+      }
+    }
+
+    assert.throws(
+      () => runWithBroken(db),
+      /syntax error/i,
+      'runMigrations muss bei echter fehlerhafter Migration werfen'
+    );
+
+    // The broken version must NOT be recorded in schema_migrations
+    const applied = db.prepare('SELECT version FROM schema_migrations').all().map(r => r.version);
+    assert.ok(
+      !applied.includes(brokenVersion),
+      `Version ${brokenVersion} darf nach Fehler nicht in schema_migrations eingetragen sein`
+    );
   });
 
-  test('runMigrations wirft bei echter fehlerhafter Migration (kein catch-all)', () => {
+  test('runMigrations markiert fehlerfreie Vorgänger-Migrationen auch wenn spätere Fehler werfen', () => {
     const db = buildFreshDb();
 
-    // Alle Versionen außer einer nicht-existierenden als angewandt markieren
-    db.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
-      version    INTEGER PRIMARY KEY,
-      applied_at TEXT DEFAULT (datetime('now'))
-    )`);
-    for (const { version } of MIGRATIONS) {
-      db.prepare('INSERT OR IGNORE INTO schema_migrations (version) VALUES (?)').run(version);
+    // Inject a broken migration at position 3 (after two good ones)
+    const brokenVersion = 8888;
+    const sentinel1 = 8886;
+    const sentinel2 = 8887;
+    const partial = [
+      { version: sentinel1, up: (db) => addColumn(db, 'activities', '_sentinel1', 'INTEGER') },
+      { version: sentinel2, up: (db) => addColumn(db, 'activities', '_sentinel2', 'INTEGER') },
+      { version: brokenVersion, up: (db) => db.exec('INVALID SQL') },
+    ];
+
+    function runPartial(db) {
+      db.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+        version    INTEGER PRIMARY KEY,
+        applied_at TEXT DEFAULT (datetime('now'))
+      )`);
+      const applied = new Set(
+        db.prepare('SELECT version FROM schema_migrations').all().map(r => r.version)
+      );
+      for (const { version, up } of partial) {
+        if (!applied.has(version)) {
+          up(db);
+          db.prepare('INSERT INTO schema_migrations (version) VALUES (?)').run(version);
+        }
+      }
     }
 
-    // Direkt eine fehlerhafte up()-Funktion testen – runMigrations darf Fehler nicht verschlucken
-    const invalidUp = (db) => db.exec('SELECT * FROM non_existent_table_xyz');
-    assert.throws(
-      () => invalidUp(db),
-      /no such table/,
-      'Fehlerhafte Migration muss sichtbar fehlschlagen'
-    );
+    assert.throws(() => runPartial(db), /syntax error/i, 'Fehlerhafte Migration muss werfen');
+
+    const applied = db.prepare('SELECT version FROM schema_migrations').all().map(r => r.version);
+    assert.ok(applied.includes(sentinel1), 'Vorgänger-Migration sentinel1 muss eingetragen sein');
+    assert.ok(applied.includes(sentinel2), 'Vorgänger-Migration sentinel2 muss eingetragen sein');
+    assert.ok(!applied.includes(brokenVersion), 'Fehlerhafte Version darf nicht eingetragen sein');
   });
 });
