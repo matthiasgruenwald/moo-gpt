@@ -8,6 +8,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { createStreamResponse } from '../services/chat-response.js';
+import { isReasoningModel } from '../public/temp-slider.js';
 
 // ── Hilfsfunktionen ──────────────────────────────────────────────────────────
 
@@ -58,6 +59,7 @@ function makeFactory({ resolvedCfg = { model: 'gpt-4.1', mathMode: 'off', chatTe
     saveMessage:               () => 1,
     recordUsage:               async () => null,
     resolveWidgetConfig:       () => resolvedCfg,
+    isReasoningModel,
   };
 
   return {
