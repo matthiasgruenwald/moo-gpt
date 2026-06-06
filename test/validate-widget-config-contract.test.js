@@ -162,6 +162,21 @@ describe('validateWidgetConfig — objektförmiger Contract', () => {
     assert.strictEqual(validateWidgetConfig({ model: null }, opts), null);
   });
 
+  // assistModel (via availableModels) — darf nicht still geschluckt werden (#198, ADR 0008)
+  test('ungültiges assistModel → Fehlerstring', () => {
+    const err = validateWidgetConfig({ assistModel: 'unbekannt-modell' }, opts);
+    assert.ok(typeof err === 'string', 'assistModel=unbekannt muss Fehler erzeugen');
+  });
+
+  test('gültiges assistModel → null', () => {
+    assert.strictEqual(validateWidgetConfig({ assistModel: 'gpt-4.1-mini' }, opts), null);
+  });
+
+  test('assistModel leer/null → null (kein explizites Assist-Modell)', () => {
+    assert.strictEqual(validateWidgetConfig({ assistModel: '' }, opts), null);
+    assert.strictEqual(validateWidgetConfig({ assistModel: null }, opts), null);
+  });
+
   // Alle Felder gleichzeitig, alle ungültig → erste Fehlermeldung
   test('mehrere ungültige Felder → gibt String zurück (erstes Fehler)', () => {
     const err = validateWidgetConfig(

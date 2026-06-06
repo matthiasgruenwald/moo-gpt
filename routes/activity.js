@@ -5,7 +5,7 @@ import { setWidgetConfig } from '../stores/widget-config.js';
 import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { getTeacherPreference, setTeacherSuggestPreference } from '../stores/teacher.js';
 import { getAvailableModels, getAvailableBotIcons } from '../env-config.js';
-import { validateWidgetConfig, sanitizeWidgetConfig, validateChatTemperature, validateAssistTemperature, validateAssistModel } from '../validators.js';
+import { validateWidgetConfig, sanitizeWidgetConfig, validateChatTemperature, validateAssistTemperature } from '../validators.js';
 import { resolveWidgetConfig } from '../services/widget-config-resolver.js';
 
 export function createActivityRouter({ lockManager }) {

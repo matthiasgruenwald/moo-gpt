@@ -44,7 +44,7 @@ export function validateWidgetConfig(cfg, { availableModels, allowedBotIcons } =
   const validModels      = availableModels  ?? getAvailableModels();
   const {
     uploadMode, botIcon, audioInput, audioOutput,
-    ttsVoice, audioStudentOptions, mathMode, model,
+    ttsVoice, audioStudentOptions, mathMode, model, assistModel,
   } = cfg;
 
   if (uploadMode          !== undefined && !VALID_UPLOAD_MODES.includes(uploadMode))
@@ -63,6 +63,8 @@ export function validateWidgetConfig(cfg, { availableModels, allowedBotIcons } =
     return 'Ungültiger mathMode';
   if (model               !== undefined && model !== null && model !== '' && !validModels.includes(model))
     return 'Ungültiges Modell';
+  if (assistModel         !== undefined && assistModel !== null && assistModel !== '' && !validModels.includes(assistModel))
+    return 'Ungültiges assist_model';
   return null;
 }
 
@@ -97,21 +99,6 @@ export function sanitizeWidgetConfig(cfg, { availableModels } = {}) {
     chatTemperature:   normalizeTemperature(chatTemperature),
     assistTemperature: normalizeTemperature(assistTemperature),
   };
-}
-
-/**
- * Validiert assist_model gegen die Liste erlaubter Modelle.
- * null/'' bedeutet "kein explizites Modell gesetzt" — ist erlaubt.
- * @param {string|null|undefined} assistModel
- * @param {string[]} availableModels
- * @returns {string|null} Fehlermeldung oder null wenn valide
- */
-export function validateAssistModel(assistModel, availableModels) {
-  if (assistModel === undefined || assistModel === null || assistModel === '')
-    return null;
-  if (!availableModels.includes(assistModel))
-    return 'Ungültiges assist_model';
-  return null;
 }
 
 export function normalizeTemperature(value) {
