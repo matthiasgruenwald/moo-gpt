@@ -529,6 +529,12 @@
       modelSel.value      = data.model      || '';
       assistModelSel.value = data.assistModel || '';
 
+      // Show resolved effective model (includes teacher/system template cascade — ADR 0008).
+      const effectiveModelEl = document.getElementById('cfg-effective-model');
+      if (effectiveModelEl) effectiveModelEl.textContent = data.effectiveModel || '';
+      const effectiveAssistModelEl = document.getElementById('cfg-effective-assist-model');
+      if (effectiveAssistModelEl) effectiveAssistModelEl.textContent = data.effectiveAssistModel || '';
+
       const assistTempEl        = document.getElementById('cfg-assist-temperature');
       const assistTempDefaultCb = document.getElementById('cfg-assist-temperature-default');
       if (data.assistTemperature != null) {

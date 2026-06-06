@@ -9,7 +9,7 @@
  *
  * Deckt alle Felder ab inkl. model, assist_model, chat_temperature, assist_temperature.
  * Exportiert resolveWidgetConfig(activityId, userId, deps?).
- * Dependencies sind per optionalem dritten Parameter injizierbar (Vorbild: model-resolver.js).
+ * Dependencies sind per optionalem dritten Parameter injizierbar.
  */
 
 import { getWidgetConfig as _getWidgetConfig } from '../stores/widget-config.js';
@@ -132,6 +132,8 @@ export function resolveWidgetConfig(activityId, userId, deps = productionDeps) {
     chatTemperature,
     assistTemperature,
     mathMode,
+    // Signal: true when no title has been configured at any cascade level.
+    // Consumers (e.g. moo-bot.js) use this to show the first-run config badge.
     needsConfig: title === null,
   };
 }
