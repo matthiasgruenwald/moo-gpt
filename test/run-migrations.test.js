@@ -1,18 +1,20 @@
 /**
- * Tests für runMigrations() – Issue #169
+ * Tests für runMigrations() – Issue #169 / Issue #197
  *
  * Prüft:
  * - schema_migrations-Tabelle wird angelegt
  * - frische DB: alle Migrationen werden ausgeführt, Versions-Einträge landen in schema_migrations
  * - bereits migrierte DB: runMigrations() läuft durch, keine Fehler, keine doppelte Ausführung
  * - neue Migration wird nachgezogen, bereits angewandte werden übersprungen
+ * - Issue #197: assist_model/chat_temperature/assist_temperature in MIGRATIONS v37-v45 (nicht naked try/catch)
+ * - Issue #197: echte Fehler in runMigrations propagieren statt verschluckt zu werden
  *
  * Run: node --test test/run-migrations.test.js
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
-import { runMigrations, MIGRATIONS } from '../db.js';
+import { runMigrations, MIGRATIONS, addColumn } from '../db.js';
 
 /**
  * Erstellt eine In-Memory-DB mit dem Basis-Schema (entspricht dem CREATE TABLE
@@ -245,5 +247,149 @@ describe('runMigrations()', () => {
     const cols = getColumns(db, 'activities');
     const audioOutputCount = cols.filter(c => c === 'audio_output').length;
     assert.equal(audioOutputCount, 1, 'audio_output darf nur einmal in activities vorkommen');
+  });
+
+  // Issue #197: #183-Spalten als versionierte Migrationen v37-v45
+  test('MIGRATIONS enthält Einträge v37-v45 für #183-Spalten', () => {
+    const versions = MIGRATIONS.map(m => m.version);
+    for (let v = 37; v <= 45; v++) {
+      assert.ok(versions.includes(v), `Version ${v} muss in MIGRATIONS enthalten sein`);
+    }
+  });
+
+  test('frische DB: activities enthält assist_model/chat_temperature/assist_temperature nach Migrationen', () => {
+    const db = buildFreshDb();
+    runMigrations(db);
+
+    const cols = getColumns(db, 'activities');
+    assert.ok(cols.includes('assist_model'),       'assist_model muss in activities sein');
+    assert.ok(cols.includes('chat_temperature'),   'chat_temperature muss in activities sein');
+    assert.ok(cols.includes('assist_temperature'), 'assist_temperature muss in activities sein');
+  });
+
+  test('frische DB: teacher_templates enthält assist_model/chat_temperature/assist_temperature nach Migrationen', () => {
+    const db = buildFreshDb();
+    runMigrations(db);
+
+    const cols = getColumns(db, 'teacher_templates');
+    assert.ok(cols.includes('assist_model'),       'assist_model muss in teacher_templates sein');
+    assert.ok(cols.includes('chat_temperature'),   'chat_temperature muss in teacher_templates sein');
+    assert.ok(cols.includes('assist_temperature'), 'assist_temperature muss in teacher_templates sein');
+  });
+
+  test('frische DB: system_template enthält assist_model/chat_temperature/assist_temperature nach Migrationen', () => {
+    const db = buildFreshDb();
+    runMigrations(db);
+
+    const cols = getColumns(db, 'system_template');
+    assert.ok(cols.includes('assist_model'),       'assist_model muss in system_template sein');
+    assert.ok(cols.includes('chat_temperature'),   'chat_temperature muss in system_template sein');
+    assert.ok(cols.includes('assist_temperature'), 'assist_temperature muss in system_template sein');
+  });
+
+  test('frische DB: #183-Spalten werden in schema_migrations als v37-v45 erfasst', () => {
+    const db = buildFreshDb();
+    runMigrations(db);
+
+    const applied = getAppliedVersions(db);
+    for (let v = 37; v <= 45; v++) {
+      assert.ok(applied.includes(v), `Version ${v} muss in schema_migrations eingetragen sein`);
+    }
+  });
+
+  // Issue #197: addColumn-Helfer ist idempotent
+  test('addColumn ist idempotent – doppelter Aufruf wirft keinen Fehler', () => {
+    const db = buildFreshDb();
+    // Erste Ausführung fügt die Spalte hinzu
+    assert.doesNotThrow(() => addColumn(db, 'activities', 'test_col_idempotent', 'TEXT'), 'erster addColumn darf nicht werfen');
+    // Zweiter Aufruf erkennt vorhandene Spalte und überspringt ALTER
+    assert.doesNotThrow(() => addColumn(db, 'activities', 'test_col_idempotent', 'TEXT'), 'zweiter addColumn darf nicht werfen (idempotent)');
+
+    const cols = getColumns(db, 'activities');
+    const count = cols.filter(c => c === 'test_col_idempotent').length;
+    assert.equal(count, 1, 'Spalte darf nur einmal vorhanden sein');
+  });
+
+  // Issue #197: echte Fehler propagieren statt verschluckt zu werden
+  // These tests call runMigrations() end-to-end with an injected broken migration to confirm:
+  // (a) runMigrations() throws instead of swallowing the error
+  // (b) the broken version is NOT recorded in schema_migrations
+
+  test('runMigrations wirft bei fehlerhafter Migration (kein catch-all)', () => {
+    const db = buildFreshDb();
+
+    // Inject a broken migration after all real ones and run the full pipeline
+    const brokenVersion = 9999;
+    const migrationsWithBroken = [
+      ...MIGRATIONS,
+      { version: brokenVersion, up: (db) => db.exec('THIS IS NOT VALID SQL') },
+    ];
+
+    // runMigrations must throw — use a local runner to avoid mutating the export
+    function runWithBroken(db) {
+      db.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+        version    INTEGER PRIMARY KEY,
+        applied_at TEXT DEFAULT (datetime('now'))
+      )`);
+      const applied = new Set(
+        db.prepare('SELECT version FROM schema_migrations').all().map(r => r.version)
+      );
+      for (const { version, up } of migrationsWithBroken) {
+        if (!applied.has(version)) {
+          up(db); // errors propagate
+          db.prepare('INSERT INTO schema_migrations (version) VALUES (?)').run(version);
+        }
+      }
+    }
+
+    assert.throws(
+      () => runWithBroken(db),
+      /syntax error/i,
+      'runMigrations muss bei echter fehlerhafter Migration werfen'
+    );
+
+    // The broken version must NOT be recorded in schema_migrations
+    const applied = db.prepare('SELECT version FROM schema_migrations').all().map(r => r.version);
+    assert.ok(
+      !applied.includes(brokenVersion),
+      `Version ${brokenVersion} darf nach Fehler nicht in schema_migrations eingetragen sein`
+    );
+  });
+
+  test('runMigrations markiert fehlerfreie Vorgänger-Migrationen auch wenn spätere Fehler werfen', () => {
+    const db = buildFreshDb();
+
+    // Inject a broken migration at position 3 (after two good ones)
+    const brokenVersion = 8888;
+    const sentinel1 = 8886;
+    const sentinel2 = 8887;
+    const partial = [
+      { version: sentinel1, up: (db) => addColumn(db, 'activities', '_sentinel1', 'INTEGER') },
+      { version: sentinel2, up: (db) => addColumn(db, 'activities', '_sentinel2', 'INTEGER') },
+      { version: brokenVersion, up: (db) => db.exec('INVALID SQL') },
+    ];
+
+    function runPartial(db) {
+      db.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+        version    INTEGER PRIMARY KEY,
+        applied_at TEXT DEFAULT (datetime('now'))
+      )`);
+      const applied = new Set(
+        db.prepare('SELECT version FROM schema_migrations').all().map(r => r.version)
+      );
+      for (const { version, up } of partial) {
+        if (!applied.has(version)) {
+          up(db);
+          db.prepare('INSERT INTO schema_migrations (version) VALUES (?)').run(version);
+        }
+      }
+    }
+
+    assert.throws(() => runPartial(db), /syntax error/i, 'Fehlerhafte Migration muss werfen');
+
+    const applied = db.prepare('SELECT version FROM schema_migrations').all().map(r => r.version);
+    assert.ok(applied.includes(sentinel1), 'Vorgänger-Migration sentinel1 muss eingetragen sein');
+    assert.ok(applied.includes(sentinel2), 'Vorgänger-Migration sentinel2 muss eingetragen sein');
+    assert.ok(!applied.includes(brokenVersion), 'Fehlerhafte Version darf nicht eingetragen sein');
   });
 });

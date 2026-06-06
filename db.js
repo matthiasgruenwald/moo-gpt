@@ -7,6 +7,23 @@ import Database from 'better-sqlite3';
 
 const DB_PATH = process.env.DB_PATH || '/opt/moo-gpt/chats.db';
 
+/**
+ * Adds a column to a table if it does not already exist.
+ * Idempotent: uses PRAGMA table_info to check before issuing ALTER TABLE.
+ * Real errors (e.g. invalid SQL, missing table) propagate to the caller.
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} table - table name
+ * @param {string} column - column name to add
+ * @param {string} definition - column type and optional constraints, e.g. 'TEXT' or 'REAL DEFAULT 0'
+ */
+export function addColumn(db, table, column, definition) {
+  const exists = db.pragma(`table_info(${table})`).some(c => c.name === column);
+  if (!exists) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
 let db;
 
 export function getDb() { return db; }
@@ -19,17 +36,18 @@ export function getDb() { return db; }
  */
 export const MIGRATIONS = [
   // v1–v8: P5a / frühe Spalten-Erweiterungen
-  { version: 1,  up: (db) => db.exec(`ALTER TABLE activities ADD COLUMN opener TEXT`) },
-  { version: 2,  up: (db) => db.exec(`ALTER TABLE activities ADD COLUMN upload_mode TEXT DEFAULT 'off'`) },
-  { version: 3,  up: (db) => db.exec(`ALTER TABLE activities ADD COLUMN title TEXT`) },
-  { version: 4,  up: (db) => db.exec(`ALTER TABLE activities ADD COLUMN bot_icon TEXT DEFAULT 'grw'`) },
-  { version: 5,  up: (db) => db.exec(`ALTER TABLE messages ADD COLUMN content_type TEXT DEFAULT 'text'`) },
+  // addColumn() makes each migration idempotent: skips ALTER if column already exists in base schema.
+  { version: 1,  up: (db) => addColumn(db, 'activities', 'opener',       'TEXT') },
+  { version: 2,  up: (db) => addColumn(db, 'activities', 'upload_mode',  `TEXT DEFAULT 'off'`) },
+  { version: 3,  up: (db) => addColumn(db, 'activities', 'title',        'TEXT') },
+  { version: 4,  up: (db) => addColumn(db, 'activities', 'bot_icon',     `TEXT DEFAULT 'grw'`) },
+  { version: 5,  up: (db) => addColumn(db, 'messages',   'content_type', `TEXT DEFAULT 'text'`) },
   // Issue #12: message_id in token_log für Kostenanzeige pro Nachrichtenrunde
-  { version: 6,  up: (db) => db.exec(`ALTER TABLE token_log ADD COLUMN message_id INTEGER`) },
+  { version: 6,  up: (db) => addColumn(db, 'token_log',  'message_id',   'INTEGER') },
   // Issue #19: Unique-Index damit saveFeedback ON CONFLICT funktioniert
   { version: 7,  up: (db) => db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_feedback_msgid ON message_feedback (message_id)`) },
   // P2: Soft-Delete für Kriterien
-  { version: 8,  up: (db) => db.exec(`ALTER TABLE erkenntnisse ADD COLUMN status TEXT DEFAULT 'active'`) },
+  { version: 8,  up: (db) => addColumn(db, 'erkenntnisse', 'status', `TEXT DEFAULT 'active'`) },
 
   // Issue #13: openai_thread_id nullable machen (Responses API braucht keinen Thread)
   {
@@ -103,53 +121,64 @@ export const MIGRATIONS = [
   },
 
   // Issue #55: Rückfragen-Präferenz pro Lehrkraft
-  { version: 13, up: (db) => db.exec(`ALTER TABLE teacher_preferences ADD COLUMN prefer_suggest_questions INTEGER DEFAULT 1`) },
+  { version: 13, up: (db) => addColumn(db, 'teacher_preferences', 'prefer_suggest_questions', 'INTEGER DEFAULT 1') },
 
   // Issue #61: Werkzeug-Kosten — call_type in token_log, teacher_id/name in activities
-  { version: 14, up: (db) => db.exec(`ALTER TABLE token_log ADD COLUMN call_type TEXT`) },
-  { version: 15, up: (db) => db.exec(`ALTER TABLE activities ADD COLUMN teacher_id TEXT`) },
-  { version: 16, up: (db) => db.exec(`ALTER TABLE activities ADD COLUMN teacher_name TEXT`) },
+  { version: 14, up: (db) => addColumn(db, 'token_log',  'call_type',    'TEXT') },
+  { version: 15, up: (db) => addColumn(db, 'activities', 'teacher_id',   'TEXT') },
+  { version: 16, up: (db) => addColumn(db, 'activities', 'teacher_name', 'TEXT') },
 
   // Issue #87: Audio-Transkription — Sekunden in token_log
-  { version: 17, up: (db) => db.exec(`ALTER TABLE token_log ADD COLUMN audio_seconds REAL`) },
+  { version: 17, up: (db) => addColumn(db, 'token_log',  'audio_seconds',   'REAL') },
   // Issue #89: Mikrofon-Opt-in pro Aktivität
-  { version: 18, up: (db) => db.exec(`ALTER TABLE activities ADD COLUMN audio_input TEXT DEFAULT 'off'`) },
+  { version: 18, up: (db) => addColumn(db, 'activities', 'audio_input',      `TEXT DEFAULT 'off'`) },
   // P8: TTS-Kosten — Zeichenanzahl in token_log (Issue #96)
-  { version: 19, up: (db) => db.exec(`ALTER TABLE token_log ADD COLUMN tts_characters INTEGER`) },
+  { version: 19, up: (db) => addColumn(db, 'token_log',  'tts_characters',   'INTEGER') },
   // P9 / Issue #94/#104: TTS-Konfiguration pro Aktivität (doppelte Blöcke auf eine Version reduziert)
-  { version: 20, up: (db) => db.exec(`ALTER TABLE activities ADD COLUMN audio_output TEXT DEFAULT 'off'`) },
-  { version: 21, up: (db) => db.exec(`ALTER TABLE activities ADD COLUMN tts_voice TEXT DEFAULT 'nova'`) },
-  { version: 22, up: (db) => db.exec(`ALTER TABLE activities ADD COLUMN audio_student_options TEXT DEFAULT 'off'`) },
+  { version: 20, up: (db) => addColumn(db, 'activities', 'audio_output',         `TEXT DEFAULT 'off'`) },
+  { version: 21, up: (db) => addColumn(db, 'activities', 'tts_voice',            `TEXT DEFAULT 'nova'`) },
+  { version: 22, up: (db) => addColumn(db, 'activities', 'audio_student_options', `TEXT DEFAULT 'off'`) },
 
   // Issue #107: Modell pro Aktivität (ADR 0004)
-  { version: 23, up: (db) => db.exec(`ALTER TABLE activities ADD COLUMN model TEXT`) },
-  { version: 24, up: (db) => db.exec(`ALTER TABLE teacher_templates ADD COLUMN model TEXT`) },
-  { version: 25, up: (db) => db.exec(`ALTER TABLE system_template ADD COLUMN model TEXT`) },
+  { version: 23, up: (db) => addColumn(db, 'activities',        'model', 'TEXT') },
+  { version: 24, up: (db) => addColumn(db, 'teacher_templates', 'model', 'TEXT') },
+  { version: 25, up: (db) => addColumn(db, 'system_template',   'model', 'TEXT') },
 
   // Issue #111: Audio-Felder in teacher_templates und system_template
-  { version: 26, up: (db) => db.exec(`ALTER TABLE teacher_templates ADD COLUMN audio_input TEXT DEFAULT 'off'`) },
-  { version: 27, up: (db) => db.exec(`ALTER TABLE teacher_templates ADD COLUMN audio_output TEXT DEFAULT 'off'`) },
-  { version: 28, up: (db) => db.exec(`ALTER TABLE teacher_templates ADD COLUMN tts_voice TEXT DEFAULT 'nova'`) },
-  { version: 29, up: (db) => db.exec(`ALTER TABLE teacher_templates ADD COLUMN audio_student_options TEXT DEFAULT 'off'`) },
-  { version: 30, up: (db) => db.exec(`ALTER TABLE system_template ADD COLUMN audio_input TEXT DEFAULT 'off'`) },
-  { version: 31, up: (db) => db.exec(`ALTER TABLE system_template ADD COLUMN audio_output TEXT DEFAULT 'off'`) },
-  { version: 32, up: (db) => db.exec(`ALTER TABLE system_template ADD COLUMN tts_voice TEXT DEFAULT 'nova'`) },
-  { version: 33, up: (db) => db.exec(`ALTER TABLE system_template ADD COLUMN audio_student_options TEXT DEFAULT 'off'`) },
+  { version: 26, up: (db) => addColumn(db, 'teacher_templates', 'audio_input',           `TEXT DEFAULT 'off'`) },
+  { version: 27, up: (db) => addColumn(db, 'teacher_templates', 'audio_output',          `TEXT DEFAULT 'off'`) },
+  { version: 28, up: (db) => addColumn(db, 'teacher_templates', 'tts_voice',             `TEXT DEFAULT 'nova'`) },
+  { version: 29, up: (db) => addColumn(db, 'teacher_templates', 'audio_student_options', `TEXT DEFAULT 'off'`) },
+  { version: 30, up: (db) => addColumn(db, 'system_template',   'audio_input',           `TEXT DEFAULT 'off'`) },
+  { version: 31, up: (db) => addColumn(db, 'system_template',   'audio_output',          `TEXT DEFAULT 'off'`) },
+  { version: 32, up: (db) => addColumn(db, 'system_template',   'tts_voice',             `TEXT DEFAULT 'nova'`) },
+  { version: 33, up: (db) => addColumn(db, 'system_template',   'audio_student_options', `TEXT DEFAULT 'off'`) },
 
   // Issue #166: mathMode
-  { version: 34, up: (db) => db.exec(`ALTER TABLE activities ADD COLUMN math_mode TEXT DEFAULT 'off'`) },
-  { version: 35, up: (db) => db.exec(`ALTER TABLE teacher_templates ADD COLUMN math_mode TEXT DEFAULT 'off'`) },
-  { version: 36, up: (db) => db.exec(`ALTER TABLE system_template ADD COLUMN math_mode TEXT DEFAULT 'off'`) },
+  { version: 34, up: (db) => addColumn(db, 'activities',        'math_mode', `TEXT DEFAULT 'off'`) },
+  { version: 35, up: (db) => addColumn(db, 'teacher_templates', 'math_mode', `TEXT DEFAULT 'off'`) },
+  { version: 36, up: (db) => addColumn(db, 'system_template',   'math_mode', `TEXT DEFAULT 'off'`) },
+
+  // Issue #183: assist_model, chat_temperature, assist_temperature
+  // Previously applied as naked try/catch blocks after runMigrations() – now properly versioned.
+  { version: 37, up: (db) => addColumn(db, 'activities',        'assist_model',       'TEXT') },
+  { version: 38, up: (db) => addColumn(db, 'activities',        'chat_temperature',   'REAL') },
+  { version: 39, up: (db) => addColumn(db, 'activities',        'assist_temperature', 'REAL') },
+  { version: 40, up: (db) => addColumn(db, 'teacher_templates', 'assist_model',       'TEXT') },
+  { version: 41, up: (db) => addColumn(db, 'teacher_templates', 'chat_temperature',   'REAL') },
+  { version: 42, up: (db) => addColumn(db, 'teacher_templates', 'assist_temperature', 'REAL') },
+  { version: 43, up: (db) => addColumn(db, 'system_template',   'assist_model',       'TEXT') },
+  { version: 44, up: (db) => addColumn(db, 'system_template',   'chat_temperature',   'REAL') },
+  { version: 45, up: (db) => addColumn(db, 'system_template',   'assist_temperature', 'REAL') },
 ];
 
 /**
- * Führt alle noch nicht angewandten Migrationen aus.
- * Legt schema_migrations an (falls nicht vorhanden) und markiert jede
- * durchgeführte Migration mit ihrer Versionsnummer.
+ * Runs all pending migrations in order.
+ * Creates schema_migrations if absent; records each applied version.
  *
- * Jede Migration ist idempotent: SQLite kennt kein ADD COLUMN IF NOT EXISTS,
- * daher werden Fehler (z.B. "duplicate column name") still ignoriert — die
- * schema_migrations-Tabelle verhindert in Zukunft erneutes Ausführen.
+ * Migrations must be idempotent by design (use addColumn / IF NOT EXISTS / etc.).
+ * Real errors propagate to the caller — no catch-all that silently marks a
+ * broken migration as applied.
  *
  * @param {import('better-sqlite3').Database} db
  */
@@ -167,11 +196,7 @@ export function runMigrations(db) {
 
   for (const { version, up } of MIGRATIONS) {
     if (!applied.has(version)) {
-      try {
-        up(db);
-      } catch (_) {
-        // Ignoriere Fehler wie "duplicate column name" — die Migration gilt trotzdem als angewandt
-      }
+      up(db); // errors propagate — a broken migration must not be silently marked as applied
       db.prepare('INSERT INTO schema_migrations (version) VALUES (?)').run(version);
     }
   }
@@ -320,17 +345,6 @@ export function initDb() {
   `);
 
   runMigrations(db);
-
-  // Issue #183: assist_model, chat_temperature, assist_temperature
-  try { db.exec(`ALTER TABLE activities ADD COLUMN assist_model TEXT`); } catch (_) {}
-  try { db.exec(`ALTER TABLE activities ADD COLUMN chat_temperature REAL`); } catch (_) {}
-  try { db.exec(`ALTER TABLE activities ADD COLUMN assist_temperature REAL`); } catch (_) {}
-  try { db.exec(`ALTER TABLE teacher_templates ADD COLUMN assist_model TEXT`); } catch (_) {}
-  try { db.exec(`ALTER TABLE teacher_templates ADD COLUMN chat_temperature REAL`); } catch (_) {}
-  try { db.exec(`ALTER TABLE teacher_templates ADD COLUMN assist_temperature REAL`); } catch (_) {}
-  try { db.exec(`ALTER TABLE system_template ADD COLUMN assist_model TEXT`); } catch (_) {}
-  try { db.exec(`ALTER TABLE system_template ADD COLUMN chat_temperature REAL`); } catch (_) {}
-  try { db.exec(`ALTER TABLE system_template ADD COLUMN assist_temperature REAL`); } catch (_) {}
 
   console.log(`[DB] SQLite initialisiert: ${DB_PATH}`);
   return db;
