@@ -5,7 +5,6 @@ import { setWidgetConfig } from '../stores/widget-config.js';
 import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { getTeacherPreference, setTeacherSuggestPreference } from '../stores/teacher.js';
 import { getAvailableModels, getAvailableBotIcons } from '../env-config.js';
-import { getEffectiveModel, getEffectiveAssistModel } from '../model-resolver.js';
 import { validateWidgetConfig, validateAssistModel, validateChatTemperature, validateAssistTemperature, normalizeTemperature } from '../validators.js';
 import { resolveWidgetConfig } from '../services/widget-config-resolver.js';
 
@@ -33,10 +32,12 @@ export function createActivityRouter({ lockManager }) {
       chatTemperature:        act?.chat_temperature           ?? null,
       erfahrungsprompt:       erf?.content                    || '',
       model:                  cfg.model,
-      effectiveModel:         getEffectiveModel(activityId),
+      // effectiveModel/effectiveAssistModel come from resolveWidgetConfig (ADR 0008):
+      // the single cascade seam that honours activity → teacher template → system template.
+      effectiveModel:         cfg.model,
       assistModel:            act?.assist_model               ?? null,
       assistTemperature:      act?.assist_temperature         ?? null,
-      effectiveAssistModel:   getEffectiveAssistModel(activityId),
+      effectiveAssistModel:   cfg.assistModel,
       availableModels:        getAvailableModels(),
       availableBotIcons:      getAvailableBotIcons(),
       preferSuggestQuestions: pref?.prefer_suggest_questions  ?? 1,
