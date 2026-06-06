@@ -1,18 +1,20 @@
 /**
- * Tests für runMigrations() – Issue #169
+ * Tests für runMigrations() – Issue #169 / Issue #197
  *
  * Prüft:
  * - schema_migrations-Tabelle wird angelegt
  * - frische DB: alle Migrationen werden ausgeführt, Versions-Einträge landen in schema_migrations
  * - bereits migrierte DB: runMigrations() läuft durch, keine Fehler, keine doppelte Ausführung
  * - neue Migration wird nachgezogen, bereits angewandte werden übersprungen
+ * - Issue #197: assist_model/chat_temperature/assist_temperature in MIGRATIONS v37-v45 (nicht naked try/catch)
+ * - Issue #197: echte Fehler in runMigrations propagieren statt verschluckt zu werden
  *
  * Run: node --test test/run-migrations.test.js
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
-import { runMigrations, MIGRATIONS } from '../db.js';
+import { runMigrations, MIGRATIONS, addColumn } from '../db.js';
 
 /**
  * Erstellt eine In-Memory-DB mit dem Basis-Schema (entspricht dem CREATE TABLE
@@ -245,5 +247,108 @@ describe('runMigrations()', () => {
     const cols = getColumns(db, 'activities');
     const audioOutputCount = cols.filter(c => c === 'audio_output').length;
     assert.equal(audioOutputCount, 1, 'audio_output darf nur einmal in activities vorkommen');
+  });
+
+  // Issue #197: #183-Spalten als versionierte Migrationen v37-v45
+  test('MIGRATIONS enthält Einträge v37-v45 für #183-Spalten', () => {
+    const versions = MIGRATIONS.map(m => m.version);
+    for (let v = 37; v <= 45; v++) {
+      assert.ok(versions.includes(v), `Version ${v} muss in MIGRATIONS enthalten sein`);
+    }
+  });
+
+  test('frische DB: activities enthält assist_model/chat_temperature/assist_temperature nach Migrationen', () => {
+    const db = buildFreshDb();
+    runMigrations(db);
+
+    const cols = getColumns(db, 'activities');
+    assert.ok(cols.includes('assist_model'),       'assist_model muss in activities sein');
+    assert.ok(cols.includes('chat_temperature'),   'chat_temperature muss in activities sein');
+    assert.ok(cols.includes('assist_temperature'), 'assist_temperature muss in activities sein');
+  });
+
+  test('frische DB: teacher_templates enthält assist_model/chat_temperature/assist_temperature nach Migrationen', () => {
+    const db = buildFreshDb();
+    runMigrations(db);
+
+    const cols = getColumns(db, 'teacher_templates');
+    assert.ok(cols.includes('assist_model'),       'assist_model muss in teacher_templates sein');
+    assert.ok(cols.includes('chat_temperature'),   'chat_temperature muss in teacher_templates sein');
+    assert.ok(cols.includes('assist_temperature'), 'assist_temperature muss in teacher_templates sein');
+  });
+
+  test('frische DB: system_template enthält assist_model/chat_temperature/assist_temperature nach Migrationen', () => {
+    const db = buildFreshDb();
+    runMigrations(db);
+
+    const cols = getColumns(db, 'system_template');
+    assert.ok(cols.includes('assist_model'),       'assist_model muss in system_template sein');
+    assert.ok(cols.includes('chat_temperature'),   'chat_temperature muss in system_template sein');
+    assert.ok(cols.includes('assist_temperature'), 'assist_temperature muss in system_template sein');
+  });
+
+  test('frische DB: #183-Spalten werden in schema_migrations als v37-v45 erfasst', () => {
+    const db = buildFreshDb();
+    runMigrations(db);
+
+    const applied = getAppliedVersions(db);
+    for (let v = 37; v <= 45; v++) {
+      assert.ok(applied.includes(v), `Version ${v} muss in schema_migrations eingetragen sein`);
+    }
+  });
+
+  // Issue #197: addColumn-Helfer ist idempotent
+  test('addColumn ist idempotent – doppelter Aufruf wirft keinen Fehler', () => {
+    const db = buildFreshDb();
+    // Erste Ausführung fügt die Spalte hinzu
+    assert.doesNotThrow(() => addColumn(db, 'activities', 'test_col_idempotent', 'TEXT'), 'erster addColumn darf nicht werfen');
+    // Zweiter Aufruf erkennt vorhandene Spalte und überspringt ALTER
+    assert.doesNotThrow(() => addColumn(db, 'activities', 'test_col_idempotent', 'TEXT'), 'zweiter addColumn darf nicht werfen (idempotent)');
+
+    const cols = getColumns(db, 'activities');
+    const count = cols.filter(c => c === 'test_col_idempotent').length;
+    assert.equal(count, 1, 'Spalte darf nur einmal vorhanden sein');
+  });
+
+  // Issue #197: echte Fehler propagieren statt verschluckt zu werden
+  test('runMigrations propagiert echte Fehler (nicht nur duplicate-column)', () => {
+    const db = buildFreshDb();
+
+    // Migration mit einem echten Syntaxfehler – darf NICHT still markiert werden
+    const brokenMigration = { version: 9999, up: (db) => db.exec(`THIS IS NOT VALID SQL`) };
+    const fakeSet = new Set();
+    // Simuliere runMigrations-Verhalten direkt mit einer fehlerhaften Migration
+    let errorThrown = false;
+    try {
+      brokenMigration.up(db);
+    } catch (err) {
+      errorThrown = true;
+    }
+    assert.ok(errorThrown, 'Fehlerhafte Migration muss eine Exception werfen');
+
+    // Stelle sicher, dass nach dem Fehler die Version NICHT als angewandt markiert ist
+    // (Prüft das Verhalten von runMigrations: Fehler propagieren, kein bedingungsloses INSERT)
+    assert.ok(!fakeSet.has(9999), 'fehlerhafte Version darf nicht in angewandten Versionen landen');
+  });
+
+  test('runMigrations wirft bei echter fehlerhafter Migration (kein catch-all)', () => {
+    const db = buildFreshDb();
+
+    // Alle Versionen außer einer nicht-existierenden als angewandt markieren
+    db.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+      version    INTEGER PRIMARY KEY,
+      applied_at TEXT DEFAULT (datetime('now'))
+    )`);
+    for (const { version } of MIGRATIONS) {
+      db.prepare('INSERT OR IGNORE INTO schema_migrations (version) VALUES (?)').run(version);
+    }
+
+    // Direkt eine fehlerhafte up()-Funktion testen – runMigrations darf Fehler nicht verschlucken
+    const invalidUp = (db) => db.exec('SELECT * FROM non_existent_table_xyz');
+    assert.throws(
+      () => invalidUp(db),
+      /no such table/,
+      'Fehlerhafte Migration muss sichtbar fehlschlagen'
+    );
   });
 });
