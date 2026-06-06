@@ -1,7 +1,9 @@
 # ADR 0004 – Modell pro Aktivität statt pro Lehrer
 
-**Status:** Akzeptiert  
+**Status:** Akzeptiert (Auflösung seit `dev` in `resolveWidgetConfig` aufgegangen — siehe ADR 0008)  
 **Datum:** 2026-05-27
+
+> **Nachtrag 2026-06-06:** Die hier beschriebene Auflösungsreihenfolge wird nicht mehr in einem separaten `model-resolver.js` umgesetzt, sondern als Teil der vollständigen Widget-Config-Kaskade in `services/widget-config-resolver.js`. Die Reihenfolge ist dort um die Lehrer- und System-Vorlagen-Ebene erweitert: `activities.model` → Lehrer-Vorlage → Systemvorlage → globales System-Prompt-Modell → `MODEL_NAME`. `model-resolver.js` entfällt. Siehe ADR 0008.
 
 ## Kontext
 
