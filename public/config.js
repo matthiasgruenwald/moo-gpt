@@ -1,941 +1,803 @@
-(function () {
-  const params     = new URLSearchParams(window.location.search);
-  const activityId = params.get('activityId');
-  const token      = params.get('token');
+import {
+  getTempValue as _getTempValue,
+  setTempSlider as _setTempSlider,
+  renderTempSlider as _renderTempSlider,
+  updateTempField as _updateTempField,
+  loadTempState as _loadTempState,
+} from './temp-slider.js';
 
-  const elLoading = document.getElementById('cfg-loading');
-  const elError   = document.getElementById('cfg-error');
-  const elForm    = document.getElementById('cfg-form');
+// Bind document so callers don't need to pass it every time
+const getTempValue     = (prefix)           => _getTempValue(document, prefix);
+const setTempSlider    = (prefix, value)    => _setTempSlider(document, prefix, value);
+const renderTempSlider = (prefix, hintText) => _renderTempSlider(document, prefix, hintText);
+const updateTempField  = (prefix)           => _updateTempField(document, prefix);
+const loadTempState    = (prefix, value)    => _loadTempState(document, prefix, value);
 
-  let initial          = {};
-  let templates        = [];
-  let loadedTemplateId = null;
-  let taskContext      = { task: null, images: [] };
-  let openSnapshot     = null;
+// Fields compared against initial snapshot on save (excludes hints — saved via separate endpoint)
+const CONFIG_KEYS = ['title','botIcon','opener','uploadMode','audioInput','audioOutput',
+  'ttsVoice','audioStudentOptions','model','mathMode','chatTemperature','assistModel','assistTemperature'];
 
-  window.addEventListener('message', (e) => {
-    if (e.data?.type === 'moogpt:taskContext') {
-      taskContext = { task: e.data.task, images: e.data.images || [] };
-    }
-    if (e.data?.type === 'moogpt:suggestReply') {
-      suggestSend(e.data.text);
-    }
-    if (e.data?.type === 'moogpt:suggestAccept') {
-      document.getElementById('cfg-hints').value = e.data.prompt;
-      updateDirtyState();
-    }
-    if (e.data?.type === 'moogpt:requestClose') {
-      if (computeDirtyFromSnapshot()) {
-        document.getElementById('cfg-close-warn').style.display = '';
-      } else {
-        window.parent.postMessage({ type: 'moogpt:closeConfirmed' }, '*');
-      }
-    }
-  });
+const params     = new URLSearchParams(window.location.search);
+const activityId = params.get('activityId');
+const token      = params.get('token');
 
-  function showError(msg) {
-    elLoading.style.display = 'none';
-    elError.style.display   = '';
-    elError.textContent     = msg;
+const elLoading = document.getElementById('cfg-loading');
+const elError   = document.getElementById('cfg-error');
+const elForm    = document.getElementById('cfg-form');
+
+let initial          = {};
+let templates        = [];
+let loadedTemplateId = null;
+let taskContext      = { task: null, images: [] };
+let openSnapshot     = null;
+
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'moogpt:taskContext') {
+    taskContext = { task: e.data.task, images: e.data.images || [] };
   }
-
-  function showStatus(msg, cls) {
-    const status       = document.getElementById('cfg-status');
-    status.className   = 'cfg-status ' + cls;
-    status.textContent = msg;
-    if (cls === 'ok') setTimeout(() => { status.textContent = ''; status.className = 'cfg-status'; }, 3000);
+  if (e.data?.type === 'moogpt:suggestReply') {
+    suggestSend(e.data.text);
   }
-
-  // Effektive Spurbreite des Sliders: Wrapper (140px) minus halber Thumb (16px)
-  const SLIDER_TRACK_WIDTH_PX = 124;
-
-  function isReasoningModel(modelName) {
-    return /^(o1|o3|o4-|gpt-5)/.test(modelName || '');
+  if (e.data?.type === 'moogpt:suggestAccept') {
+    document.getElementById('cfg-hints').value = e.data.prompt;
+    updateDirtyState();
   }
-
-  /**
-   * Gibt den Temperaturwert zurück oder null wenn Standard/disabled.
-   * @param {string} prefix - 'assist-' oder '' (leer für Chat-Slider)
-   */
-  function getTempValue(prefix) {
-    const defaultCb = document.getElementById(`cfg-${prefix}temperature-default`);
-    if (!defaultCb || defaultCb.checked) return null;
-    const el = document.getElementById(`cfg-${prefix}temperature`);
-    if (!el || el.disabled) return null;
-    return Number(el.value);
-  }
-
-  /**
-   * Aktualisiert Bubble-Position und Sichtbarkeit eines Temperatur-Sliders.
-   * @param {string} prefix - 'assist-' oder ''
-   * @param {number|null} value - Schiebereglerwert (0–1) oder null = Standard (versteckt)
-   */
-  function setTempSlider(prefix, value) {
-    const display = document.getElementById(`cfg-${prefix}temperature-display`);
-    const wrapper = document.getElementById(`cfg-${prefix}temperature-wrapper`);
-    if (!display || !wrapper) return;
-
-    const isDefault = value === null;
-    display.style.visibility = isDefault ? 'hidden' : '';
-    if (!isDefault) {
-      display.textContent = Number(value).toFixed(1);
-      wrapper.style.setProperty('--val', value);
-    }
-  }
-
-  /**
-   * Rendert das Slider-Markup in den Platzhalter-Container.
-   * Einmaliger Aufruf pro Prefix beim Start – ersetzt das duplizierte HTML.
-   * @param {string} prefix - 'assist-' oder ''
-   * @param {string} hintText - Initialer Hint-Text
-   */
-  function renderTempSlider(prefix, hintText) {
-    const field = document.getElementById(`cfg-${prefix}temperature-field`);
-    if (!field) return;
-    field.innerHTML = `
-      <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px">
-        <label class="cfg-label" style="margin-bottom:0">Temperatur</label>
-        <span style="font-size:10px;color:#bbb" id="cfg-${prefix}temperature-hint">${hintText}</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px">
-        <span style="font-size:10px;color:#aaa;flex-shrink:0">Pr&auml;zise</span>
-        <div id="cfg-${prefix}temperature-wrapper" style="position:relative;width:140px;flex-shrink:0;--val:0.5">
-          <span id="cfg-${prefix}temperature-display" style="position:absolute;top:50%;font-size:11px;background:#003366;color:white;padding:1px 6px;border-radius:3px;transform:translate(-50%,-50%);pointer-events:none;left:calc(var(--val) * ${SLIDER_TRACK_WIDTH_PX}px + 8px);white-space:nowrap;visibility:hidden">0.5</span>
-          <input class="cfg-input" type="range" id="cfg-${prefix}temperature" min="0" max="1" step="0.1" value="0.5" style="width:100%;margin:0;display:block">
-        </div>
-        <span style="font-size:10px;color:#aaa;flex-shrink:0">Kreativ</span>
-        <label style="font-size:11px;color:#888;display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;flex-shrink:0">
-          <input type="checkbox" id="cfg-${prefix}temperature-default">Standard
-        </label>
-      </div>`;
-  }
-
-  /**
-   * Synchronisiert Slider-Status (disabled, hint, bubble) mit Modellwahl und Checkbox.
-   * Einheitliche Funktion für chat- (prefix='') und assist-Slider (prefix='assist-').
-   * @param {string} prefix - 'assist-' oder ''
-   */
-  function updateTempField(prefix) {
-    const modelSelId = prefix === 'assist-' ? 'cfg-assist-model' : 'cfg-model';
-    const modelSel   = document.getElementById(modelSelId);
-    const tempInput  = document.getElementById(`cfg-${prefix}temperature`);
-    const tempHint   = document.getElementById(`cfg-${prefix}temperature-hint`);
-    const defaultCb  = document.getElementById(`cfg-${prefix}temperature-default`);
-    const field      = document.getElementById(`cfg-${prefix}temperature-field`);
-    if (!modelSel || !tempInput || !defaultCb) return;
-
-    const selectedModel = modelSel.value
-      || (prefix === 'assist-' ? document.getElementById('cfg-model')?.value : '')
-      || '';
-    const reasoning  = isReasoningModel(selectedModel);
-    const useDefault = defaultCb.checked;
-
-    if (field) field.style.display = reasoning ? 'none' : '';
-
-    tempInput.disabled = reasoning || useDefault;
-    defaultCb.disabled = false;
-
-    if (tempHint) {
-      tempHint.textContent = prefix === 'assist-'
-        ? 'Antwort-Stil: 0 = präzise/gleichförmig, 1 = kreativ/variabel · leer = OpenAI-Standard'
-        : '0–1, Standard = OpenAI-Vorgabe';
-    }
-
-    setTempSlider(prefix, (reasoning || useDefault) ? null : Number(tempInput.value));
-  }
-
-
-  function getFields() {
-    return {
-      title:               document.getElementById('cfg-title').value,
-      botIcon:             document.getElementById('cfg-bot-icon').value,
-      opener:              document.getElementById('cfg-opener').value,
-      uploadMode:          document.getElementById('cfg-upload-mode').value,
-      audioInput:          document.getElementById('cfg-audio-input').value,
-      audioOutput:         document.getElementById('cfg-audio-output').value,
-      ttsVoice:            document.getElementById('cfg-tts-voice').value,
-      audioStudentOptions: document.getElementById('cfg-audio-student-options').value,
-      model:               document.getElementById('cfg-model').value,
-      hintsTemplate:       document.getElementById('cfg-hints').value,
-      mathMode:            document.getElementById('cfg-math-mode').value,
-      chatTemperature:     getTempValue(''),
-      assistModel:         document.getElementById('cfg-assist-model')?.value ?? '',
-      assistTemperature:   getTempValue('assist-'),
-    };
-  }
-
-  function getLoadedTemplate() {
-    return loadedTemplateId === null ? null : (templates.find(t => t.id === loadedTemplateId) ?? null);
-  }
-
-  function tplOptionLabel(tpl) {
-    return (tpl.is_default ? '★ ' : '') + tpl.name;
-  }
-
-  function updateTemplateUI() {
-    const sel = document.getElementById('cfg-template-select');
-    sel.innerHTML = '<option value="">— Vorlage laden —</option>';
-    for (const tpl of templates) {
-      const opt        = document.createElement('option');
-      opt.value        = tpl.id;
-      opt.textContent  = tplOptionLabel(tpl);
-      if (tpl.id === loadedTemplateId) opt.selected = true;
-      sel.appendChild(opt);
-    }
-    sel.style.fontStyle = '';
-    const hasLoaded = loadedTemplateId !== null;
-    document.getElementById('cfg-tpl-default-btn').style.display = hasLoaded ? '' : 'none';
-    document.getElementById('cfg-tpl-delete-btn').style.display  = hasLoaded ? '' : 'none';
-  }
-
-  function computeDirty() {
-    const tpl = getLoadedTemplate();
-    if (!tpl) return false;
-    const f = getFields();
-    return (
-      f.title               !== (tpl.title                ?? '') ||
-      f.botIcon             !== (tpl.bot_icon             ?? 'grwdev') ||
-      f.opener              !== (tpl.opener               ?? '') ||
-      f.uploadMode          !== (tpl.upload_mode          ?? 'off') ||
-      f.audioInput          !== (tpl.audio_input          ?? 'off') ||
-      f.audioOutput         !== (tpl.audio_output         ?? 'off') ||
-      f.ttsVoice            !== (tpl.tts_voice            ?? 'nova') ||
-      f.audioStudentOptions !== (tpl.audio_student_options ?? 'off') ||
-      f.model               !== (tpl.model               ?? '') ||
-      f.hintsTemplate       !== (tpl.hints_template       ?? '') ||
-      f.mathMode            !== (tpl.math_mode            ?? 'off') ||
-      f.chatTemperature     !== (tpl.chat_temperature     ?? null) ||
-      f.assistModel         !== (tpl.assist_model         ?? '') ||
-      f.assistTemperature   !== (tpl.assist_temperature   ?? null)
-    );
-  }
-
-  function captureOpenSnapshot() {
-    openSnapshot = getFields();
-  }
-
-  function computeDirtyFromSnapshot() {
-    if (!openSnapshot) return false;
-    const f = getFields();
-    return (
-      f.title               !== openSnapshot.title               ||
-      f.botIcon             !== openSnapshot.botIcon             ||
-      f.opener              !== openSnapshot.opener              ||
-      f.uploadMode          !== openSnapshot.uploadMode          ||
-      f.audioInput          !== openSnapshot.audioInput          ||
-      f.audioOutput         !== openSnapshot.audioOutput         ||
-      f.ttsVoice            !== openSnapshot.ttsVoice            ||
-      f.audioStudentOptions !== openSnapshot.audioStudentOptions ||
-      f.model               !== openSnapshot.model               ||
-      f.hintsTemplate       !== openSnapshot.hintsTemplate       ||
-      f.mathMode            !== openSnapshot.mathMode            ||
-      f.chatTemperature     !== openSnapshot.chatTemperature     ||
-      f.assistModel         !== openSnapshot.assistModel         ||
-      f.assistTemperature   !== openSnapshot.assistTemperature
-    );
-  }
-
-  function updateDirtyState() {
-    const tpl = getLoadedTemplate();
-    if (!tpl) return;
-    const sel         = document.getElementById('cfg-template-select');
-    const selectedOpt = sel.options[sel.selectedIndex];
-    if (!selectedOpt || !selectedOpt.value) return;
-    if (computeDirty()) {
-      selectedOpt.textContent = '* ' + tpl.name;
-      sel.style.fontStyle     = 'italic';
+  if (e.data?.type === 'moogpt:requestClose') {
+    if (computeDirtyFromSnapshot()) {
+      document.getElementById('cfg-close-warn').style.display = '';
     } else {
-      selectedOpt.textContent = tplOptionLabel(tpl);
-      sel.style.fontStyle     = '';
+      window.parent.postMessage({ type: 'moogpt:closeConfirmed' }, '*');
     }
   }
+});
 
-  async function loadTemplates() {
-    try {
-      const res = await fetch(`/api/teacher/templates?token=${encodeURIComponent(token)}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      templates = data.templates || [];
-      updateTemplateUI();
-    } catch (_) {}
+function showError(msg) {
+  elLoading.style.display = 'none';
+  elError.style.display   = '';
+  elError.textContent     = msg;
+}
+
+function showStatus(msg, cls) {
+  const status       = document.getElementById('cfg-status');
+  status.className   = 'cfg-status ' + cls;
+  status.textContent = msg;
+  if (cls === 'ok') setTimeout(() => { status.textContent = ''; status.className = 'cfg-status'; }, 3000);
+}
+
+function getFields() {
+  return {
+    title:               document.getElementById('cfg-title').value,
+    botIcon:             document.getElementById('cfg-bot-icon').value,
+    opener:              document.getElementById('cfg-opener').value,
+    uploadMode:          document.getElementById('cfg-upload-mode').value,
+    audioInput:          document.getElementById('cfg-audio-input').value,
+    audioOutput:         document.getElementById('cfg-audio-output').value,
+    ttsVoice:            document.getElementById('cfg-tts-voice').value,
+    audioStudentOptions: document.getElementById('cfg-audio-student-options').value,
+    model:               document.getElementById('cfg-model').value,
+    hintsTemplate:       document.getElementById('cfg-hints').value,
+    mathMode:            document.getElementById('cfg-math-mode').value,
+    chatTemperature:     getTempValue(''),
+    assistModel:         document.getElementById('cfg-assist-model')?.value ?? '',
+    assistTemperature:   getTempValue('assist-'),
+  };
+}
+
+function getLoadedTemplate() {
+  return loadedTemplateId === null ? null : (templates.find(t => t.id === loadedTemplateId) ?? null);
+}
+
+function tplOptionLabel(tpl) {
+  return (tpl.is_default ? '★ ' : '') + tpl.name;
+}
+
+function updateTemplateUI() {
+  const sel = document.getElementById('cfg-template-select');
+  sel.innerHTML = '<option value="">— Vorlage laden —</option>';
+  for (const tpl of templates) {
+    const opt        = document.createElement('option');
+    opt.value        = tpl.id;
+    opt.textContent  = tplOptionLabel(tpl);
+    if (tpl.id === loadedTemplateId) opt.selected = true;
+    sel.appendChild(opt);
   }
+  sel.style.fontStyle = '';
+  const hasLoaded = loadedTemplateId !== null;
+  document.getElementById('cfg-tpl-default-btn').style.display = hasLoaded ? '' : 'none';
+  document.getElementById('cfg-tpl-delete-btn').style.display  = hasLoaded ? '' : 'none';
+}
 
-  // Slider-Markup muss vor allen DOM-Zugriffen injiziert werden
-  renderTempSlider('assist-', 'Antwort-Stil des Assistenten: 0 = präzise/gleichförmig, 1 = kreativ/variabel · leer = OpenAI-Standard');
-  renderTempSlider('',        'Antwort-Stil des Bots: 0 = präzise/gleichförmig, 1 = kreativ/variabel · leer = OpenAI-Standard');
+function computeDirty() {
+  const tpl = getLoadedTemplate();
+  if (!tpl) return false;
+  const f = getFields();
+  return (
+    f.title               !== (tpl.title                ?? '') ||
+    f.botIcon             !== (tpl.bot_icon             ?? 'grwdev') ||
+    f.opener              !== (tpl.opener               ?? '') ||
+    f.uploadMode          !== (tpl.upload_mode          ?? 'off') ||
+    f.audioInput          !== (tpl.audio_input          ?? 'off') ||
+    f.audioOutput         !== (tpl.audio_output         ?? 'off') ||
+    f.ttsVoice            !== (tpl.tts_voice            ?? 'nova') ||
+    f.audioStudentOptions !== (tpl.audio_student_options ?? 'off') ||
+    f.model               !== (tpl.model               ?? '') ||
+    f.hintsTemplate       !== (tpl.hints_template       ?? '') ||
+    f.mathMode            !== (tpl.math_mode            ?? 'off') ||
+    f.chatTemperature     !== (tpl.chat_temperature     ?? null) ||
+    f.assistModel         !== (tpl.assist_model         ?? '') ||
+    f.assistTemperature   !== (tpl.assist_temperature   ?? null)
+  );
+}
 
-  document.getElementById('cfg-template-select').addEventListener('change', function () {
-    const id = this.value ? parseInt(this.value, 10) : null;
-    loadedTemplateId = id;
-    if (!id) { updateTemplateUI(); return; }
-    const tpl = getLoadedTemplate();
-    if (!tpl) return;
-    document.getElementById('cfg-title').value                    = tpl.title                ?? '';
-    document.getElementById('cfg-bot-icon').value                 = tpl.bot_icon             ?? 'grwdev';
-    document.getElementById('cfg-opener').value                   = tpl.opener               ?? '';
-    document.getElementById('cfg-upload-mode').value              = tpl.upload_mode          ?? 'off';
-    document.getElementById('cfg-audio-input').value              = tpl.audio_input          ?? 'off';
-    document.getElementById('cfg-audio-output').value             = tpl.audio_output         ?? 'off';
-    document.getElementById('cfg-tts-voice').value                = tpl.tts_voice            ?? 'nova';
-    document.getElementById('cfg-audio-student-options').value    = tpl.audio_student_options ?? 'off';
-    document.getElementById('cfg-model').value                    = tpl.model                ?? '';
-    document.getElementById('cfg-hints').value                    = tpl.hints_template       ?? '';
-    document.getElementById('cfg-math-mode').value                = tpl.math_mode            ?? 'off';
-    const tplTempEl  = document.getElementById('cfg-temperature');
-    const tplDefaultCb = document.getElementById('cfg-temperature-default');
-    if (tpl.chat_temperature != null) {
-      tplTempEl.value      = tpl.chat_temperature;
-      tplDefaultCb.checked = false;
-    } else {
-      tplTempEl.value      = 1;
-      tplDefaultCb.checked = true;
-    }
-    this.style.fontStyle = '';
-    updateAudioOutputDependents();   // ruft intern updateAudioSummary()
-    updateTempField('');
-    updateOpenerSummary();
-    updateAppearanceSummary();
-    updateAdvancedSummary();
-    updateSubjectSummary();
-    updateTemplateUI();
-  });
+function captureOpenSnapshot() {
+  openSnapshot = getFields();
+}
 
-  ['cfg-title', 'cfg-bot-icon', 'cfg-opener', 'cfg-upload-mode', 'cfg-audio-input',
-   'cfg-audio-output', 'cfg-tts-voice', 'cfg-audio-student-options', 'cfg-model', 'cfg-hints',
-   'cfg-math-mode', 'cfg-temperature', 'cfg-temperature-default'].forEach(id => {
-    const el = document.getElementById(id);
-    el.addEventListener('input',  updateDirtyState);
-    el.addEventListener('change', updateDirtyState);
-  });
+function computeDirtyFromSnapshot() {
+  if (!openSnapshot) return false;
+  const f = getFields();
+  return (
+    f.title               !== openSnapshot.title               ||
+    f.botIcon             !== openSnapshot.botIcon             ||
+    f.opener              !== openSnapshot.opener              ||
+    f.uploadMode          !== openSnapshot.uploadMode          ||
+    f.audioInput          !== openSnapshot.audioInput          ||
+    f.audioOutput         !== openSnapshot.audioOutput         ||
+    f.ttsVoice            !== openSnapshot.ttsVoice            ||
+    f.audioStudentOptions !== openSnapshot.audioStudentOptions ||
+    f.model               !== openSnapshot.model               ||
+    f.hintsTemplate       !== openSnapshot.hintsTemplate       ||
+    f.mathMode            !== openSnapshot.mathMode            ||
+    f.chatTemperature     !== openSnapshot.chatTemperature     ||
+    f.assistModel         !== openSnapshot.assistModel         ||
+    f.assistTemperature   !== openSnapshot.assistTemperature
+  );
+}
 
-  document.getElementById('cfg-audio-output').addEventListener('change', updateAudioOutputDependents);
-
-  document.getElementById('cfg-tpl-default-btn').addEventListener('click', async () => {
-    if (!loadedTemplateId) return;
-    const res = await fetch(
-      `/api/teacher/templates/${loadedTemplateId}/set-default?token=${encodeURIComponent(token)}`,
-      { method: 'PUT' }
-    );
-    if (res.ok) {
-      templates = templates.map(t => ({ ...t, is_default: t.id === loadedTemplateId ? 1 : 0 }));
-      updateTemplateUI();
-      updateDirtyState();
-      showStatus('✓ Als Standard gesetzt', 'ok');
-    } else {
-      showStatus('Fehler beim Setzen des Standards', 'err');
-    }
-  });
-
-  document.getElementById('cfg-tpl-delete-btn').addEventListener('click', async () => {
-    const tpl = getLoadedTemplate();
-    if (!tpl) return;
-    if (!confirm(`Vorlage "${tpl.name}" wirklich löschen? Das kann nicht rückgängig gemacht werden.`)) return;
-    const res = await fetch(
-      `/api/teacher/templates/${loadedTemplateId}?token=${encodeURIComponent(token)}`,
-      { method: 'DELETE' }
-    );
-    if (res.ok) {
-      templates        = templates.filter(t => t.id !== loadedTemplateId);
-      loadedTemplateId = null;
-      updateTemplateUI();
-    } else {
-      showStatus('Fehler beim Löschen', 'err');
-    }
-  });
-
-  function showOverwriteDialog(name) {
-    return new Promise(resolve => {
-      const overlay = document.createElement('div');
-      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;display:flex;align-items:center;justify-content:center;';
-      overlay.innerHTML = `
-        <div style="background:#fff;border-radius:8px;padding:24px;max-width:320px;width:90%;box-shadow:0 4px 20px rgba(0,0,0,0.2);">
-          <p style="margin-bottom:16px;font-size:14px;line-height:1.4;">Vorlage <strong>${name}</strong> überschreiben?</p>
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            <button id="dlg-overwrite" style="background:#003366;color:#fff;border:none;border-radius:6px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;">Überschreiben</button>
-            <button id="dlg-new"       style="background:#555;color:#fff;border:none;border-radius:6px;padding:9px 14px;font-size:13px;cursor:pointer;">Als neue Vorlage speichern</button>
-            <button id="dlg-cancel"    style="background:none;border:1px solid #ccc;border-radius:6px;padding:9px 14px;font-size:13px;cursor:pointer;">Abbrechen</button>
-          </div>
-        </div>`;
-      document.body.appendChild(overlay);
-      overlay.querySelector('#dlg-overwrite').onclick = () => { document.body.removeChild(overlay); resolve('overwrite'); };
-      overlay.querySelector('#dlg-new').onclick       = () => { document.body.removeChild(overlay); resolve('new'); };
-      overlay.querySelector('#dlg-cancel').onclick    = () => { document.body.removeChild(overlay); resolve(null); };
-    });
+function updateDirtyState() {
+  const tpl = getLoadedTemplate();
+  if (!tpl) return;
+  const sel         = document.getElementById('cfg-template-select');
+  const selectedOpt = sel.options[sel.selectedIndex];
+  if (!selectedOpt || !selectedOpt.value) return;
+  if (computeDirty()) {
+    selectedOpt.textContent = '* ' + tpl.name;
+    sel.style.fontStyle     = 'italic';
+  } else {
+    selectedOpt.textContent = tplOptionLabel(tpl);
+    sel.style.fontStyle     = '';
   }
+}
 
-  async function saveNewTemplate(f) {
-    const name = prompt('Name der neuen Vorlage:');
-    if (!name || !name.trim()) return;
-    const res = await fetch(
-      `/api/teacher/templates?token=${encodeURIComponent(token)}`,
-      {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ name: name.trim(), ...f }),
-      }
-    );
-    if (!res.ok) { showStatus('Fehler beim Speichern', 'err'); return; }
+async function loadTemplates() {
+  try {
+    const res = await fetch(`/api/teacher/templates?token=${encodeURIComponent(token)}`);
+    if (!res.ok) return;
     const data = await res.json();
-    templates.push({
-      id: data.id, moodle_user_id: null, name: name.trim(),
-      title: f.title || null, bot_icon: f.botIcon, opener: f.opener || null,
-      upload_mode: f.uploadMode, hints_template: f.hintsTemplate || null,
-      audio_input: f.audioInput || 'off', audio_output: f.audioOutput || 'off',
-      tts_voice: f.ttsVoice || 'nova', audio_student_options: f.audioStudentOptions || 'off',
-      model: f.model || null, math_mode: f.mathMode || 'off',
-      chat_temperature: f.chatTemperature ?? null,
-      is_default: 0, created_at: new Date().toISOString(),
-    });
-    loadedTemplateId = data.id;
+    templates = data.templates || [];
     updateTemplateUI();
-    showStatus('✓ Vorlage gespeichert', 'ok');
-  }
+  } catch (_) {}
+}
 
-  async function overwriteTemplate(id, name, f) {
-    const res = await fetch(
-      `/api/teacher/templates/${id}?token=${encodeURIComponent(token)}`,
-      {
-        method:  'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ name, ...f }),
-      }
-    );
-    if (!res.ok) { showStatus('Fehler beim Speichern', 'err'); return; }
-    templates = templates.map(t => t.id === id
-      ? { ...t, title: f.title, bot_icon: f.botIcon, opener: f.opener, upload_mode: f.uploadMode,
-          hints_template: f.hintsTemplate, audio_input: f.audioInput, audio_output: f.audioOutput,
-          tts_voice: f.ttsVoice, audio_student_options: f.audioStudentOptions, model: f.model || null,
-          math_mode: f.mathMode || 'off', chat_temperature: f.chatTemperature ?? null }
-      : t);
+// Slider-Markup muss vor allen DOM-Zugriffen injiziert werden
+renderTempSlider('assist-', 'Antwort-Stil des Assistenten: 0 = präzise/gleichförmig, 1 = kreativ/variabel · leer = OpenAI-Standard');
+renderTempSlider('',        'Antwort-Stil des Bots: 0 = präzise/gleichförmig, 1 = kreativ/variabel · leer = OpenAI-Standard');
+
+document.getElementById('cfg-template-select').addEventListener('change', function () {
+  const id = this.value ? parseInt(this.value, 10) : null;
+  loadedTemplateId = id;
+  if (!id) { updateTemplateUI(); return; }
+  const tpl = getLoadedTemplate();
+  if (!tpl) return;
+  document.getElementById('cfg-title').value                    = tpl.title                ?? '';
+  document.getElementById('cfg-bot-icon').value                 = tpl.bot_icon             ?? 'grwdev';
+  document.getElementById('cfg-opener').value                   = tpl.opener               ?? '';
+  document.getElementById('cfg-upload-mode').value              = tpl.upload_mode          ?? 'off';
+  document.getElementById('cfg-audio-input').value              = tpl.audio_input          ?? 'off';
+  document.getElementById('cfg-audio-output').value             = tpl.audio_output         ?? 'off';
+  document.getElementById('cfg-tts-voice').value                = tpl.tts_voice            ?? 'nova';
+  document.getElementById('cfg-audio-student-options').value    = tpl.audio_student_options ?? 'off';
+  document.getElementById('cfg-model').value                    = tpl.model                ?? '';
+  document.getElementById('cfg-hints').value                    = tpl.hints_template       ?? '';
+  document.getElementById('cfg-math-mode').value                = tpl.math_mode            ?? 'off';
+  loadTempState('', tpl.chat_temperature ?? null);
+  this.style.fontStyle = '';
+  updateAudioOutputDependents();   // ruft intern updateAudioSummary()
+  updateTempField('');
+  updateOpenerSummary();
+  updateAppearanceSummary();
+  updateAdvancedSummary();
+  updateSubjectSummary();
+  updateTemplateUI();
+});
+
+['cfg-title', 'cfg-bot-icon', 'cfg-opener', 'cfg-upload-mode', 'cfg-audio-input',
+ 'cfg-audio-output', 'cfg-tts-voice', 'cfg-audio-student-options', 'cfg-model', 'cfg-hints',
+ 'cfg-math-mode', 'cfg-temperature', 'cfg-temperature-default'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('input',  updateDirtyState);
+  el.addEventListener('change', updateDirtyState);
+});
+
+document.getElementById('cfg-audio-output').addEventListener('change', updateAudioOutputDependents);
+
+document.getElementById('cfg-tpl-default-btn').addEventListener('click', async () => {
+  if (!loadedTemplateId) return;
+  const res = await fetch(
+    `/api/teacher/templates/${loadedTemplateId}/set-default?token=${encodeURIComponent(token)}`,
+    { method: 'PUT' }
+  );
+  if (res.ok) {
+    templates = templates.map(t => ({ ...t, is_default: t.id === loadedTemplateId ? 1 : 0 }));
     updateTemplateUI();
     updateDirtyState();
-    showStatus('✓ Vorlage gespeichert', 'ok');
+    showStatus('✓ Als Standard gesetzt', 'ok');
+  } else {
+    showStatus('Fehler beim Setzen des Standards', 'err');
   }
+});
 
-  document.getElementById('cfg-tpl-save-btn').addEventListener('click', async () => {
-    const f   = getFields();
-    const tpl = getLoadedTemplate();
-    if (tpl && computeDirty()) {
-      const choice = await showOverwriteDialog(tpl.name);
-      if (!choice) return;
-      if (choice === 'overwrite') {
-        await overwriteTemplate(tpl.id, tpl.name, f);
-      } else {
-        await saveNewTemplate(f);
-      }
+document.getElementById('cfg-tpl-delete-btn').addEventListener('click', async () => {
+  const tpl = getLoadedTemplate();
+  if (!tpl) return;
+  if (!confirm(`Vorlage "${tpl.name}" wirklich löschen? Das kann nicht rückgängig gemacht werden.`)) return;
+  const res = await fetch(
+    `/api/teacher/templates/${loadedTemplateId}?token=${encodeURIComponent(token)}`,
+    { method: 'DELETE' }
+  );
+  if (res.ok) {
+    templates        = templates.filter(t => t.id !== loadedTemplateId);
+    loadedTemplateId = null;
+    updateTemplateUI();
+  } else {
+    showStatus('Fehler beim Löschen', 'err');
+  }
+});
+
+function showOverwriteDialog(name) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:8px;padding:24px;max-width:320px;width:90%;box-shadow:0 4px 20px rgba(0,0,0,0.2);">
+        <p style="margin-bottom:16px;font-size:14px;line-height:1.4;">Vorlage <strong>${name}</strong> überschreiben?</p>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button id="dlg-overwrite" style="background:#003366;color:#fff;border:none;border-radius:6px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;">Überschreiben</button>
+          <button id="dlg-new"       style="background:#555;color:#fff;border:none;border-radius:6px;padding:9px 14px;font-size:13px;cursor:pointer;">Als neue Vorlage speichern</button>
+          <button id="dlg-cancel"    style="background:none;border:1px solid #ccc;border-radius:6px;padding:9px 14px;font-size:13px;cursor:pointer;">Abbrechen</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#dlg-overwrite').onclick = () => { document.body.removeChild(overlay); resolve('overwrite'); };
+    overlay.querySelector('#dlg-new').onclick       = () => { document.body.removeChild(overlay); resolve('new'); };
+    overlay.querySelector('#dlg-cancel').onclick    = () => { document.body.removeChild(overlay); resolve(null); };
+  });
+}
+
+async function saveNewTemplate(f) {
+  const name = prompt('Name der neuen Vorlage:');
+  if (!name || !name.trim()) return;
+  const res = await fetch(
+    `/api/teacher/templates?token=${encodeURIComponent(token)}`,
+    {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ name: name.trim(), ...f }),
+    }
+  );
+  if (!res.ok) { showStatus('Fehler beim Speichern', 'err'); return; }
+  const data = await res.json();
+  templates.push({
+    id: data.id, moodle_user_id: null, name: name.trim(),
+    title: f.title || null, bot_icon: f.botIcon, opener: f.opener || null,
+    upload_mode: f.uploadMode, hints_template: f.hintsTemplate || null,
+    audio_input: f.audioInput || 'off', audio_output: f.audioOutput || 'off',
+    tts_voice: f.ttsVoice || 'nova', audio_student_options: f.audioStudentOptions || 'off',
+    model: f.model || null, math_mode: f.mathMode || 'off',
+    chat_temperature: f.chatTemperature ?? null,
+    is_default: 0, created_at: new Date().toISOString(),
+  });
+  loadedTemplateId = data.id;
+  updateTemplateUI();
+  showStatus('✓ Vorlage gespeichert', 'ok');
+}
+
+async function overwriteTemplate(id, name, f) {
+  const res = await fetch(
+    `/api/teacher/templates/${id}?token=${encodeURIComponent(token)}`,
+    {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ name, ...f }),
+    }
+  );
+  if (!res.ok) { showStatus('Fehler beim Speichern', 'err'); return; }
+  templates = templates.map(t => t.id === id
+    ? { ...t, title: f.title, bot_icon: f.botIcon, opener: f.opener, upload_mode: f.uploadMode,
+        hints_template: f.hintsTemplate, audio_input: f.audioInput, audio_output: f.audioOutput,
+        tts_voice: f.ttsVoice, audio_student_options: f.audioStudentOptions, model: f.model || null,
+        math_mode: f.mathMode || 'off', chat_temperature: f.chatTemperature ?? null }
+    : t);
+  updateTemplateUI();
+  updateDirtyState();
+  showStatus('✓ Vorlage gespeichert', 'ok');
+}
+
+document.getElementById('cfg-tpl-save-btn').addEventListener('click', async () => {
+  const f   = getFields();
+  const tpl = getLoadedTemplate();
+  if (tpl && computeDirty()) {
+    const choice = await showOverwriteDialog(tpl.name);
+    if (!choice) return;
+    if (choice === 'overwrite') {
+      await overwriteTemplate(tpl.id, tpl.name, f);
     } else {
       await saveNewTemplate(f);
     }
-  });
+  } else {
+    await saveNewTemplate(f);
+  }
+});
 
-  async function runPromptCheck() {
-    const btn          = document.getElementById('cfg-check-btn');
-    const currentHints = document.getElementById('cfg-hints').value;
+async function runPromptCheck() {
+  const btn          = document.getElementById('cfg-check-btn');
+  const currentHints = document.getElementById('cfg-hints').value;
 
-    btn.disabled    = true;
-    btn.textContent = '⏳ Prüft…';
+  btn.disabled    = true;
+  btn.textContent = '⏳ Prüft…';
 
-    try {
+  try {
+    const res = await fetch(
+      `/api/activity/${encodeURIComponent(activityId)}/prompt-check?token=${encodeURIComponent(token)}`,
+      {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          task:       taskContext.task,
+          currentHints,
+          taskImages: taskContext.images,
+        }),
+      }
+    );
+
+    if (!res.ok) throw new Error(`Server-Fehler ${res.status}`);
+    const data = await res.json();
+
+    document.getElementById('cfg-compare-suggestion').value = data.suggestion || '';
+    document.getElementById('cfg-compare-original').value   = currentHints;
+    document.getElementById('cfg-compare-panel').style.display = '';
+
+    window.parent.postMessage({ type: 'moogpt:expandOverlay' }, '*');
+  } catch (err) {
+    showStatus(`Fehler: ${err.message}`, 'err');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = '🔍 Prüfen & verbessern';
+  }
+}
+
+async function useAndSave(promptText) {
+  // Compare-Panel vor dem Speichern schließen, damit Overlay-Breite und
+  // Suggest-Panel-Position zurückgesetzt werden bevor closeConfig greift.
+  document.getElementById('cfg-compare-panel').style.display = 'none';
+  window.parent.postMessage({ type: 'moogpt:collapseOverlay' }, '*');
+  document.getElementById('cfg-hints').value = promptText;
+  await saveConfig();
+}
+
+async function loadConfig() {
+  if (!activityId || !token) return showError('Fehlende Parameter (activityId oder token).');
+  try {
+    const res = await fetch(
+      `/api/activity-config/${encodeURIComponent(activityId)}?token=${encodeURIComponent(token)}`
+    );
+    if (res.status === 403) return showError('Nicht autorisiert.');
+    if (!res.ok)            return showError('Fehler beim Laden der Einstellungen.');
+    const data = await res.json();
+
+    document.getElementById('cfg-activity-name').textContent =
+      data.activityName || `Aktivität ${activityId}`;
+    document.getElementById('cfg-title').value        = data.title       || '';
+    const botIconSel = document.getElementById('cfg-bot-icon');
+    botIconSel.innerHTML = '';
+    for (const b of (data.availableBotIcons || [])) {
+      const opt = document.createElement('option');
+      opt.value = b; opt.textContent = b;
+      botIconSel.appendChild(opt);
+    }
+    botIconSel.value = data.botIcon || data.availableBotIcons?.[0] || '';
+    document.getElementById('cfg-opener').value       = data.opener      || '';
+    document.getElementById('cfg-upload-mode').value  = data.uploadMode  || 'off';
+    document.getElementById('cfg-audio-input').value            = data.audioInput         || 'off';
+    document.getElementById('cfg-audio-output').value           = data.audioOutput        || 'off';
+    document.getElementById('cfg-tts-voice').value              = data.ttsVoice           || 'nova';
+    document.getElementById('cfg-audio-student-options').value  = data.audioStudentOptions || 'off';
+    document.getElementById('cfg-hints').value                  = data.erfahrungsprompt   || '';
+    document.getElementById('cfg-math-mode').value              = data.mathMode           || 'off';
+
+    loadTempState('', data.chatTemperature ?? null);
+
+    const modelSel = document.getElementById('cfg-model');
+    const assistModelSel = document.getElementById('cfg-assist-model');
+    for (const m of (data.availableModels || [])) {
+      const opt       = document.createElement('option');
+      opt.value       = m;
+      opt.textContent = m;
+      modelSel.appendChild(opt);
+      const opt2       = document.createElement('option');
+      opt2.value       = m;
+      opt2.textContent = m;
+      assistModelSel.appendChild(opt2);
+    }
+    modelSel.value      = data.model      || '';
+    assistModelSel.value = data.assistModel || '';
+
+    // Show resolved effective model (teacher/system template cascade — ADR 0008, #195).
+    document.getElementById('cfg-effective-model').textContent        = data.effectiveModel        || '';
+    document.getElementById('cfg-effective-assist-model').textContent = data.effectiveAssistModel || '';
+
+    loadTempState('assist-', data.assistTemperature ?? null);
+
+    initial = {
+      title:               data.title               || '',
+      botIcon:             data.botIcon             || 'grwdev',
+      opener:              data.opener              || '',
+      uploadMode:          data.uploadMode          || 'off',
+      audioInput:          data.audioInput          || 'off',
+      audioOutput:         data.audioOutput         || 'off',
+      ttsVoice:            data.ttsVoice            || 'nova',
+      audioStudentOptions: data.audioStudentOptions || 'off',
+      hints:               data.erfahrungsprompt    || '',
+      model:               data.model               || '',
+      mathMode:            data.mathMode            || 'off',
+      chatTemperature:     data.chatTemperature     ?? null,
+      assistModel:         data.assistModel         ?? '',
+      assistTemperature:   data.assistTemperature   ?? null,
+    };
+
+    elLoading.style.display = 'none';
+    elForm.style.display    = '';
+
+    updateAudioOutputDependents();
+    updateOpenerSummary();
+    updateAppearanceSummary();
+    updateTempField('');
+    updateTempField('assist-');
+    updateAdvancedSummary();
+    updateAssistSummary();
+    updateSubjectSummary();
+
+    await loadTemplates();
+    captureOpenSnapshot();
+  } catch (e) {
+    showError('Netzwerkfehler: ' + e.message);
+  }
+}
+
+async function saveConfig() {
+  const btn    = document.getElementById('cfg-save-btn');
+  const status = document.getElementById('cfg-status');
+  const f      = getFields();
+  const hints  = document.getElementById('cfg-hints').value;
+
+  btn.disabled       = true;
+  status.className   = 'cfg-status';
+  status.textContent = 'Speichert…';
+
+  const errors = [];
+
+  try {
+    if (CONFIG_KEYS.some(k => f[k] !== initial[k])) {
       const res = await fetch(
-        `/api/activity/${encodeURIComponent(activityId)}/prompt-check?token=${encodeURIComponent(token)}`,
+        `/api/activity-config/${encodeURIComponent(activityId)}?token=${encodeURIComponent(token)}`,
         {
-          method:  'POST',
+          method:  'PUT',
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({
-            task:       taskContext.task,
-            currentHints,
-            taskImages: taskContext.images,
+            title: f.title, botIcon: f.botIcon, opener: f.opener,
+            uploadMode: f.uploadMode, audioInput: f.audioInput, audioOutput: f.audioOutput,
+            ttsVoice: f.ttsVoice, audioStudentOptions: f.audioStudentOptions,
+            model: f.model, mathMode: f.mathMode, chatTemperature: f.chatTemperature,
+            assistModel: f.assistModel || null, assistTemperature: f.assistTemperature,
           }),
         }
       );
-
-      if (!res.ok) throw new Error(`Server-Fehler ${res.status}`);
-      const data = await res.json();
-
-      document.getElementById('cfg-compare-suggestion').value = data.suggestion || '';
-      document.getElementById('cfg-compare-original').value   = currentHints;
-      document.getElementById('cfg-compare-panel').style.display = '';
-
-      window.parent.postMessage({ type: 'moogpt:expandOverlay' }, '*');
-    } catch (err) {
-      showStatus(`Fehler: ${err.message}`, 'err');
-    } finally {
-      btn.disabled    = false;
-      btn.textContent = '🔍 Prüfen & verbessern';
+      if (res.ok) {
+        // Immutable update — no in-place mutation of initial
+        // hintsTemplate excluded: getFields() key differs from initial.hints key
+        const { hintsTemplate: _h, ...fForInitial } = f;
+        initial = { ...initial, ...fForInitial };
+      } else {
+        errors.push('Einstellungen konnten nicht gespeichert werden.');
+      }
     }
-  }
 
-  async function useAndSave(promptText) {
-    // Compare-Panel vor dem Speichern schließen, damit Overlay-Breite und
-    // Suggest-Panel-Position zurückgesetzt werden bevor closeConfig greift.
-    document.getElementById('cfg-compare-panel').style.display = 'none';
-    window.parent.postMessage({ type: 'moogpt:collapseOverlay' }, '*');
-    document.getElementById('cfg-hints').value = promptText;
-    await saveConfig();
-  }
-
-  async function loadConfig() {
-    if (!activityId || !token) return showError('Fehlende Parameter (activityId oder token).');
-    try {
+    if (hints !== initial.hints) {
       const res = await fetch(
-        `/api/activity-config/${encodeURIComponent(activityId)}?token=${encodeURIComponent(token)}`
+        `/api/erfahrungsprompt/${encodeURIComponent(activityId)}?token=${encodeURIComponent(token)}`,
+        {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ content: hints }),
+        }
       );
-      if (res.status === 403) return showError('Nicht autorisiert.');
-      if (!res.ok)            return showError('Fehler beim Laden der Einstellungen.');
-      const data = await res.json();
-
-      document.getElementById('cfg-activity-name').textContent =
-        data.activityName || `Aktivität ${activityId}`;
-      document.getElementById('cfg-title').value        = data.title       || '';
-      const botIconSel = document.getElementById('cfg-bot-icon');
-      botIconSel.innerHTML = '';
-      for (const b of (data.availableBotIcons || [])) {
-        const opt = document.createElement('option');
-        opt.value = b; opt.textContent = b;
-        botIconSel.appendChild(opt);
-      }
-      botIconSel.value = data.botIcon || data.availableBotIcons?.[0] || '';
-      document.getElementById('cfg-opener').value       = data.opener      || '';
-      document.getElementById('cfg-upload-mode').value  = data.uploadMode  || 'off';
-      document.getElementById('cfg-audio-input').value            = data.audioInput         || 'off';
-      document.getElementById('cfg-audio-output').value           = data.audioOutput        || 'off';
-      document.getElementById('cfg-tts-voice').value              = data.ttsVoice           || 'nova';
-      document.getElementById('cfg-audio-student-options').value  = data.audioStudentOptions || 'off';
-      document.getElementById('cfg-hints').value                  = data.erfahrungsprompt   || '';
-      document.getElementById('cfg-math-mode').value              = data.mathMode           || 'off';
-
-      const tempEl        = document.getElementById('cfg-temperature');
-      const tempDefaultCb = document.getElementById('cfg-temperature-default');
-      if (data.chatTemperature != null) {
-        tempEl.value          = data.chatTemperature;
-        tempDefaultCb.checked = false;
+      if (res.ok) {
+        initial = { ...initial, hints };
       } else {
-        tempEl.value          = 1;
-        tempDefaultCb.checked = true;
+        errors.push('Hinweise konnten nicht gespeichert werden.');
       }
-
-      const modelSel = document.getElementById('cfg-model');
-      const assistModelSel = document.getElementById('cfg-assist-model');
-      for (const m of (data.availableModels || [])) {
-        const opt       = document.createElement('option');
-        opt.value       = m;
-        opt.textContent = m;
-        modelSel.appendChild(opt);
-        const opt2       = document.createElement('option');
-        opt2.value       = m;
-        opt2.textContent = m;
-        assistModelSel.appendChild(opt2);
-      }
-      modelSel.value      = data.model      || '';
-      assistModelSel.value = data.assistModel || '';
-
-      // Show resolved effective model (includes teacher/system template cascade — ADR 0008).
-      const effectiveModelEl = document.getElementById('cfg-effective-model');
-      if (effectiveModelEl) effectiveModelEl.textContent = data.effectiveModel || '';
-      const effectiveAssistModelEl = document.getElementById('cfg-effective-assist-model');
-      if (effectiveAssistModelEl) effectiveAssistModelEl.textContent = data.effectiveAssistModel || '';
-
-      const assistTempEl        = document.getElementById('cfg-assist-temperature');
-      const assistTempDefaultCb = document.getElementById('cfg-assist-temperature-default');
-      if (data.assistTemperature != null) {
-        assistTempEl.value          = data.assistTemperature;
-        assistTempDefaultCb.checked = false;
-      } else {
-        assistTempEl.value          = 1;
-        assistTempDefaultCb.checked = true;
-      }
-
-      initial = {
-        title:               data.title               || '',
-        botIcon:             data.botIcon             || 'grwdev',
-        opener:              data.opener              || '',
-        uploadMode:          data.uploadMode          || 'off',
-        audioInput:          data.audioInput          || 'off',
-        audioOutput:         data.audioOutput         || 'off',
-        ttsVoice:            data.ttsVoice            || 'nova',
-        audioStudentOptions: data.audioStudentOptions || 'off',
-        hints:               data.erfahrungsprompt    || '',
-        model:               data.model               || '',
-        mathMode:            data.mathMode            || 'off',
-        chatTemperature:     data.chatTemperature     ?? null,
-        assistModel:         data.assistModel         ?? '',
-        assistTemperature:   data.assistTemperature   ?? null,
-      };
-
-      elLoading.style.display = 'none';
-      elForm.style.display    = '';
-
-      updateAudioOutputDependents();
-      updateOpenerSummary();
-      updateAppearanceSummary();
-      updateTempField('');
-      updateTempField('assist-');
-      updateAdvancedSummary();
-      updateAssistSummary();
-      updateSubjectSummary();
-
-      await loadTemplates();
-      captureOpenSnapshot();
-    } catch (e) {
-      showError('Netzwerkfehler: ' + e.message);
     }
-  }
 
-  async function saveConfig() {
-    const btn    = document.getElementById('cfg-save-btn');
-    const status = document.getElementById('cfg-status');
-
-    const title               = document.getElementById('cfg-title').value;
-    const botIcon             = document.getElementById('cfg-bot-icon').value;
-    const opener              = document.getElementById('cfg-opener').value;
-    const uploadMode          = document.getElementById('cfg-upload-mode').value;
-    const audioInput          = document.getElementById('cfg-audio-input').value;
-    const audioOutput         = document.getElementById('cfg-audio-output').value;
-    const ttsVoice            = document.getElementById('cfg-tts-voice').value;
-    const audioStudentOptions = document.getElementById('cfg-audio-student-options').value;
-    const hints               = document.getElementById('cfg-hints').value;
-    const model               = document.getElementById('cfg-model').value;
-    const mathMode            = document.getElementById('cfg-math-mode').value;
-    const chatTemperature     = getTempValue('');
-    const assistModel         = document.getElementById('cfg-assist-model')?.value ?? '';
-    const assistTemperature   = getTempValue('assist-');
-
-    btn.disabled       = true;
-    status.className   = 'cfg-status';
-    status.textContent = 'Speichert…';
-
-    const errors = [];
-
-    try {
-      if (
-        title               !== initial.title               ||
-        botIcon             !== initial.botIcon             ||
-        opener              !== initial.opener              ||
-        uploadMode          !== initial.uploadMode          ||
-        audioInput          !== initial.audioInput          ||
-        audioOutput         !== initial.audioOutput         ||
-        ttsVoice            !== initial.ttsVoice            ||
-        audioStudentOptions !== initial.audioStudentOptions ||
-        model               !== initial.model               ||
-        mathMode            !== initial.mathMode            ||
-        chatTemperature     !== initial.chatTemperature     ||
-        assistModel         !== initial.assistModel         ||
-        assistTemperature   !== initial.assistTemperature
-      ) {
-        const res = await fetch(
-          `/api/activity-config/${encodeURIComponent(activityId)}?token=${encodeURIComponent(token)}`,
-          {
-            method:  'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ title, botIcon, opener, uploadMode, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode, chatTemperature, assistModel: assistModel || null, assistTemperature }),
-          }
-        );
-        if (res.ok) {
-          initial.title               = title;
-          initial.botIcon             = botIcon;
-          initial.opener              = opener;
-          initial.uploadMode          = uploadMode;
-          initial.audioInput          = audioInput;
-          initial.audioOutput         = audioOutput;
-          initial.ttsVoice            = ttsVoice;
-          initial.audioStudentOptions = audioStudentOptions;
-          initial.model               = model;
-          initial.mathMode            = mathMode;
-          initial.chatTemperature     = chatTemperature;
-          initial.assistModel         = assistModel;
-          initial.assistTemperature   = assistTemperature;
-        } else {
-          errors.push('Einstellungen konnten nicht gespeichert werden.');
-        }
-      }
-
-      if (hints !== initial.hints) {
-        const res = await fetch(
-          `/api/erfahrungsprompt/${encodeURIComponent(activityId)}?token=${encodeURIComponent(token)}`,
-          {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ content: hints }),
-          }
-        );
-        if (res.ok) {
-          initial.hints = hints;
-        } else {
-          errors.push('Hinweise konnten nicht gespeichert werden.');
-        }
-      }
-
-      if (errors.length > 0) {
-        status.className   = 'cfg-status err';
-        status.textContent = errors.join(' ');
-      } else {
-        showStatus('Gespeichert!', 'ok');
-        captureOpenSnapshot();
-        window.parent.postMessage({ type: 'moogpt:configSaved' }, '*');
-      }
-    } catch (e) {
+    if (errors.length > 0) {
       status.className   = 'cfg-status err';
-      status.textContent = 'Netzwerkfehler: ' + e.message;
-    } finally {
-      btn.disabled = false;
+      status.textContent = errors.join(' ');
+    } else {
+      showStatus('Gespeichert!', 'ok');
+      captureOpenSnapshot();
+      window.parent.postMessage({ type: 'moogpt:configSaved' }, '*');
     }
+  } catch (e) {
+    status.className   = 'cfg-status err';
+    status.textContent = 'Netzwerkfehler: ' + e.message;
+  } finally {
+    btn.disabled = false;
   }
+}
 
-  // ── Interaktiver Prompt-Assistent (via postMessage an Parent-Panel) ─────────
-  function _fmtCt(eur) {
-    if (eur == null) return null;
-    const ct = eur * 100;
-    if (ct < 0.01) return '< 0,01 Ct';
-    return (Math.round(ct * 100) / 100).toFixed(2).replace('.', ',') + ' Ct';
+// ── Interaktiver Prompt-Assistent (via postMessage an Parent-Panel) ─────────
+function _fmtCt(eur) {
+  if (eur == null) return null;
+  const ct = eur * 100;
+  if (ct < 0.01) return '< 0,01 Ct';
+  return (Math.round(ct * 100) / 100).toFixed(2).replace('.', ',') + ' Ct';
+}
+function _fmtCost(cost) {
+  const total  = (cost.promptTokens || 0) + (cost.completionTokens || 0);
+  const ctStr  = _fmtCt(cost.costEur);
+  const tokStr = `${total} Tokens (↑ ${cost.promptTokens} + ↓ ${cost.completionTokens})`;
+  return ctStr ? `${ctStr}  —  ${tokStr}` : tokStr;
+}
+
+let suggestHistory = [];
+// Issue #70: Session-Kosten akkumulieren (pro Sitzung, Reset bei neuem Dialog)
+let suggestSessionPrompt = 0;
+let suggestSessionCompletion = 0;
+let suggestSessionCostEur = null;
+
+async function suggestSend(userText) {
+  if (userText) {
+    suggestHistory.push({ role: 'user', content: userText });
   }
-  function _fmtCost(cost) {
-    const total  = (cost.promptTokens || 0) + (cost.completionTokens || 0);
-    const ctStr  = _fmtCt(cost.costEur);
-    const tokStr = `${total} Tokens (↑ ${cost.promptTokens} + ↓ ${cost.completionTokens})`;
-    return ctStr ? `${ctStr}  —  ${tokStr}` : tokStr;
-  }
+  window.parent.postMessage({ type: 'moogpt:suggestLoading', loading: true }, '*');
 
-  let suggestHistory = [];
-  // Issue #70: Session-Kosten akkumulieren (pro Sitzung, Reset bei neuem Dialog)
-  let suggestSessionPrompt = 0;
-  let suggestSessionCompletion = 0;
-  let suggestSessionCostEur = null;
-
-  async function suggestSend(userText) {
-    if (userText) {
-      suggestHistory.push({ role: 'user', content: userText });
-    }
-    window.parent.postMessage({ type: 'moogpt:suggestLoading', loading: true }, '*');
-
-    try {
-      const res = await fetch(
-        `/api/activity/${encodeURIComponent(activityId)}/suggest-prompt?token=${encodeURIComponent(token)}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            currentPrompt: document.getElementById('cfg-hints').value,
-            messages: suggestHistory,
-            taskImages: taskContext.images,
-          }),
-        }
-      );
-      if (!res.ok) throw new Error(`Server-Fehler ${res.status}`);
-      const data = await res.json();
-
-      if (data.cost?.promptTokens != null) {
-        suggestSessionPrompt += data.cost.promptTokens;
-        suggestSessionCompletion += data.cost.completionTokens;
-        if (data.cost.costEur != null) suggestSessionCostEur = (suggestSessionCostEur ?? 0) + data.cost.costEur;
-        window.parent.postMessage({
-          type: 'moogpt:suggestCost',
-          cost: data.cost,
-          sessionPrompt: suggestSessionPrompt,
-          sessionCompletion: suggestSessionCompletion,
-          sessionCostEur: suggestSessionCostEur,
-        }, '*');
+  try {
+    const res = await fetch(
+      `/api/activity/${encodeURIComponent(activityId)}/suggest-prompt?token=${encodeURIComponent(token)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPrompt: document.getElementById('cfg-hints').value,
+          messages: suggestHistory,
+          taskImages: taskContext.images,
+        }),
       }
-      if (data.type === 'question') {
-        suggestHistory.push({ role: 'assistant', content: data.question });
-        window.parent.postMessage({ type: 'moogpt:suggestQuestion', question: data.question }, '*');
-      } else {
-        // Finaler Prompt → Gegenüberstellung wie beim Prompt-Check
-        const original = document.getElementById('cfg-hints').value;
-        document.getElementById('cfg-compare-original').value   = original;
-        document.getElementById('cfg-compare-suggestion').value = data.prompt || '';
-        document.getElementById('cfg-compare-panel').style.display = 'flex';
-        window.parent.postMessage({ type: 'moogpt:expandOverlay' }, '*');
-        window.parent.postMessage({ type: 'moogpt:suggestClose' }, '*');
-      }
-    } catch (err) {
-      window.parent.postMessage({ type: 'moogpt:suggestError', message: err.message }, '*');
+    );
+    if (!res.ok) throw new Error(`Server-Fehler ${res.status}`);
+    const data = await res.json();
+
+    if (data.cost?.promptTokens != null) {
+      suggestSessionPrompt += data.cost.promptTokens;
+      suggestSessionCompletion += data.cost.completionTokens;
+      if (data.cost.costEur != null) suggestSessionCostEur = (suggestSessionCostEur ?? 0) + data.cost.costEur;
+      window.parent.postMessage({
+        type: 'moogpt:suggestCost',
+        cost: data.cost,
+        sessionPrompt: suggestSessionPrompt,
+        sessionCompletion: suggestSessionCompletion,
+        sessionCostEur: suggestSessionCostEur,
+      }, '*');
     }
-  }
-
-  async function suggestDirect() {
-    const btn = document.getElementById('cfg-suggest-btn');
-    btn.disabled    = true;
-    btn.textContent = '⏳ Erstellt…';
-    try {
-      const res = await fetch(
-        `/api/activity/${encodeURIComponent(activityId)}/suggest-prompt?token=${encodeURIComponent(token)}`,
-        {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({
-            currentPrompt: document.getElementById('cfg-hints').value,
-            direct:        true,
-          }),
-        }
-      );
-      if (!res.ok) throw new Error(`Server-Fehler ${res.status}`);
-      const data = await res.json();
-      if (data.type === 'final' && data.prompt) {
-        document.getElementById('cfg-hints').value = data.prompt;
-        updateDirtyState();
-        showStatus('✓ Prompt erstellt', 'ok');
-      } else {
-        showStatus('Kein Prompt erhalten', 'err');
-      }
-    } catch (err) {
-      showStatus(`Fehler: ${err.message}`, 'err');
-    } finally {
-      btn.disabled    = false;
-      btn.textContent = '✨ Interaktiv erstellen';
+    if (data.type === 'question') {
+      suggestHistory.push({ role: 'assistant', content: data.question });
+      window.parent.postMessage({ type: 'moogpt:suggestQuestion', question: data.question }, '*');
+    } else {
+      // Finaler Prompt → Gegenüberstellung wie beim Prompt-Check
+      const original = document.getElementById('cfg-hints').value;
+      document.getElementById('cfg-compare-original').value   = original;
+      document.getElementById('cfg-compare-suggestion').value = data.prompt || '';
+      document.getElementById('cfg-compare-panel').style.display = 'flex';
+      window.parent.postMessage({ type: 'moogpt:expandOverlay' }, '*');
+      window.parent.postMessage({ type: 'moogpt:suggestClose' }, '*');
     }
+  } catch (err) {
+    window.parent.postMessage({ type: 'moogpt:suggestError', message: err.message }, '*');
   }
+}
 
-  document.getElementById('cfg-suggest-btn').addEventListener('click', () => {
-    suggestHistory = [];
-    suggestSessionPrompt = 0;
-    suggestSessionCompletion = 0;
-    suggestSessionCostEur = null;
-    const taskText = document.getElementById('cfg-hints').value.trim();
-    const contextNote = taskText ? `Aktueller Prompt:\n${taskText}\n\n` : '';
-    suggestHistory.push({ role: 'user', content: `${contextNote}Analysiere was bereits klar ist und frag gezielt nach den fehlenden Informationen.` });
-    window.parent.postMessage({ type: 'moogpt:suggestOpen' }, '*');
-    suggestSend('');
-  });
-
-  document.getElementById('cfg-save-btn').addEventListener('click', saveConfig);
-
-  document.getElementById('cfg-check-btn').addEventListener('click', runPromptCheck);
-
-  document.getElementById('cfg-compare-close').addEventListener('click', () => {
-    document.getElementById('cfg-compare-panel').style.display = 'none';
-    window.parent.postMessage({ type: 'moogpt:collapseOverlay' }, '*');
-  });
-
-  document.getElementById('cfg-compare-use-suggestion').addEventListener('click', () => {
-    useAndSave(document.getElementById('cfg-compare-suggestion').value);
-  });
-
-  document.getElementById('cfg-compare-use-original').addEventListener('click', () => {
-    useAndSave(document.getElementById('cfg-compare-original').value);
-  });
-
-  // ── Summary-Funktionen ──────────────────────────────────────────────────────
-
-  function updateOpenerSummary() {
-    const text  = (document.getElementById('cfg-opener').value || '').trim();
-    const label = text.length > 60 ? text.slice(0, 60) + '…' : (text || '–');
-    document.querySelector('#cfg-opener-details summary').textContent = 'Begrüßung — ' + label;
+async function suggestDirect() {
+  const btn = document.getElementById('cfg-suggest-btn');
+  btn.disabled    = true;
+  btn.textContent = '⏳ Erstellt…';
+  try {
+    const res = await fetch(
+      `/api/activity/${encodeURIComponent(activityId)}/suggest-prompt?token=${encodeURIComponent(token)}`,
+      {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          currentPrompt: document.getElementById('cfg-hints').value,
+          direct:        true,
+        }),
+      }
+    );
+    if (!res.ok) throw new Error(`Server-Fehler ${res.status}`);
+    const data = await res.json();
+    if (data.type === 'final' && data.prompt) {
+      document.getElementById('cfg-hints').value = data.prompt;
+      updateDirtyState();
+      showStatus('✓ Prompt erstellt', 'ok');
+    } else {
+      showStatus('Kein Prompt erhalten', 'err');
+    }
+  } catch (err) {
+    showStatus(`Fehler: ${err.message}`, 'err');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = '✨ Interaktiv erstellen';
   }
+}
 
-  function updateAppearanceSummary() {
-    const title = (document.getElementById('cfg-title').value || '').trim();
-    const icon  = document.getElementById('cfg-bot-icon').value || '';
-    const parts = [];
-    if (title) parts.push('Titel: ' + title);
-    if (icon)  parts.push('Icon: ' + icon);
-    const label = parts.length ? parts.join(' | ') : '–';
-    document.querySelector('#cfg-appearance-details summary').textContent = 'Aussehen — ' + label;
-  }
+document.getElementById('cfg-suggest-btn').addEventListener('click', () => {
+  suggestHistory = [];
+  suggestSessionPrompt = 0;
+  suggestSessionCompletion = 0;
+  suggestSessionCostEur = null;
+  const taskText = document.getElementById('cfg-hints').value.trim();
+  const contextNote = taskText ? `Aktueller Prompt:\n${taskText}\n\n` : '';
+  suggestHistory.push({ role: 'user', content: `${contextNote}Analysiere was bereits klar ist und frag gezielt nach den fehlenden Informationen.` });
+  window.parent.postMessage({ type: 'moogpt:suggestOpen' }, '*');
+  suggestSend('');
+});
 
-  function updateAudioSummary() {
-    const inputEl   = document.getElementById('cfg-audio-input');
-    const outputEl  = document.getElementById('cfg-audio-output');
-    const voiceEl   = document.getElementById('cfg-tts-voice');
-    const studentEl = document.getElementById('cfg-audio-student-options');
-    const input    = inputEl   ? inputEl.value   : 'off';
-    const output   = outputEl  ? outputEl.value  : 'off';
-    const voice    = voiceEl   ? voiceEl.value   : '';
-    const student  = studentEl ? studentEl.value : 'off';
-    const parts = [];
-    if (input   === 'on') parts.push('Eingabe: an');
-    if (output  === 'on') parts.push(`Ausgabe: an (${voice})`);
-    if (student === 'on') parts.push('Sch.-Opt.: an');
-    const label = parts.length ? parts.join(' | ') : '–';
-    document.querySelector('#cfg-audio-details summary').textContent = 'Audio — ' + label;
-  }
+document.getElementById('cfg-save-btn').addEventListener('click', saveConfig);
 
-  function updateAdvancedSummary() {
-    const upload = document.getElementById('cfg-upload-mode').value || '';
-    const model  = document.getElementById('cfg-model').value || 'Standard';
-    const temp   = getTempValue('');
-    const parts  = [];
-    if (upload) parts.push('Upload: ' + upload);
-    parts.push('Modell: ' + model);
-    if (temp != null) parts.push('Temp: ' + temp.toFixed(1));
-    document.querySelector('#cfg-advanced-details summary').textContent = 'Erweitert — ' + parts.join(' | ');
-  }
+document.getElementById('cfg-check-btn').addEventListener('click', runPromptCheck);
 
-  function updateAssistSummary() {
-    const model = document.getElementById('cfg-assist-model')?.value || '';
-    const temp  = getTempValue('assist-');
-    const parts = ['Modell: ' + (model || 'Standard')];
-    if (temp != null) parts.push('Temp: ' + temp.toFixed(1));
-    const el = document.querySelector('#cfg-assist-details summary');
-    if (el) el.textContent = 'Prompt-Assistent — ' + parts.join(' | ');
-  }
+document.getElementById('cfg-compare-close').addEventListener('click', () => {
+  document.getElementById('cfg-compare-panel').style.display = 'none';
+  window.parent.postMessage({ type: 'moogpt:collapseOverlay' }, '*');
+});
 
-  function updateSubjectSummary() {
-    const mathMode = document.getElementById('cfg-math-mode').value;
-    const el = document.querySelector('#cfg-subject-details summary');
-    el.textContent = mathMode === 'on'
-      ? 'Fachbezogene Präferenzen — Formeln: An'
-      : 'Fachbezogene Präferenzen';
-  }
+document.getElementById('cfg-compare-use-suggestion').addEventListener('click', () => {
+  useAndSave(document.getElementById('cfg-compare-suggestion').value);
+});
 
-  function updateAudioOutputDependents() {
-    const outputEl = document.getElementById('cfg-audio-output');
-    if (!outputEl) return;
-    const isOn = outputEl.value === 'on';
-    document.getElementById('cfg-tts-voice-field').style.display             = isOn ? '' : 'none';
-    document.getElementById('cfg-audio-student-options-field').style.display = isOn ? '' : 'none';
-    updateAudioSummary();
-  }
+document.getElementById('cfg-compare-use-original').addEventListener('click', () => {
+  useAndSave(document.getElementById('cfg-compare-original').value);
+});
 
-  // Change-Events für Summary-Aktualisierung
-  document.getElementById('cfg-opener').addEventListener('input',  updateOpenerSummary);
-  document.getElementById('cfg-title').addEventListener('input',   updateAppearanceSummary);
-  document.getElementById('cfg-bot-icon').addEventListener('change', updateAppearanceSummary);
-  document.getElementById('cfg-audio-input').addEventListener('change',  updateAudioSummary);
-  document.getElementById('cfg-upload-mode').addEventListener('change',  updateAdvancedSummary);
-  document.getElementById('cfg-math-mode').addEventListener('change',    updateSubjectSummary);
+// ── Summary-Funktionen ──────────────────────────────────────────────────────
 
-  document.getElementById('cfg-audio-output').addEventListener('change', updateAudioOutputDependents);
-  document.getElementById('cfg-tts-voice').addEventListener('change', updateAudioSummary);
-  document.getElementById('cfg-audio-student-options').addEventListener('change', updateAudioSummary);
+function updateOpenerSummary() {
+  const text  = (document.getElementById('cfg-opener').value || '').trim();
+  const label = text.length > 60 ? text.slice(0, 60) + '…' : (text || '–');
+  document.querySelector('#cfg-opener-details summary').textContent = 'Begrüßung — ' + label;
+}
 
-  document.getElementById('cfg-model').addEventListener('change', () => {
-    updateTempField('');
-    updateAdvancedSummary();
-  });
-  document.getElementById('cfg-temperature').addEventListener('input', () => {
-    updateTempField('');
-    updateAdvancedSummary();
-  });
-  document.getElementById('cfg-temperature-default').addEventListener('change', () => {
-    const cb = document.getElementById('cfg-temperature-default');
-    if (!cb.checked) document.getElementById('cfg-temperature').value = 0.5;
-    updateTempField('');
-    updateAdvancedSummary();
-  });
+function updateAppearanceSummary() {
+  const title = (document.getElementById('cfg-title').value || '').trim();
+  const icon  = document.getElementById('cfg-bot-icon').value || '';
+  const parts = [];
+  if (title) parts.push('Titel: ' + title);
+  if (icon)  parts.push('Icon: ' + icon);
+  const label = parts.length ? parts.join(' | ') : '–';
+  document.querySelector('#cfg-appearance-details summary').textContent = 'Aussehen — ' + label;
+}
 
-  document.getElementById('cfg-assist-model')?.addEventListener('change', () => {
-    updateTempField('assist-');
-    updateAssistSummary();
-  });
-  document.getElementById('cfg-assist-temperature')?.addEventListener('input', () => {
-    updateTempField('assist-');
-    updateAssistSummary();
-  });
-  document.getElementById('cfg-assist-temperature-default')?.addEventListener('change', () => {
-    const cb = document.getElementById('cfg-assist-temperature-default');
-    if (!cb.checked) document.getElementById('cfg-assist-temperature').value = 0.5;
-    updateTempField('assist-');
-    updateAssistSummary();
-  });
+function updateAudioSummary() {
+  const inputEl   = document.getElementById('cfg-audio-input');
+  const outputEl  = document.getElementById('cfg-audio-output');
+  const voiceEl   = document.getElementById('cfg-tts-voice');
+  const studentEl = document.getElementById('cfg-audio-student-options');
+  const input    = inputEl   ? inputEl.value   : 'off';
+  const output   = outputEl  ? outputEl.value  : 'off';
+  const voice    = voiceEl   ? voiceEl.value   : '';
+  const student  = studentEl ? studentEl.value : 'off';
+  const parts = [];
+  if (input   === 'on') parts.push('Eingabe: an');
+  if (output  === 'on') parts.push(`Ausgabe: an (${voice})`);
+  if (student === 'on') parts.push('Sch.-Opt.: an');
+  const label = parts.length ? parts.join(' | ') : '–';
+  document.querySelector('#cfg-audio-details summary').textContent = 'Audio — ' + label;
+}
 
-  document.getElementById('cfg-close-warn-confirm').addEventListener('click', () => {
-    document.getElementById('cfg-close-warn').style.display = 'none';
-    window.parent.postMessage({ type: 'moogpt:closeConfirmed' }, '*');
-  });
+function updateAdvancedSummary() {
+  const upload = document.getElementById('cfg-upload-mode').value || '';
+  const model  = document.getElementById('cfg-model').value || 'Standard';
+  const temp   = getTempValue('');
+  const parts  = [];
+  if (upload) parts.push('Upload: ' + upload);
+  parts.push('Modell: ' + model);
+  if (temp != null) parts.push('Temp: ' + temp.toFixed(1));
+  document.querySelector('#cfg-advanced-details summary').textContent = 'Erweitert — ' + parts.join(' | ');
+}
 
-  document.getElementById('cfg-close-warn-cancel').addEventListener('click', () => {
-    document.getElementById('cfg-close-warn').style.display = 'none';
-  });
+function updateAssistSummary() {
+  const model = document.getElementById('cfg-assist-model')?.value || '';
+  const temp  = getTempValue('assist-');
+  const parts = ['Modell: ' + (model || 'Standard')];
+  if (temp != null) parts.push('Temp: ' + temp.toFixed(1));
+  const el = document.querySelector('#cfg-assist-details summary');
+  if (el) el.textContent = 'Prompt-Assistent — ' + parts.join(' | ');
+}
 
-  loadConfig();
-})();
+function updateSubjectSummary() {
+  const mathMode = document.getElementById('cfg-math-mode').value;
+  const el = document.querySelector('#cfg-subject-details summary');
+  el.textContent = mathMode === 'on'
+    ? 'Fachbezogene Präferenzen — Formeln: An'
+    : 'Fachbezogene Präferenzen';
+}
+
+function updateAudioOutputDependents() {
+  const outputEl = document.getElementById('cfg-audio-output');
+  if (!outputEl) return;
+  const isOn = outputEl.value === 'on';
+  document.getElementById('cfg-tts-voice-field').style.display             = isOn ? '' : 'none';
+  document.getElementById('cfg-audio-student-options-field').style.display = isOn ? '' : 'none';
+  updateAudioSummary();
+}
+
+// Change-Events für Summary-Aktualisierung
+document.getElementById('cfg-opener').addEventListener('input',  updateOpenerSummary);
+document.getElementById('cfg-title').addEventListener('input',   updateAppearanceSummary);
+document.getElementById('cfg-bot-icon').addEventListener('change', updateAppearanceSummary);
+document.getElementById('cfg-audio-input').addEventListener('change',  updateAudioSummary);
+document.getElementById('cfg-upload-mode').addEventListener('change',  updateAdvancedSummary);
+document.getElementById('cfg-math-mode').addEventListener('change',    updateSubjectSummary);
+
+document.getElementById('cfg-audio-output').addEventListener('change', updateAudioOutputDependents);
+document.getElementById('cfg-tts-voice').addEventListener('change', updateAudioSummary);
+document.getElementById('cfg-audio-student-options').addEventListener('change', updateAudioSummary);
+
+document.getElementById('cfg-model').addEventListener('change', () => {
+  updateTempField('');
+  updateAdvancedSummary();
+});
+document.getElementById('cfg-temperature').addEventListener('input', () => {
+  updateTempField('');
+  updateAdvancedSummary();
+});
+document.getElementById('cfg-temperature-default').addEventListener('change', () => {
+  const cb = document.getElementById('cfg-temperature-default');
+  if (!cb.checked) document.getElementById('cfg-temperature').value = 0.5;
+  updateTempField('');
+  updateAdvancedSummary();
+});
+
+document.getElementById('cfg-assist-model')?.addEventListener('change', () => {
+  updateTempField('assist-');
+  updateAssistSummary();
+});
+document.getElementById('cfg-assist-temperature')?.addEventListener('input', () => {
+  updateTempField('assist-');
+  updateAssistSummary();
+});
+document.getElementById('cfg-assist-temperature-default')?.addEventListener('change', () => {
+  const cb = document.getElementById('cfg-assist-temperature-default');
+  if (!cb.checked) document.getElementById('cfg-assist-temperature').value = 0.5;
+  updateTempField('assist-');
+  updateAssistSummary();
+});
+
+document.getElementById('cfg-close-warn-confirm').addEventListener('click', () => {
+  document.getElementById('cfg-close-warn').style.display = 'none';
+  window.parent.postMessage({ type: 'moogpt:closeConfirmed' }, '*');
+});
+
+document.getElementById('cfg-close-warn-cancel').addEventListener('click', () => {
+  document.getElementById('cfg-close-warn').style.display = 'none';
+});
+
+loadConfig();

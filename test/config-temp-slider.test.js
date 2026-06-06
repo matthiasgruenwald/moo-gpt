@@ -1,19 +1,22 @@
 /**
- * Tests für die entduplizierte Temperatur-Slider-Logik (config.js, Issue #193)
+ * Tests für die entduplizierte Temperatur-Slider-Logik (public/temp-slider.js, Issue #196)
  *
  * Framework: Node.js 22 node:test
  *
- * Die Slider-Logik wird hier als Fabrik-Funktion gespiegelt und isoliert
- * getestet. Getestet werden:
- *  - setTempSlider(prefix, value): Bubble-Position und Sichtbarkeit
- *  - updateTempField(prefix): Standard-Sichtbarkeit, Reasoning-Modell-Deaktivierung
+ * Die Slider-Logik wird aus der kanonischen Quelle (public/temp-slider.js) importiert
+ * und mit einem DOM-Stub isoliert getestet.
+ *
+ * Getestet werden:
+ *  - isReasoningModel: Reasoning-Modell-Erkennung inkl. gpt-5
+ *  - setTempSlider: Bubble-Position und Sichtbarkeit
+ *  - updateTempField: Standard-Sichtbarkeit, Reasoning-Modell-Deaktivierung, field-hide
  *  - Reset auf 0.5 beim Deaktivieren von „Standard"
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-// ─── Konstante (entspricht der benannten Magic Number) ─────────────────────────
-const SLIDER_TRACK_WIDTH_PX = 124; // 140px Wrapper − 16px Thumb-Radius
+// Import from canonical source — no logic duplication
+import { isReasoningModel, SLIDER_TRACK_WIDTH_PX, setTempSlider, updateTempField } from '../public/temp-slider.js';
 
 // ─── Minimaler DOM-Stub ───────────────────────────────────────────────────────
 
@@ -60,77 +63,63 @@ function makeSliderDom({ prefix, initVal = 0.5, initChecked = true, disabled = f
   };
 }
 
-// ─── Isolierte Fabrik: spiegelt die entduplizierte Logik aus config.js ────────
-
-/**
- * Erstellt setTempSlider und updateTempField analog zur config.js-Implementierung.
- * @param {object} dom - DOM-Stub mit getElementById
- */
-function makeTempSliderHandlers(dom) {
-  function isReasoningModel(modelName) {
-    return /^(o1|o3|o4-)/.test(modelName || '');
-  }
-
-  /**
-   * Aktualisiert Bubble-Position und Sichtbarkeit des Sliders.
-   * @param {string} prefix - 'assist-' oder '' (leer für Chat-Slider)
-   * @param {number|null} value - Schiebereglerwert (0–1) oder null = Standard
-   */
-  function setTempSlider(prefix, value) {
-    const display = dom.getElementById(`cfg-${prefix}temperature-display`);
-    const wrapper = dom.getElementById(`cfg-${prefix}temperature-wrapper`);
-    if (!display || !wrapper) return;
-
-    const isDefault = value === null;
-    display.style.visibility = isDefault ? 'hidden' : '';
-    if (!isDefault) {
-      display.textContent = Number(value).toFixed(1);
-      wrapper.style.setProperty('--val', value);
-    }
-  }
-
-  /**
-   * Synchronisiert Slider-Status mit Modellwahl und Standard-Checkbox.
-   * @param {string} prefix - 'assist-' oder ''
-   */
-  function updateTempField(prefix) {
-    const modelSelId = prefix === 'assist-' ? 'cfg-assist-model' : 'cfg-model';
-    const fallbackId = prefix === 'assist-' ? 'cfg-model' : null;
-    const modelSel   = dom.getElementById(modelSelId);
-    const tempInput  = dom.getElementById(`cfg-${prefix}temperature`);
-    const tempHint   = dom.getElementById(`cfg-${prefix}temperature-hint`);
-    const defaultCb  = dom.getElementById(`cfg-${prefix}temperature-default`);
-    if (!modelSel || !tempInput || !defaultCb) return;
-
-    const selectedModel = modelSel.value || (fallbackId ? (dom.getElementById(fallbackId)?.value || '') : '');
-    const reasoning  = isReasoningModel(selectedModel);
-    const useDefault = defaultCb.checked || reasoning;
-
-    tempInput.disabled  = useDefault;
-    defaultCb.disabled  = reasoning;
-
-    if (reasoning) {
-      if (tempHint) tempHint.textContent = 'nicht verfügbar (Reasoning-Modell)';
-    } else {
-      if (tempHint) tempHint.textContent = prefix === 'assist-'
-        ? 'Antwort-Stil: 0 = präzise/gleichförmig, 1 = kreativ/variabel · leer = OpenAI-Standard'
-        : '0–1, Standard = OpenAI-Vorgabe';
-    }
-
-    setTempSlider(prefix, useDefault ? null : Number(tempInput.value));
-  }
-
-  return { setTempSlider, updateTempField };
+// Wrappers that bind the DOM stub so tests call setTempSlider(prefix, value) etc.
+function bindDom(dom) {
+  return {
+    setTempSlider:   (prefix, value) => setTempSlider(dom, prefix, value),
+    updateTempField: (prefix)        => updateTempField(dom, prefix),
+  };
 }
+
+// ─── Tests: isReasoningModel ──────────────────────────────────────────────────
+
+describe('isReasoningModel — Reasoning-Modell-Erkennung', () => {
+  test('o1-mini → true', () => {
+    assert.equal(isReasoningModel('o1-mini'), true);
+  });
+
+  test('o3-mini → true', () => {
+    assert.equal(isReasoningModel('o3-mini'), true);
+  });
+
+  test('o4-mini → true', () => {
+    assert.equal(isReasoningModel('o4-mini'), true);
+  });
+
+  test('gpt-5 → true (Reasoning-Modell)', () => {
+    assert.equal(isReasoningModel('gpt-5'), true);
+  });
+
+  test('gpt-5-mini → true (gpt-5-Präfix)', () => {
+    assert.equal(isReasoningModel('gpt-5-mini'), true);
+  });
+
+  test('gpt-4.1 → false (kein Reasoning)', () => {
+    assert.equal(isReasoningModel('gpt-4.1'), false);
+  });
+
+  test('gpt-4o → false (kein Reasoning)', () => {
+    assert.equal(isReasoningModel('gpt-4o'), false);
+  });
+
+  test('leer → false', () => {
+    assert.equal(isReasoningModel(''), false);
+  });
+
+  test('null/undefined → false (kein Absturz)', () => {
+    assert.equal(isReasoningModel(null), false);
+    assert.equal(isReasoningModel(undefined), false);
+  });
+});
 
 // ─── Tests: setTempSlider ─────────────────────────────────────────────────────
 
 describe('setTempSlider — Bubble-Position und Sichtbarkeit', () => {
   test('value=null → Bubble versteckt (Standard-Modus)', () => {
     const dom = makeSliderDom({ prefix: '' });
-    const { setTempSlider } = makeTempSliderHandlers(dom);
+    const { setTempSlider: st } = bindDom(dom);
 
-    setTempSlider('', null);
+    st('', null);
 
     assert.equal(
       dom._els['cfg-temperature-display'].style.visibility,
@@ -141,9 +130,9 @@ describe('setTempSlider — Bubble-Position und Sichtbarkeit', () => {
 
   test('value=0.7 → Bubble sichtbar, textContent=0.7', () => {
     const dom = makeSliderDom({ prefix: '' });
-    const { setTempSlider } = makeTempSliderHandlers(dom);
+    const { setTempSlider: st } = bindDom(dom);
 
-    setTempSlider('', 0.7);
+    st('', 0.7);
 
     const display = dom._els['cfg-temperature-display'];
     assert.equal(display.style.visibility, '', 'Bubble muss sichtbar sein');
@@ -152,9 +141,9 @@ describe('setTempSlider — Bubble-Position und Sichtbarkeit', () => {
 
   test('value=0.7 → CSS --val gesetzt', () => {
     const dom = makeSliderDom({ prefix: '' });
-    const { setTempSlider } = makeTempSliderHandlers(dom);
+    const { setTempSlider: st } = bindDom(dom);
 
-    setTempSlider('', 0.7);
+    st('', 0.7);
 
     const wrapper = dom._els['cfg-temperature-wrapper'];
     assert.equal(String(wrapper._vars['--val']), '0.7', '--val muss auf 0.7 gesetzt sein');
@@ -162,9 +151,9 @@ describe('setTempSlider — Bubble-Position und Sichtbarkeit', () => {
 
   test('value=0 → Bubble sichtbar, textContent=0.0 (Grenzwert)', () => {
     const dom = makeSliderDom({ prefix: '' });
-    const { setTempSlider } = makeTempSliderHandlers(dom);
+    const { setTempSlider: st } = bindDom(dom);
 
-    setTempSlider('', 0);
+    st('', 0);
 
     const display = dom._els['cfg-temperature-display'];
     assert.equal(display.style.visibility, '', 'Bubble muss bei 0 sichtbar sein');
@@ -173,9 +162,9 @@ describe('setTempSlider — Bubble-Position und Sichtbarkeit', () => {
 
   test('value=1 → Bubble sichtbar, textContent=1.0 (Grenzwert)', () => {
     const dom = makeSliderDom({ prefix: '' });
-    const { setTempSlider } = makeTempSliderHandlers(dom);
+    const { setTempSlider: st } = bindDom(dom);
 
-    setTempSlider('', 1);
+    st('', 1);
 
     const display = dom._els['cfg-temperature-display'];
     assert.equal(display.style.visibility, '');
@@ -184,9 +173,9 @@ describe('setTempSlider — Bubble-Position und Sichtbarkeit', () => {
 
   test('prefix assist- → korrekte Elemente angesprochen', () => {
     const dom = makeSliderDom({ prefix: 'assist-' });
-    const { setTempSlider } = makeTempSliderHandlers(dom);
+    const { setTempSlider: st } = bindDom(dom);
 
-    setTempSlider('assist-', 0.3);
+    st('assist-', 0.3);
 
     assert.equal(dom._els['cfg-assist-temperature-display'].style.visibility, '');
     assert.equal(dom._els['cfg-assist-temperature-display'].textContent, '0.3');
@@ -198,9 +187,9 @@ describe('setTempSlider — Bubble-Position und Sichtbarkeit', () => {
 describe('updateTempField — Standard-Modus', () => {
   test('Standard-Checkbox aktiv → Bubble versteckt, Input disabled', () => {
     const dom = makeSliderDom({ prefix: '', initChecked: true, initVal: 0.5 });
-    const { updateTempField } = makeTempSliderHandlers(dom);
+    const { updateTempField: utf } = bindDom(dom);
 
-    updateTempField('');
+    utf('');
 
     assert.equal(dom._els['cfg-temperature'].disabled, true, 'Input muss disabled sein');
     assert.equal(
@@ -212,9 +201,9 @@ describe('updateTempField — Standard-Modus', () => {
 
   test('Standard-Checkbox inaktiv → Bubble sichtbar, Input aktiv', () => {
     const dom = makeSliderDom({ prefix: '', initChecked: false, initVal: 0.6 });
-    const { updateTempField } = makeTempSliderHandlers(dom);
+    const { updateTempField: utf } = bindDom(dom);
 
-    updateTempField('');
+    utf('');
 
     assert.equal(dom._els['cfg-temperature'].disabled, false);
     assert.equal(dom._els['cfg-temperature-display'].style.visibility, '');
@@ -225,46 +214,52 @@ describe('updateTempField — Standard-Modus', () => {
 // ─── Tests: updateTempField — Reasoning-Modell ───────────────────────────────
 
 describe('updateTempField — Reasoning-Modell', () => {
-  test('o1-Modell → Input und Checkbox disabled, Hint aktualisiert', () => {
+  test('o1-Modell → Input disabled, field ausgeblendet', () => {
     const dom = makeSliderDom({ prefix: '', initChecked: false, model: 'o1-mini' });
-    const { updateTempField } = makeTempSliderHandlers(dom);
+    const { updateTempField: utf } = bindDom(dom);
 
-    updateTempField('');
+    utf('');
 
     assert.equal(dom._els['cfg-temperature'].disabled, true, 'Input muss disabled sein');
-    assert.equal(dom._els['cfg-temperature-default'].disabled, true, 'Checkbox muss disabled sein');
-    assert.ok(
-      dom._els['cfg-temperature-hint'].textContent.includes('Reasoning'),
-      'Hint muss Reasoning erwähnen'
-    );
+    assert.equal(dom._els['cfg-temperature-field'].style.display, 'none', 'field muss ausgeblendet sein');
   });
 
   test('o3-Modell → disabled', () => {
     const dom = makeSliderDom({ prefix: '', initChecked: false, model: 'o3-mini' });
-    const { updateTempField } = makeTempSliderHandlers(dom);
+    const { updateTempField: utf } = bindDom(dom);
 
-    updateTempField('');
+    utf('');
 
     assert.equal(dom._els['cfg-temperature'].disabled, true);
   });
 
   test('o4-Modell → disabled', () => {
     const dom = makeSliderDom({ prefix: '', initChecked: false, model: 'o4-mini' });
-    const { updateTempField } = makeTempSliderHandlers(dom);
+    const { updateTempField: utf } = bindDom(dom);
 
-    updateTempField('');
+    utf('');
 
     assert.equal(dom._els['cfg-temperature'].disabled, true);
   });
 
-  test('gpt-4.1-Modell (kein Reasoning) → nicht disabled', () => {
-    const dom = makeSliderDom({ prefix: '', initChecked: false, model: 'gpt-4.1' });
-    const { updateTempField } = makeTempSliderHandlers(dom);
+  test('gpt-5-Modell → disabled, field ausgeblendet (Reasoning)', () => {
+    const dom = makeSliderDom({ prefix: '', initChecked: false, model: 'gpt-5' });
+    const { updateTempField: utf } = bindDom(dom);
 
-    updateTempField('');
+    utf('');
+
+    assert.equal(dom._els['cfg-temperature'].disabled, true, 'Input muss disabled sein');
+    assert.equal(dom._els['cfg-temperature-field'].style.display, 'none', 'field muss ausgeblendet sein');
+  });
+
+  test('gpt-4.1-Modell (kein Reasoning) → nicht disabled, field sichtbar', () => {
+    const dom = makeSliderDom({ prefix: '', initChecked: false, model: 'gpt-4.1' });
+    const { updateTempField: utf } = bindDom(dom);
+
+    utf('');
 
     assert.equal(dom._els['cfg-temperature'].disabled, false);
-    assert.equal(dom._els['cfg-temperature-default'].disabled, false);
+    assert.equal(dom._els['cfg-temperature-field'].style.display, '', 'field muss sichtbar sein');
   });
 });
 
@@ -279,8 +274,8 @@ describe('Reset-Logik (Standard-Checkbox deaktiviert)', () => {
     // Wert auf 0.5 zurücksetzen (Logik aus Event-Listener)
     dom._els['cfg-temperature'].value = '0.5';
 
-    const { updateTempField } = makeTempSliderHandlers(dom);
-    updateTempField('');
+    const { updateTempField: utf } = bindDom(dom);
+    utf('');
 
     assert.equal(dom._els['cfg-temperature-display'].textContent, '0.5');
     assert.equal(dom._els['cfg-temperature-display'].style.visibility, '');
@@ -291,8 +286,8 @@ describe('Reset-Logik (Standard-Checkbox deaktiviert)', () => {
     dom._els['cfg-assist-temperature-default'].checked = false;
     dom._els['cfg-assist-temperature'].value = '0.5';
 
-    const { updateTempField } = makeTempSliderHandlers(dom);
-    updateTempField('assist-');
+    const { updateTempField: utf } = bindDom(dom);
+    utf('assist-');
 
     assert.equal(dom._els['cfg-assist-temperature-display'].textContent, '0.5');
     assert.equal(dom._els['cfg-assist-temperature-display'].style.visibility, '');
