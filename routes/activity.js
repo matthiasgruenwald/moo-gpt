@@ -5,7 +5,7 @@ import { setWidgetConfig } from '../stores/widget-config.js';
 import { getActiveErfahrungsprompt } from '../stores/prompt.js';
 import { getTeacherPreference, setTeacherSuggestPreference } from '../stores/teacher.js';
 import { getAvailableModels, getAvailableBotIcons } from '../env-config.js';
-import { validateWidgetConfig, validateAssistModel, validateChatTemperature, validateAssistTemperature, normalizeTemperature } from '../validators.js';
+import { validateWidgetConfig, sanitizeWidgetConfig, validateChatTemperature, validateAssistTemperature } from '../validators.js';
 import { resolveWidgetConfig } from '../services/widget-config-resolver.js';
 
 export function createActivityRouter({ lockManager }) {
@@ -46,26 +46,43 @@ export function createActivityRouter({ lockManager }) {
 
   router.put('/activity-config/:activityId', requireDashboardAuth, (req, res) => {
     const { activityId, userId } = req;
-    const { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions, model, mathMode, assistModel, assistTemperature, chatTemperature } = req.body;
-    const validErr = validateWidgetConfig(uploadMode, botIcon, audioInput, mathMode, audioOutput, ttsVoice, audioStudentOptions);
+    const { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice,
+      audioStudentOptions, model, mathMode, assistModel, assistTemperature, chatTemperature } = req.body;
+
+    const availableModels = getAvailableModels();
+    const validErr = validateWidgetConfig(req.body, { availableModels });
     if (validErr) return res.status(400).json({ error: validErr });
+
     const tempErr = validateChatTemperature(chatTemperature);
     if (tempErr) return res.status(400).json({ error: tempErr });
-    const availableModels = getAvailableModels();
-    const validModel = (!model || model === '') ? null : (availableModels.includes(model) ? model : null);
-    if (model && model !== '' && !validModel) return res.status(400).json({ error: 'Ungültiges Modell' });
-    const assistModelErr = validateAssistModel(assistModel, availableModels);
-    if (assistModelErr) return res.status(400).json({ error: assistModelErr });
-    const validAssistModel = (!assistModel || assistModel === '') ? null : assistModel;
+
     if ('assistTemperature' in req.body) {
-      const assistTempErr = validateAssistTemperature(req.body.assistTemperature);
+      const assistTempErr = validateAssistTemperature(assistTemperature);
       if (assistTempErr) return res.status(400).json({ error: assistTempErr });
     }
-    const validTemp = normalizeTemperature(chatTemperature);
-    const configUpdate = { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice, audioStudentOptions, model: validModel, mathMode };
-    if ('chatTemperature' in req.body) configUpdate.chatTemperature = validTemp;
-    if ('assistModel' in req.body) configUpdate.assistModel = validAssistModel;
-    if ('assistTemperature' in req.body) configUpdate.assistTemperature = normalizeTemperature(req.body.assistTemperature);
+
+    const sanitized = sanitizeWidgetConfig(
+      { opener, uploadMode, title, botIcon, audioInput, audioOutput, ttsVoice,
+        audioStudentOptions, model, mathMode, assistModel, assistTemperature, chatTemperature },
+      { availableModels }
+    );
+
+    const configUpdate = {
+      opener: sanitized.opener,
+      uploadMode: sanitized.uploadMode,
+      title: sanitized.title,
+      botIcon: sanitized.botIcon,
+      audioInput: sanitized.audioInput,
+      audioOutput: sanitized.audioOutput,
+      ttsVoice: sanitized.ttsVoice,
+      audioStudentOptions: sanitized.audioStudentOptions,
+      model: sanitized.model,
+      mathMode: sanitized.mathMode,
+    };
+    if ('chatTemperature' in req.body)    configUpdate.chatTemperature    = sanitized.chatTemperature;
+    if ('assistModel' in req.body)        configUpdate.assistModel        = sanitized.assistModel;
+    if ('assistTemperature' in req.body)  configUpdate.assistTemperature  = sanitized.assistTemperature;
+
     setWidgetConfig(activityId, configUpdate);
     console.log(`[Config] Aktivität ${activityId} aktualisiert von ${userId}`);
     res.json({ ok: true });
