@@ -1,3 +1,10 @@
+> ⚠️ **VERALTET — nicht mehr Master.** Diese Datei wird hier nicht weiter gepflegt.
+> Die aktuelle, maßgebliche Fassung liegt im Plugin-Repo:
+> `local_ai_task_guide/docs/plans/prd-local-ai-task-guide-aufgabenbot.md`
+> (Repo: <https://github.com/matthiasgruenwald/local_ai_task_guide>, Branch `dev`).
+> Seit 2026-06-07 ist die Source of Truth für Produkt-/Architekturentscheidungen des
+> Plugins dorthin verlagert (siehe ADR 0009). Diese Kopie nur als historischer Stand lesen.
+
 # PRD: local_ai_task_guide Aufgabenbot fuer Moodle
 
 ## Problem Statement

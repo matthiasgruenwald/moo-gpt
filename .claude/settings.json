@@ -1,6 +1,12 @@
 {
   "permissions": {
-    "deny": ["Bash(gh issue delete*)"]
+    "deny": [
+      "Bash(gh issue delete*)",
+      "Edit(docs/plans/prd-local-ai-task-guide-aufgabenbot.md)",
+      "Write(docs/plans/prd-local-ai-task-guide-aufgabenbot.md)",
+      "Edit(docs/adr/0009-local-ai-task-guide-eigenes-repo-moo-gpt-lebende-referenz.md)",
+      "Write(docs/adr/0009-local-ai-task-guide-eigenes-repo-moo-gpt-lebende-referenz.md)"
+    ]
   },
   "allowedTools": [
     "Edit",
