@@ -52,3 +52,10 @@ Entscheidung 2 (Live-Read über `permissions.additionalDirectories: ["../moo-gpt
 - **Trade-off:** nur **gepushter** Stand sichtbar. Disziplin: moo-gpt-Änderungen werden nach `dev` gepusht; `origin/dev` ist die Wahrheit.
 - **Folge für die Topologie:** Der Sibling-Zwang entfällt → die Plugin-Arbeitskopie muss **nicht** neben moo-gpt liegen. Sie zieht auf die **Moodle-Test-LXC** um (editieren + bind-mount + testen an einem Ort); moo-gpt wird dort per `git fetch` aus GitHub gelesen. `additionalDirectories` und die `deny`-Regeln aus Entscheidung 2 / Skeleton-Schritt 1 **entfallen ersatzlos**.
 - **Pilot-LXC:** unberührt; die dortige `/opt/local_ai_task_guide`-Arbeitskopie wird nach dem Umzug überflüssig (GitHub hält den Stand).
+
+## Status 2026-06-07 — Umzug vollzogen
+
+Migration ausgeführt: Die Plugin-Arbeitskopie läuft jetzt auf der dedizierten Moodle-Test-LXC
+`moodle-dev` (CT 127, siehe ADR 0010) — Editieren, Bind-Mount und Testen an einem Ort.
+`/opt/local_ai_task_guide` auf der Pilot-LXC (hier) ist damit überflüssig; `origin/dev`
+auf GitHub hält den maßgeblichen Stand.
