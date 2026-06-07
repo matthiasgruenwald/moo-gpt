@@ -1,5 +1,7 @@
 # Moodle-Plugin-Roadmap
 
+> **VERALTET:** Diese Roadmap rahmte die Moodle-Zukunft als Port von moo-gpt nach `mod_moogpt`. ADR 0009 (`local_ai_task_guide` als eigenes Repo, moo-gpt als lebende Referenz) hat diese Prämisse gekippt: V1 wird ein eigenständiges Zusatzplugin `local_ai_task_guide`, kein Port/Fork von moo-gpt. Dokument bleibt als historischer Kontext erhalten.
+
 Ziel: `moo-gpt` mittelfristig von der aktuellen Architektur mit eigenem Express-Server, eigener SQLite-DB und externen Seiten in ein echtes Moodle-Plugin überführen.
 
 Diese Roadmap ist ein Zukunftsplan. Die offene Security-Diskussion zu S1 wird hier bewusst nicht weiter vertieft, sondern strukturell durch die Zielarchitektur entschärft.
