@@ -170,4 +170,53 @@ describe('POST /activity/:activityId/prompt-check', () => {
     assert.equal(res.getStatusCode(), 200);
     assert.ok(!capturedOpts?.input, 'opts.input darf bei leeren Bildern nicht gesetzt sein');
   });
+
+  // Regression: ein ungültiges Aufgabenbild (LLM-400) darf den Vorschlag nicht killen
+  test('Bild-Call schlägt fehl → Retry ohne Bilder → 200', async () => {
+    const capturedOpts = [];
+    const mockAiClient = {
+      jsonCall: async (instructions, userMessage, model, opts) => {
+        capturedOpts.push(opts);
+        if (capturedOpts.length === 1) {
+          throw new Error('400 The image data you provided does not represent a valid image.');
+        }
+        return { text: { suggestion: 'Vorschlag ohne Bild' }, usage: {} };
+      },
+    };
+
+    const handler = buildPromptCheckHandler({ aiClient: mockAiClient, genModel: 'test-model' });
+    const { req, res } = makeReqRes({
+      task: 'Aufgabe mit kaputtem Bild',
+      currentHints: 'Hinweis',
+      taskImages: ['data:image/png;base64,broken'],
+    });
+
+    await handler(req, res);
+
+    assert.equal(res.getStatusCode(), 200, 'Retry ohne Bilder muss erfolgreich sein');
+    assert.equal(res.getBody().suggestion, 'Vorschlag ohne Bild');
+    assert.equal(capturedOpts.length, 2, 'es muss genau einmal nachgefasst werden');
+    assert.ok(capturedOpts[0].input, 'erster Versuch enthält Bilder');
+    assert.ok(!capturedOpts[1].input, 'Retry darf keine Bilder enthalten');
+  });
+
+  // Regression: scheitert auch der bildlose Retry, bleibt es bei 502
+  test('beide Versuche schlagen fehl → HTTP 502', async () => {
+    let calls = 0;
+    const mockAiClient = {
+      jsonCall: async () => { calls++; throw new Error('OpenAI down'); },
+    };
+
+    const handler = buildPromptCheckHandler({ aiClient: mockAiClient, genModel: 'test-model' });
+    const { req, res } = makeReqRes({
+      task: 'Aufgabe',
+      currentHints: 'Hinweis',
+      taskImages: ['data:image/png;base64,broken'],
+    });
+
+    await handler(req, res);
+
+    assert.equal(res.getStatusCode(), 502);
+    assert.equal(calls, 2, 'erst mit, dann ohne Bilder versucht');
+  });
 });

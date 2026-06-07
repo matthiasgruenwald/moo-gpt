@@ -609,6 +609,7 @@ class AudioManager {
         URL.revokeObjectURL(url);
         const MAX_PX = 2048;
         let w = img.naturalWidth, h = img.naturalHeight;
+        if (!w || !h) { reject(new Error('Image has zero dimensions')); return; }
         if (w > MAX_PX || h > MAX_PX) {
           if (w >= h) { h = Math.round(h * MAX_PX / w); w = MAX_PX; }
           else        { w = Math.round(w * MAX_PX / h); h = MAX_PX; }

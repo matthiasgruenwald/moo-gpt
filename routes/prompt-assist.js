@@ -107,7 +107,17 @@ export function buildPromptCheckHandler({ aiClient: client }) {
     };
 
     try {
-      const { text: result, usage } = await client.jsonCall(systemPrompt, userMessage, model, opts);
+      let result, usage;
+      try {
+        ({ text: result, usage } = await client.jsonCall(systemPrompt, userMessage, model, opts));
+      } catch (imgErr) {
+        // Ein einzelnes ungültiges Aufgabenbild darf den Vorschlag nicht killen:
+        // Bei Fehlschlag mit Bildern einmal ohne Bilder erneut versuchen.
+        if (!validImages.length) throw imgErr;
+        console.log(`[PromptCheck] Retry ohne Bilder nach Fehler: ${imgErr.message}`);
+        const textSystem = buildPromptCheckSystem(false);
+        ({ text: result, usage } = await client.jsonCall(textSystem, userMessage, model, { timeout: 90_000 }));
+      }
       recordWerkzeugUsage(req.activityId, 'prompt-assist', model, usage);
       res.json(result);
     } catch (err) {
