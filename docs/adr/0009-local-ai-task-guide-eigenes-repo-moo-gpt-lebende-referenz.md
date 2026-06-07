@@ -42,3 +42,13 @@ Token-Auth/Origin-Checks → Moodle-Session + Capabilities · `db.js`/Migrations
 - Cross-Repo-Lesezugriff wird über `.claude/settings.json` des neuen Repos konfiguriert; exakte Glob-Syntax beim Anlegen verifizieren.
 - moo-gpt wird über die Plugin-Bauphase weiter als Pilot gewartet; Bugfixes im geteilten Kern lösen Plugin-Parity-Checks aus.
 - Repo-Platzierung dieses ADR: moo-gpt, weil die Entscheidung „moo-gpt = lebende Referenz, nicht Port" eine moo-gpt-Aussage ist; sie wird ins neue Repo gespiegelt.
+
+## Nachtrag 2026-06-07 — Referenzzugriff über GitHub statt lokalem Sibling-Read
+
+Entscheidung 2 (Live-Read über `permissions.additionalDirectories: ["../moo-gpt"]` + `deny` auf Schreiben) wird ersetzt:
+
+- **Referenzquelle ist `origin/dev` von moo-gpt via git** (`git fetch` + `git show origin/dev:<pfad>`), nicht der lokale Sibling-Arbeitsbaum.
+- **Vorteile:** maschinenunabhängig (kein Sibling-Layout LXC≠Laptop), **kein Schreibweg zum Pilot** (sicherer als `deny`-Regeln), Portierung erfolgt aus stabilen, gepushten Commits.
+- **Trade-off:** nur **gepushter** Stand sichtbar. Disziplin: moo-gpt-Änderungen werden nach `dev` gepusht; `origin/dev` ist die Wahrheit.
+- **Folge für die Topologie:** Der Sibling-Zwang entfällt → die Plugin-Arbeitskopie muss **nicht** neben moo-gpt liegen. Sie zieht auf die **Moodle-Test-LXC** um (editieren + bind-mount + testen an einem Ort); moo-gpt wird dort per `git fetch` aus GitHub gelesen. `additionalDirectories` und die `deny`-Regeln aus Entscheidung 2 / Skeleton-Schritt 1 **entfallen ersatzlos**.
+- **Pilot-LXC:** unberührt; die dortige `/opt/local_ai_task_guide`-Arbeitskopie wird nach dem Umzug überflüssig (GitHub hält den Stand).
