@@ -36,18 +36,16 @@ export function extractActivityId({ search, bodyClassName, bodyId }) {
 /**
  * Ermittelt den Lehrer-Status inkl. Quiz-Seiten-Fallback.
  * - Fragenbank-Vorschau: immer Teacher (capability-gated Konfigurations-Einstieg).
- * - Sonst: editmode.php-Formular ODER body.editing-Klasse, außer bei Rollenwechsel.
- *
- * Bekannte akzeptierte Restlücke (ADR 0010, siehe Issue #204): Lehrkraft mit
- * Edit-Mode AUS auf normaler Quiz-Attempt-Seite (Gesamtvorschau/Rollenwechsel)
- * wird als Schüler erkannt.
- * @param {{ hasEditMode: boolean, isSwitchedRole: boolean, bodyClassName: string, bodyId: string }} ctx
+ * - Sonst: editmode.php-Formular ODER body.editing-Klasse ODER "Neue Vorschau
+ *   beginnen"-Formular (forcenew, mod/quiz:preview-capability, edit-mode-unabhängig,
+ *   siehe Issue #204), außer bei Rollenwechsel.
+ * @param {{ hasEditMode: boolean, isSwitchedRole: boolean, hasNewPreviewAttempt: boolean, bodyClassName: string, bodyId: string }} ctx
  * @returns {boolean}
  */
-export function detectIsTeacher({ hasEditMode, isSwitchedRole, bodyClassName, bodyId }) {
+export function detectIsTeacher({ hasEditMode, isSwitchedRole, hasNewPreviewAttempt, bodyClassName, bodyId }) {
   if (bodyId === QUESTION_BANK_PREVIEW_BODY_ID) return true;
   const isEditing = (bodyClassName || '').split(/\s+/).includes('editing');
-  return (hasEditMode || isEditing) && !isSwitchedRole;
+  return Boolean((hasEditMode || isEditing || hasNewPreviewAttempt) && !isSwitchedRole);
 }
 
 /**

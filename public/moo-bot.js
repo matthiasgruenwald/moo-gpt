@@ -994,13 +994,14 @@ class ChatCore {
       console.log(`[Bot] userId=${userId}, userName=${userName}, activityId=${activityId}, activityName=${activityName}`);
       const hasEditMode = document.querySelector('form[action*="editmode.php"]') !== null;
       const isSwitchedRole = document.body.className.includes('userswitchedrole');
+      const hasNewPreviewAttempt = document.querySelector('form[action*="startattempt.php"] input[name="forcenew"]') !== null;
       const isTeacher = detectIsTeacher({
-        hasEditMode, isSwitchedRole,
+        hasEditMode, isSwitchedRole, hasNewPreviewAttempt,
         bodyClassName: document.body.className,
         bodyId: document.body.id,
       });
       bot.settings.isTeacher = isTeacher;
-      console.log(`[Bot] isTeacher=${isTeacher} (editmode=${hasEditMode}, switched=${isSwitchedRole})`);
+      console.log(`[Bot] isTeacher=${isTeacher} (editmode=${hasEditMode}, switched=${isSwitchedRole}, newPreviewAttempt=${hasNewPreviewAttempt})`);
       if (!isTeacher) bot.tts._loadTtsPreferences();
 
       // Settings sofort senden — vor extractImagesFromTask (das kann dauern).
@@ -1197,8 +1198,9 @@ export class MOOBOT {
     // Issue #4 / #5: Rollenerkennung früh (sync) – wird in setupWebSocket bestätigt
     const hasEditMode = document.querySelector('form[action*="editmode.php"]') !== null;
     const isSwitchedRole = document.body.className.includes('userswitchedrole');
+    const hasNewPreviewAttempt = document.querySelector('form[action*="startattempt.php"] input[name="forcenew"]') !== null;
     const isTeacher = detectIsTeacher({
-      hasEditMode, isSwitchedRole,
+      hasEditMode, isSwitchedRole, hasNewPreviewAttempt,
       bodyClassName: document.body.className,
       bodyId: document.body.id,
     });

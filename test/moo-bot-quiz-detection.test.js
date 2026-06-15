@@ -106,6 +106,17 @@ describe('detectIsTeacher', () => {
     assert.equal(result, true);
   });
 
+  test('Quiz-Attempt: Lehrer-Gesamtvorschau ohne Edit-Mode, mit "Neue Vorschau beginnen" (forcenew) → true (#204)', () => {
+    const result = detectIsTeacher({
+      hasEditMode: false,
+      isSwitchedRole: false,
+      hasNewPreviewAttempt: true,
+      bodyClassName: 'path-mod-quiz cmid-37313 course-1667',
+      bodyId: 'page-mod-quiz-attempt',
+    });
+    assert.equal(result, true);
+  });
+
   test('Quiz-Attempt: Lehrer-Rollenwechsel-zu-Teilnehmer-Vorschau → false', () => {
     const result = detectIsTeacher({
       hasEditMode: false,
