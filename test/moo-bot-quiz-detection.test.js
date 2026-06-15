@@ -15,7 +15,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { extractActivityId, detectIsTeacher } from '../public/quiz-detect.js';
+import { extractActivityId, detectIsTeacher, extractCourseId } from '../public/quiz-detect.js';
 
 describe('extractActivityId', () => {
   test('normale Aktivitätsseite: ?id= liefert activityId (Regression)', () => {
@@ -134,5 +134,27 @@ describe('detectIsTeacher', () => {
       bodyId: 'page-question-bank-previewquestion-preview',
     });
     assert.equal(result, true);
+  });
+});
+
+describe('extractCourseId (Issue #203)', () => {
+  test('extrahiert course-NNN aus body.className', () => {
+    const result = extractCourseId('path-mod-quiz cmid-37313 course-1667 editing');
+    assert.equal(result, '1667');
+  });
+
+  test('Quiz-Attempt: course-NNN unabhängig von Seitenvariante extrahierbar', () => {
+    const result = extractCourseId('path-mod-quiz userswitchedrole cmid-37313 course-1667');
+    assert.equal(result, '1667');
+  });
+
+  test('keine course-Klasse vorhanden: gibt null zurück', () => {
+    const result = extractCourseId('path-mod-page context-123');
+    assert.equal(result, null);
+  });
+
+  test('leerer className: gibt null zurück', () => {
+    const result = extractCourseId('');
+    assert.equal(result, null);
   });
 });

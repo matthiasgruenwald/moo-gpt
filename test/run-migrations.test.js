@@ -297,6 +297,36 @@ describe('runMigrations()', () => {
     }
   });
 
+  // Issue #203: course_id-Spalte für Aktivitäten (Monitoring/Logs-Gruppierung)
+  test('frische DB: activities enthält course_id nach Migrationen', () => {
+    const db = buildFreshDb();
+    runMigrations(db);
+
+    const cols = getColumns(db, 'activities');
+    assert.ok(cols.includes('course_id'), 'course_id muss in activities sein');
+  });
+
+  test('additive Migration v46: Bestandszeilen bleiben course_id=NULL', () => {
+    const db = buildFreshDb();
+
+    // Migrationen bis v45 anwenden, dann eine Bestandszeile einfügen
+    db.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+      version    INTEGER PRIMARY KEY,
+      applied_at TEXT DEFAULT (datetime('now'))
+    )`);
+    for (const { version, up } of MIGRATIONS.filter(m => m.version < 46)) {
+      up(db);
+      db.prepare('INSERT INTO schema_migrations (version) VALUES (?)').run(version);
+    }
+    db.prepare(`INSERT INTO activities (activity_id, activity_name) VALUES (?, ?)`).run('act-pre-203', 'Bestand');
+
+    // v46 nachziehen
+    runMigrations(db);
+
+    const row = db.prepare('SELECT course_id FROM activities WHERE activity_id = ?').get('act-pre-203');
+    assert.equal(row.course_id, null, 'Bestandszeile muss course_id=NULL bleiben');
+  });
+
   // Issue #197: addColumn-Helfer ist idempotent
   test('addColumn ist idempotent – doppelter Aufruf wirft keinen Fehler', () => {
     const db = buildFreshDb();

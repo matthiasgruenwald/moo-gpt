@@ -11,12 +11,14 @@ function detectRole(settings) {
   return settings.isTeacher === true || isTeacherByEnv;
 }
 
-async function resolveActivity(activityId, activityName, isTeacher, userId, hints) {
+async function resolveActivity(activityId, activityName, isTeacher, userId, hints, courseId) {
   let act = getActivity(activityId);
   if (!act) {
-    upsertActivity(activityId, activityName || activityId, null, null, null, null);
+    upsertActivity(activityId, activityName || activityId, null, null, null, null, courseId);
   } else if (activityName && activityName !== act.activity_name) {
-    upsertActivity(activityId, activityName, null, null, null, null);
+    upsertActivity(activityId, activityName, null, null, null, null, courseId);
+  } else if (courseId && courseId !== act.course_id) {
+    upsertActivity(activityId, act.activity_name, null, null, null, null, courseId);
   }
 
   if (hints && !getActiveErfahrungsprompt(activityId)) {
@@ -118,7 +120,7 @@ export class ChatSession {
 
     if (settings.activityId) {
       const activityConfig = await resolveActivity(
-        settings.activityId, settings.activityName, this.isTeacher, settings.userId, settings.hints
+        settings.activityId, settings.activityName, this.isTeacher, settings.userId, settings.hints, settings.courseId
       );
       this.activityConfig = activityConfig;
       this.ws.send(JSON.stringify({ type: 'config', activityId: settings.activityId, config: activityConfig }));

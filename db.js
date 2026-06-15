@@ -170,6 +170,9 @@ export const MIGRATIONS = [
   { version: 43, up: (db) => addColumn(db, 'system_template',   'assist_model',       'TEXT') },
   { version: 44, up: (db) => addColumn(db, 'system_template',   'chat_temperature',   'REAL') },
   { version: 45, up: (db) => addColumn(db, 'system_template',   'assist_temperature', 'REAL') },
+
+  // Issue #203: course_id für Monitoring/Logs-Gruppierung (ADR 0010)
+  { version: 46, up: (db) => addColumn(db, 'activities', 'course_id', 'TEXT') },
 ];
 
 /**

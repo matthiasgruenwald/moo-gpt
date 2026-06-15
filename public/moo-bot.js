@@ -8,7 +8,7 @@ import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-java.min.js";
 import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-python.min.js";
 import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-json.min.js";
 
-import { extractActivityId, detectIsTeacher } from './quiz-detect.js';
+import { extractActivityId, detectIsTeacher, extractCourseId } from './quiz-detect.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Interne Klassen – zukünftige AMD-Module (Issue #171)
@@ -976,6 +976,7 @@ class ChatCore {
         bodyClassName: document.body.className,
         bodyId: document.body.id,
       });
+      const courseId = extractCourseId(document.body.className);
       const activityName =
         document.querySelector('.page-header-headings h1')?.textContent?.trim()
         || document.querySelector('#region-main h1')?.textContent?.trim()
@@ -987,6 +988,7 @@ class ChatCore {
       if (userId)        bot.settings.userId       = userId;
       if (userName)      bot.settings.userName     = userName;
       if (activityId)    bot.settings.activityId   = activityId;
+      if (courseId)      bot.settings.courseId     = courseId;
       if (activityName)  bot.settings.activityName = activityName;
       if (task)          bot.settings.task         = task;
       console.log(`[Bot] userId=${userId}, userName=${userName}, activityId=${activityId}, activityName=${activityName}`);

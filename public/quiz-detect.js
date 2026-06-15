@@ -49,3 +49,15 @@ export function detectIsTeacher({ hasEditMode, isSwitchedRole, bodyClassName, bo
   const isEditing = (bodyClassName || '').split(/\s+/).includes('editing');
   return (hasEditMode || isEditing) && !isSwitchedRole;
 }
+
+/**
+ * Ermittelt die Moodle-Kurs-ID aus course-NNN in body.className.
+ * Dient als Monitoring/Logs-Gruppierung unabhängig von der activityId
+ * (ADR 0010, Issue #203).
+ * @param {string} bodyClassName
+ * @returns {string|null}
+ */
+export function extractCourseId(bodyClassName) {
+  const match = (bodyClassName || '').match(/\bcourse-(\d+)\b/);
+  return match ? match[1] : null;
+}
