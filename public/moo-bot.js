@@ -8,6 +8,8 @@ import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-java.min.js";
 import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-python.min.js";
 import "https://cdn.jsdelivr.net/npm/prismjs/components/prism-json.min.js";
 
+import { extractActivityId, detectIsTeacher } from './quiz-detect.js';
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Interne Klassen – zukünftige AMD-Module (Issue #171)
 //
@@ -969,7 +971,11 @@ class ChatCore {
       if (!userName && userId && window.M?.cfg?.wwwroot && window.M?.cfg?.sesskey) {
         userName = await bot._fetchMoodleUserName(userId, window.M.cfg.wwwroot, window.M.cfg.sesskey);
       }
-      const activityId = new URLSearchParams(window.location.search).get('id') || null;
+      const activityId = extractActivityId({
+        search: window.location.search,
+        bodyClassName: document.body.className,
+        bodyId: document.body.id,
+      });
       const activityName =
         document.querySelector('.page-header-headings h1')?.textContent?.trim()
         || document.querySelector('#region-main h1')?.textContent?.trim()
@@ -986,7 +992,11 @@ class ChatCore {
       console.log(`[Bot] userId=${userId}, userName=${userName}, activityId=${activityId}, activityName=${activityName}`);
       const hasEditMode = document.querySelector('form[action*="editmode.php"]') !== null;
       const isSwitchedRole = document.body.className.includes('userswitchedrole');
-      const isTeacher = hasEditMode && !isSwitchedRole;
+      const isTeacher = detectIsTeacher({
+        hasEditMode, isSwitchedRole,
+        bodyClassName: document.body.className,
+        bodyId: document.body.id,
+      });
       bot.settings.isTeacher = isTeacher;
       console.log(`[Bot] isTeacher=${isTeacher} (editmode=${hasEditMode}, switched=${isSwitchedRole})`);
       if (!isTeacher) bot.tts._loadTtsPreferences();
@@ -1185,7 +1195,11 @@ export class MOOBOT {
     // Issue #4 / #5: Rollenerkennung früh (sync) – wird in setupWebSocket bestätigt
     const hasEditMode = document.querySelector('form[action*="editmode.php"]') !== null;
     const isSwitchedRole = document.body.className.includes('userswitchedrole');
-    const isTeacher = hasEditMode && !isSwitchedRole;
+    const isTeacher = detectIsTeacher({
+      hasEditMode, isSwitchedRole,
+      bodyClassName: document.body.className,
+      bodyId: document.body.id,
+    });
     this.settings.isTeacher = isTeacher;
 
     // Create chat icon — P5a: Dateiname kommt via _applyConfig, Fallback grwdev.png
