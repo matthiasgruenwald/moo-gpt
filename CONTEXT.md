@@ -6,7 +6,11 @@ Kanonische Fachbegriffe für dieses Projekt. Neue Konzepte werden hier eingetrag
 
 ## Aktivität
 
-Eine Moodle-Aktivität (Textseite oder Aufgabe), in die ein Chat-Widget eingebettet ist. Jede Aktivität hat eine eindeutige `activityId` und eine eigene Widget-Konfiguration. Wird einer Lehrkraft zugeordnet (`teacher_id` in `activities`-Tabelle), sobald die Lehrkraft das Dashboard für diese Aktivität öffnet. Ermöglicht Admin-seitige Kosten-Aufschlüsselung nach Lehrer.
+Eine Moodle-Aktivität (Textseite, Aufgabe oder Quiz), in die ein Chat-Widget eingebettet ist. Jede Aktivität hat eine eindeutige `activityId` (= Moodle Course-Module-ID, `cmid`) und eine eigene Widget-Konfiguration. Wird einer Lehrkraft zugeordnet (`teacher_id` in `activities`-Tabelle), sobald die Lehrkraft das Dashboard für diese Aktivität öffnet. Ermöglicht Admin-seitige Kosten-Aufschlüsselung nach Lehrer.
+
+**Quiz als Aktivität:** Wird der Bot in eine Frage innerhalb eines Quiz eingebettet (z.B. Fragetyp „Beschreibung"/Infotext), gilt die `activityId` für das **gesamte Quiz**, nicht für die einzelne Frage — Moodle liefert auf Quiz-Seiten keine über alle Kontexte (Fragenvorschau, Schüler-Versuch, Lehrer-Vorschau) hinweg stabile Frage-ID. Pro Quiz wird daher genau **ein** Bot unterstützt. Mehrere Bots in unterschiedlichen Fragen desselben Quiz sind nicht vorgesehen (YAGNI) — bei Bedarf separates Konzept (z.B. Slot-Scoping) erforderlich.
+
+**Kurszuordnung (`course_id`):** Jede Aktivität wird zusätzlich einem Moodle-Kurs (`course_id`) zugeordnet, erfasst beim Settings-Handshake. Dient als Gruppierungsebene für Monitoring/Logs/Dashboard — unabhängig von der `activityId`-Granularität.
 
 ## Widget-Konfiguration
 
