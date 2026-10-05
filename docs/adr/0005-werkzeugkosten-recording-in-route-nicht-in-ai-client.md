@@ -32,7 +32,7 @@ Chat-Response: nutzt saveTokenUsage() aus stores/token.js — KEIN recordWerkzeu
 
 **AIClient-Reinheit:** `AIClient` ist ein HTTP-Wrapper um die OpenAI Responses API mit Retry-Logik und Timeout. Das Einbetten von DB-Zugriffen würde AIClient von `db.js` / `cost-service.js` abhängig machen — ein Kreuz-Dependency von Infrastruktur in einen Low-Level-Wrapper.
 
-**Simulation-Problem:** `simulation.js` aggregiert mehrere Teil-Calls (Äußerungen generieren + Antwort + Evaluierung) zu einem Usage-Objekt. Würde AIClient automatisch pro Call erfassen, entstünden mehrere Werkzeug-Einträge pro Simulations-Durchlauf — laut CONTEXT.md soll es genau einer sein.
+**Simulation-Problem:** `simulation.js` aggregiert mehrere Teil-Calls (Äußerungen generieren + Antwort + Evaluierung) zu einem Usage-Objekt. Würde AIClient automatisch pro Call erfassen, entstünden mehrere Werkzeug-Einträge pro Simulations-Durchlauf — laut GLOSSARY.md soll es genau einer sein.
 
 **Auditierbarkeit:** `grep -r 'recordWerkzeugUsage' routes/` zeigt sofort alle Erfassungsstellen. Implizites Recording in AIClient macht das unsichtbar.
 

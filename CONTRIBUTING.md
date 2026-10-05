@@ -77,7 +77,7 @@ npx skills@latest add mattpocock/skills
 | Skill | Verwendung |
 |---|---|
 | [`karpathy-guidelines`](https://github.com/multica-ai/andrej-karpathy-skills) | Code-Review-Leitlinien (separates Paket, nicht in npx-Befehl oben enthalten) |
-| `grill-with-docs` | Architektur-Entscheidungen gegen CONTEXT.md testen |
+| `grill-with-docs` | Architektur-Entscheidungen gegen GLOSSARY.md testen |
 | `improve-codebase-architecture` | Refactoring-Kandidaten finden |
 | `handoff` | Session-Übergabe zwischen Claude-Instanzen |
 | `graphify` | Interaktiver Dependency-Graph aus dem Code |

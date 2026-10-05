@@ -9,7 +9,7 @@
 
 ## Achse 1: Standards (Code-Konventionen des Repos)
 
-Quellen: `CLAUDE.md`, `CONTEXT.md`, `CONTRIBUTING.md`, `coding-style.md`, ADR 0001/0004/0005/0007.
+Quellen: `CLAUDE.md`, `GLOSSARY.md`, `CONTRIBUTING.md`, `coding-style.md`, ADR 0001/0004/0005/0007.
 
 ### Harte Verstöße
 

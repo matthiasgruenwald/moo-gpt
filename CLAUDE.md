@@ -60,4 +60,4 @@ Issues: GitHub Issues (`matthiasgruenwald/moo-gpt`) via `gh` CLI. Details: `docs
 
 Triage-Labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. Details: `docs/agents/triage-labels.md`.
 
-Single-context repo: `CONTEXT.md` im Root, `docs/adr/` für Architekturentscheidungen (lazily created).
+Single-context repo: `GLOSSARY.md` im Root, `docs/adr/` für Architekturentscheidungen (lazily created).

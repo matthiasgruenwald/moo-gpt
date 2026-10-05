@@ -35,4 +35,4 @@ Eine Konfiguration "pro Frage inkl. Version" lässt sich damit nicht zuverlässi
 
 - Lehrkräfte mit mehreren Bot-wünschen in einem Quiz müssen aktuell mehrere Quiz-Aktivitäten anlegen (ein Bot pro Quiz).
 - `activities`-Tabelle bekommt eine neue Spalte `course_id`.
-- CONTEXT.md, Abschnitt „Aktivität", dokumentiert diese Einschränkung.
+- GLOSSARY.md, Abschnitt „Aktivität", dokumentiert diese Einschränkung.

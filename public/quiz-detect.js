@@ -3,7 +3,7 @@
  *
  * Kanonische Quelle für die Fallback-Erkennung auf Quiz-Seiten (Attempt,
  * Lehrer-Vorschau-Varianten, Fragenbank-Vorschau für Infotext-Fragen).
- * Hintergrund/Domänenentscheidung: ADR 0010 + CONTEXT.md, Abschnitt "Aktivität".
+ * Hintergrund/Domänenentscheidung: ADR 0010 + GLOSSARY.md, Abschnitt "Aktivität".
  *
  * Exportiert als ES-Modul — in moo-bot.js per import eingebunden;
  * in Tests direkt importierbar (keine DOM-Abhängigkeit).
